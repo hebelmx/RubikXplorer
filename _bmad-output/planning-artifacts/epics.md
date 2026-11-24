@@ -3,7 +3,7 @@ status: final
 stepsCompleted: [step-01-validate-prerequisites, step-02-design-epics, step-03-create-stories, step-04-final-validation]
 mode: fast-path
 created: 2026-10-29
-updated: 2026-11-23
+updated: 2026-11-24
 inputDocuments:
   - _bmad-output/planning-artifacts/prds/prd-RubikXplorer-2026-10-29/prd.md
   - _bmad-output/planning-artifacts/prds/prd-RubikXplorer-2026-10-29/addendum.md
@@ -198,6 +198,7 @@ A Learner can open a data-defined Lesson, see its Objective, watch an explained 
 A Learner can enter any cube's colors, get a verified Solution from the in-house Solver, and step through it with a plain note per Move.
 **Absorbs:** E02 (Solver), E08 (Solution Playback).
 **FRs covered:** FR-14 (editor), FR-15, FR-16. **Also:** NFR-3, NFR-11, AR-12, AR-20, UX-DR16, UX-DR25.
+*(SCP 2026-11-24 github-issue-triage: Story 3.9, cold solver preparation, #104, is v1.1 scope and reopens the epic; it never gates the v1.0 release.)*
 
 ### Epic 4: Get help when I go wrong (P0.2, weeks 4–5)
 When a Learner makes a mistake, the tutor names what happened with honest Certainty, offers the next hint rung, and leads back by undo or the shortest Guided recovery, with assistance adapting to their history.
@@ -232,7 +233,7 @@ A Learner can browse and watch all 78 verified OLL/PLL Algorithms, track their o
 ### Epic 10: Scan my cube (v1.1, flag-gated)
 A Learner can scan a cube face by face, correct and calibrate it, solve it from the scan, and verify physical Moves with a Quick Check. Built on `main` with every camera flag OFF in release; each feature reaches users only when the PO raises its flag at a release (Story 10.11). Restored from `post-launch/v1.1-camera-recognition.md` by `sprint-change-proposal-2026-11-14-v1-1-camera.md`. *(SCP 2026-11-20: moves into v1.0 as the dependency of #198, #208, #249, #251, #252; Story 10.11 raises `CAMERA_SCAN` for the v1.0 release.)*
 **FRs covered:** FR-21, FR-23 – FR-26, plus the Quick Check rung of FR-9 and FR-16, and the calibration reset of FR-19. **Also:** recognition NFRs, NFR-5, NFR-8, NFR-11, NFR-12, AD-9, AD-13, AD-18, AR-13, UX-DR15, UX-DR16, UX-DR19 – UX-DR22, UX-DR25.
-**Order:** 10.9 → 10.10 → UX pass → 10.12 → 10.13 → 10.1 → (10.6 ∥ 10.2 → 10.3 → 10.14 → 10.4 → 10.5 → 10.15 → 10.7) → Epic 11 → 10.8 → 10.11; 10.16 after 10.14; 11.1 → 10.18 (Quick Scan finds the cube's real edges and corners, #195) → 10.17 (after 10.16 too) → 10.19 → 10.22 → (10.20 ∥ 10.23) → 10.21 *(SCP 2026-11-22 quick-scan-reliability: 10.22 before the fixture session)* *(SCP 2026-11-22 quick-scan-sticker-reader: 10.23, the shadow sticker reader, after 10.22; it does not block 10.20, 10.21 or 10.11)* *(SCP 2026-11-22 quick-scan-corners-and-solver-copy: 10.21 → 10.24 (retake a corner, #299) → 10.25 (start from whichever corner is shown, #302); 10.26 (fill a few unread stickers from cube rules, #301) only after the 10.21 BETA call. PO Q-h: the 10.11-n run that raises `QUICK_SCAN` does not wait for 10.25, and no new story is added to its dependencies.)* *(SCP 2026-11-21 quick-scan-side-face-accuracy, #274: 10.20 and 10.21 do not block Story 10.11, which raises `CAMERA_SCAN` and `PLACEMENT` with `QUICK_SCAN` OFF; Quick Scan is raised in a later 10.11-n after 10.21's BETA call)*; all v1.0 scope (SCP 2026-11-20) *(SCP 2026-11-15; 10.14 added by SCP 2026-11-16; 10.5 split into 10.5 and 10.15 by SCP 2026-11-16 main-app entry points)*. Device sessions: A = 10.10; A2 = 10.12; B = 10.2 and 10.4 acceptance (10.4 partial); B2 = 10.14; B3 = 10.5 (main app; re-runs the 10.4 checks not done on a device, #166); C = 11.1, 11.3 capture and 10.8.
+**Order:** 10.9 → 10.10 → UX pass → 10.12 → 10.13 → 10.1 → (10.6 ∥ 10.2 → 10.3 → 10.14 → 10.4 → 10.5 → 10.15 → 10.7) → Epic 11 → 10.8 → 10.11; 10.16 after 10.14; 11.1 → 10.18 (Quick Scan finds the cube's real edges and corners, #195) → 10.17 (after 10.16 too) → 10.19 → 10.22 → (10.20 ∥ 10.23) → 10.21 *(SCP 2026-11-22 quick-scan-reliability: 10.22 before the fixture session)* *(SCP 2026-11-22 quick-scan-sticker-reader: 10.23, the shadow sticker reader, after 10.22; it does not block 10.20, 10.21 or 10.11)* *(SCP 2026-11-22 quick-scan-corners-and-solver-copy: 10.21 → 10.24 (retake a corner, #299) → 10.25 (start from whichever corner is shown, #302); 10.26 (fill a few unread stickers from cube rules, #301) only after the 10.21 BETA call. PO Q-h: the 10.11-n run that raises `QUICK_SCAN` does not wait for 10.25, and no new story is added to its dependencies.)* *(SCP 2026-11-21 quick-scan-side-face-accuracy, #274: 10.20 and 10.21 do not block Story 10.11, which raises `CAMERA_SCAN` and `PLACEMENT` with `QUICK_SCAN` OFF; Quick Scan is raised in a later 10.11-n after 10.21's BETA call)*; all v1.0 scope (SCP 2026-11-20) *(SCP 2026-11-15; 10.14 added by SCP 2026-11-16; 10.5 split into 10.5 and 10.15 by SCP 2026-11-16 main-app entry points)*. *(SCP 2026-11-24 github-issue-triage: 10.28 (the recorder's count check, #337) after 10.20, independent of 10.27, before any new corner-fixture recording; it blocks neither 10.21 nor 10.11. 10.29 (Solution Playback shows the Lesson's Quick Check result, #326) is v1.1 scope, after 10.7. #321, #323, #325 and #313 are v1.0 issue fixes against Stories 10.15, 10.3 and 10.2.)* Device sessions: A = 10.10; A2 = 10.12; B = 10.2 and 10.4 acceptance (10.4 partial); B2 = 10.14; B3 = 10.5 (main app; re-runs the 10.4 checks not done on a device, #166); C = 11.1, 11.3 capture and 10.8.
 **Main-app rule (SCP 2026-11-16 main-app entry points):** a camera story is accepted on the main app build, reached from its real entry point. A debug-only launcher is never a story's device-session gate, and debug raises a flag above OFF only once that flag's entry point is wired in the main app (AD-15, AD-18).
 **Never blocks** tester-feedback fixes or Stories 12.3, 12.4, 12.5 and 13.6: camera stories merge only with release camera flags OFF, and Story 10.9's gate keeps the release free of camera code and permissions. *(Superseded by SCP 2026-11-20: for v1.0, Story 10.11 raises `CAMERA_SCAN`, `QUICK_SCAN` and `PLACEMENT` before Stories 12.3–12.5, and the Story 10.9 gate then checks the flags-ON release instead.)* *(SCP 2026-11-21 quick-scan-side-face-accuracy: `QUICK_SCAN` leaves this first raise and follows Story 10.21.)*
 
@@ -861,9 +862,13 @@ So that I can solve a real cube without a camera.
 **When** validation runs
 **Then** no piece or count error shows; the line reads "{n} faces left to enter: …", and *Accept* stays disabled
 
+**Given** an Editor seeded from a Solve-tab scan with unset stickers *(SCP 2026-11-24 github-issue-triage, #321; Story 10.15)*
+**When** it renders and validation runs
+**Then** each unset sticker shows as the review net's blank well (neutral, no sticker color, dashed edge and "?", DESIGN.md) and TalkBack reads it as "{face} sticker {n}, not set"; tapping it and then a color sets it, as for any sticker; a face counts as entered once all nine of its stickers are set; while any sticker is unset no count or piece error shows, the line names the faces left to enter, and *Accept* stays disabled
+
 **Given** an invalid entry once every face is entered
 **When** validation runs
-**Then** color counts name each color that is off ("Red: 10 (one too many) · Green: 8 (one missing)"), impossible pieces name the piece and its faces, suspect stickers carry Scan review's numbered markers, and their face tabs a warning dot
+**Then** color counts name each color that is off ("Red: 10 (one too many) · Green: 8 (one missing)"), impossible pieces name the piece and its faces, suspect stickers carry Scan review's numbered markers, and their face tabs a warning dot (unchanged by SCP 2026-11-24, #323: its likely-misread proximity rule applies to Scan review only)
 
 **Given** auto-advance
 **When** a sticker or a whole face is set
@@ -952,6 +957,34 @@ So that solving is ready without freezing Lessons or exceeding the app's size bu
 **Then** affected correctness, CI and release-size checks pass and link their evidence; Story 3.8 remains open if any required hardware result, calibration or calibrated corpus result, delivery decision, memlog append or production verification is unavailable; production acceptance of Story 3.7 and closure of Epic 3/P0.S remain blocked until all pass
 
 *Annotated by SCP 2026-11-12: the minimum reference device is now the Lenovo Tab M10 Plus 3rd Gen; this story's measurements on the Galaxy Tab S7 FE 5G stay as dated evidence, and the delivery decision (bundled) stands. With the same methods the Lenovo measured: generation plus write 14.35 s (first-run rule G ≤ 5 s fails, so bundled is also selected there), per-process preparation 12.6 s debug and ≤ 10.5 s release-equivalent (#104, v1.1), and 0 StrictMode violations (no waiver needed; #107 is Samsung-only). The calibrated JVM profile (k = 16.94) was paired with the Tab S7 FE debug build; recalibration against the new minimum belongs to #105 (v1.1).*
+
+### Story 3.9: Measure and shorten cold solver preparation
+
+As a Learner who opens the app to solve a cube,
+I want the first solve after the app starts to be ready sooner,
+So that I am not left waiting on "Preparing the solver."
+
+**Refs:** FR-15 · NFR-3, NFR-11 · AD-8, AD-16 · Stories 3.3, 3.8, 12.2 · #104
+
+**Depends on** Story 3.8. **v1.1 scope** (#104 stays a later-release item; it never gates the v1.0 release). **Human gate:** a measurement session on the physical Lenovo Tab M10 Plus 3rd Gen (TB128XU), the minimum reference device. *(SCP 2026-11-24 github-issue-triage, #104: the cold-preparation follow-up to Story 3.8; bundled pruning tables did not remove the per-process move-table build, 12.6 s debug median and ≤ 10.5 s release-equivalent on the Lenovo.)*
+
+**Acceptance Criteria:**
+
+**Given** the physical Lenovo TB128XU and a release-equivalent build (R8, release code)
+**When** at least five cold process starts each run the production Solve flow to a Solution
+**Then** move-table preparation and search are timed and reported separately (median, minimum, maximum), with device and Android identity, revision and run conditions, in `docs/benchmarks.md`, beside the existing 12.6 s debug / ≤ 10.5 s release-equivalent baseline
+
+**Given** that baseline
+**When** the PO agrees a target from it
+**Then** the target is recorded in the story spec before any mitigation is merged, and #104 closes only when the target is met
+
+**Given** one bounded mitigation (for example shipping the move tables, building them faster, or starting preparation when the Solve tab opens)
+**When** it is measured with the same method on the same device
+**Then** it is compared with the baseline, and the comparison and the choice are appended to the architecture memlog with `uv run _bmad/scripts/memlog.py append`
+
+**Given** the chosen mitigation
+**When** it is verified
+**Then** every Story 3.3 corpus Solution is still independently verified, preparation stays off the main thread (debug StrictMode adds no app main-thread disk violation), Lessons never wait for the Solver, no wait is added at app start, the install stays within NFR-11, and the copy "Preparing the solver." is unchanged
 
 ## Epic 4: Get help when I go wrong
 
@@ -1903,6 +1936,32 @@ So that scanning is quick even for a beginner.
 **When** the PR merges
 **Then** the Story 1.9 prototype is deleted (`app/src/spikeScan/`, the `cubentia.spikeScan` switch in `app/build.gradle.kts`), CameraX is bound off the main thread, and a debug StrictMode run on the Lenovo adds no app-frame main-thread disk violation (#107 lists the platform ones already known)
 
+*Amended by SCP 2026-11-24 github-issue-triage (#325, #313), built as issue fixes through `/bmad-orchestrate-issues`; v1.0 scope; acceptance on the Lenovo Tab M10 Plus 3rd Gen and the Galaxy S24 FE, main app build, from every caller of the Guided 6-face Scan viewfinder:*
+
+**Given** the Guided 6-face Scan viewfinder with no face captured in this viewfinder
+**When** the Learner taps *Close* or the system Back
+**Then** the viewfinder leaves at once and returns `Cancelled`
+
+**Given** one or more faces captured in this viewfinder
+**When** the Learner taps *Close* or the system Back
+**Then** "Discard the faces you captured?" shows with *Keep scanning* and *Discard*; *Keep scanning* closes the question and keeps every captured face, the mini net and the current prompt; *Discard* returns `Cancelled` and the Learner is back on the screen the scan was opened from; the copy comes from content strings and TalkBack reads the question, then the two actions
+
+**Given** a retake viewfinder opened from review (Story 10.16) or a Quick Scan hand-over viewfinder (Stories 10.17, 10.24)
+**When** the Learner backs out
+**Then** their own back rules apply, unchanged
+
+**Given** every caller of the Guided 6-face Scan viewfinder: Welcome → *Start from my cube*, Solve → *Scan my cube*, Learn → *Find my place* → *Scan my cube* (Re-placement), and the Quick Check full scan (*Scan all six faces*)
+**When** the Learner closes or backs out of it
+**Then** the same rule applies (0 faces: leave at once; 1 or more: the confirm), and *Discard* returns to that caller's previous screen
+
+**Given** JVM or Robolectric tests on each of those callers
+**When** they run
+**Then** they cover leaving with 0 faces, *Keep scanning* and *Discard* with 1 or more faces, for both *Close* and system Back, and check the screen *Discard* returns to
+
+**Given** the viewfinder in tablet landscape on the Lenovo's 600 dp width, and in portrait *(#313)*
+**When** it renders
+**Then** *Close* sits in the same control group as the shutter and the face prompt, TalkBack reaches it in order with those controls, and at 200% font nothing is cut off; the phone-portrait no-scroll rule still holds
+
 ### Story 10.3: Review and correct a Scan Result
 
 As a Learner,
@@ -1915,7 +1974,7 @@ So that a bad read never reaches the Solver or the tutor.
 
 **Given** a scan sub-flow returning `ScanOutcome {Accepted, Cancelled, FellBackToEditor}` through a typed navigation result
 **When** review opens
-**Then** only high-confidence stickers are prefilled, uncertain ones (including close calibrated pairs such as yellow vs white) are pre-selected and blank, corrections use the color-entry model from the UX pass (tap-sticker-then-color at most two touches per sticker), and invalid states name the likely bad stickers ("This corner shows two whites.") *(SCP 2026-11-15)*
+**Then** only high-confidence stickers are prefilled, uncertain ones (including close calibrated pairs such as yellow vs white) are pre-selected and blank, corrections use the color-entry model from the UX pass (tap-sticker-then-color at most two touches per sticker), and invalid states name the likely bad stickers ("This corner shows two whites.") *(SCP 2026-11-15)* *(SCP 2026-11-24, #323: a sticker is named as a likely misread only under the proximity rule in the amendment below)*
 
 **Given** any uncertain sticker unresolved or an invalid state
 **When** the Learner looks at Accept
@@ -1942,6 +2001,34 @@ So that a bad read never reaches the Solver or the tutor.
 **Given** paint mode
 **When** the Learner taps or long-presses the locked color, plain-taps another color, or enters retake mode
 **Then** paint mode ends, TalkBack announces "Painting off", and tap-sticker-then-color behaves exactly as before
+
+*Amended by SCP 2026-11-24 github-issue-triage (#323; settles action item `issue-174-deferred-suspect-distance-threshold`), built as an issue fix through `/bmad-orchestrate-issues`; v1.0 scope:*
+
+**Given** a review whose color counts are off
+**When** `SuspectRanking` ranks likely misreads
+**Then** a scanned, unedited, non-center sticker of an over-counted color qualifies for an under-counted color when its measured Lab is at most `SUSPECT_MARGIN_DELTA_E` farther (CIE76) from that color's calibrated center than from the center of the color it was read as; `SUSPECT_MARGIN_DELTA_E` is 20 ΔE (PO 2026-11-24; twice `StickerClassifier.CLOSE_CALL_DELTA_E`) and is documented in code and in the spec; a qualifying sticker is suggested as the nearest under-counted color it qualifies for; up to 3 qualifying stickers are listed, ordered by margin (smallest first, then sticker index), and the list is never padded with stickers that do not qualify. The rule applies to Scan review only: the Editor has no measured colors and keeps its existing marker rule (Story 3.5, unchanged)
+
+**Given** no candidate qualifies
+**When** the review renders
+**Then** no "This sticker may be {color} — check it." suggestion and no count-suspect marker shows; the color-count line and the piece problems (outlines, numbered piece markers, face-tab warning dots) still show, and *Accept* stays disabled
+
+**Given** `SuspectRankingTest` and the review tests
+**When** they run
+**Then** they cover the release-session cases (Up 3 painted orange → blue, and Up 9 painted white → blue: no suggestion names the genuine blue Up 2, and the counts and the impossible corner still show), the #174 yellow-near-orange replay (still suggested "may be orange"), and a case with two under-counted colors (each qualifying sticker suggested as its nearest qualifying under-counted color, the list ordered by margin), and the spec records each case's margin
+
+*Amended by SCP 2026-11-24 github-issue-triage (#321), built with the #321 issue fix; v1.0 scope:*
+
+**Given** a scan review in which the Learner changed no sticker and completed no retake
+**When** the Learner taps *Close*
+**Then** the review returns `FellBackToEditor` carrying its stickers, and the caller decides what the Editor shows (the Solve tab seeds it, Story 10.15; every other caller opens it blank)
+
+**Given** a scan review with a changed sticker or a completed retake
+**When** the Learner taps *Close*
+**Then** "Discard this scan?" shows; *Discard* returns `Cancelled`, and dismissing the question keeps the review exactly as it was
+
+**Given** the review tests
+**When** they run
+**Then** they cover *Close* with no change (`FellBackToEditor` with the stickers) and *Close* with a change, both *Discard* (`Cancelled`) and dismissing
 
 ### Story 10.4: Calibrate colors for my cube
 
@@ -1989,7 +2076,7 @@ So that I can put my real cube into the app without typing every color.
 
 **Given** *Scan my cube* on the Solve tab
 **When** the scan returns `Accepted`
-**Then** the validated Cube State is handed to the Solve flow without opening the Manual Cube Editor, and Story 10.15 owns what follows (solve and Solution Playback, or the already-solved state) *(SCP 2026-11-19 scan Accept skips the Editor, #203; until then `Accepted` opened the Editor for a second check)*; `FellBackToEditor` (*Enter colors instead*, or an invalid or incomplete scan) opens the Editor empty with a one-line note, and `Cancelled` returns to the Solve tab unchanged; only the Solve flow dispatches the result (Story 10.3)
+**Then** the validated Cube State is handed to the Solve flow without opening the Manual Cube Editor, and Story 10.15 owns what follows (solve and Solution Playback, or the already-solved state) *(SCP 2026-11-19 scan Accept skips the Editor, #203; until then `Accepted` opened the Editor for a second check)*; `FellBackToEditor` (*Enter colors instead*, or an invalid or incomplete scan) opens the Editor with a one-line note, seeded with the colours the scan read and the Learner's review fixes, unread stickers unset (SCP 2026-11-24, #321, Story 10.15; until then it opened empty); a denied permission or a scan with no captured face opens it blank, and `Cancelled` returns to the Solve tab unchanged; only the Solve flow dispatches the result (Story 10.3)
 
 **Given** camera permission denied from the Solve tab
 **When** the Learner taps *Scan my cube*
@@ -2305,6 +2392,28 @@ So that I go from scrambled to solving in under a minute.
 **When** the scan flow returns to the Solve tab
 **Then** the Manual Cube Editor opens as the fallback, as Story 10.5 says
 
+*Amended by SCP 2026-11-24 github-issue-triage (#321), built as an issue fix through `/bmad-orchestrate-issues`; v1.0 scope (PO 2026-11-24: pulled into the current release, its v1.1 deferral removed); acceptance on the Lenovo Tab M10 Plus 3rd Gen and the Galaxy S24 FE, main app build, from the Solve tab:*
+
+**Given** a Guided or Quick scan from the Solve tab that captured one or more faces (a reviewed scan that falls back, or a partially read scan, including *Enter colors instead* after faces were captured)
+**When** it returns `FellBackToEditor`
+**Then** the Manual Cube Editor opens seeded in the home frame with every sticker the scan read and every fix the Learner made in review, with the one-line note "Your scan is here. Fill in the stickers it couldn't read." (a new content string); stickers the scan did not read, and every sticker of a captured face whose rotation could not be worked out, are unset (not seeded), and a face holding one counts as not entered (Story 3.5's unset-sticker AC; EXPERIENCE.md *Invalid entered state*); the stickers travel in the typed `ScanOutcome` (Story 10.3), never filled from an expected state; *Accept* stays gated by the Editor's validation (Story 3.5); only an accepted scan counts as the Full verified baseline (Story 10.7 rule, unchanged)
+
+**Given** denied camera permission, or a scan with no captured face
+**When** the Editor opens
+**Then** it opens blank with its one-line note "No scan this time. Enter your cube's colors here." (`msg.solve.scan-fell-back`), as today; that line is used only for the blank case
+
+**Given** a scan fallback from any caller other than the Solve tab (Placement from Welcome → *Start from my cube* or Learn → *Find my place* → *Scan my cube*)
+**When** it returns `FellBackToEditor`
+**Then** its Editor opens blank, as today; seeding is the Solve tab's only
+
+**Given** a scan accepted in review
+**When** *Accept* is tapped
+**Then** it still goes straight to solving and Solution Playback (#203, unchanged)
+
+**Given** the Solve tab route tests
+**When** they run
+**Then** they cover review *Close* with no change (seeded Editor), review *Close* with a change and *Discard* (`Cancelled`, back on the Solve tab), a partially read scan, a captured face whose rotation is unresolved (left unset), a no-capture fallback and a denied permission (blank Editor with the old note), and a Placement fallback (blank)
+
 **Given** a solve started from an accepted scan *(SCP 2026-11-19, #203)*
 **When** the Learner cancels it, or the Solver times out or fails
 **Then** the Manual Cube Editor opens with the scanned cube held in the home frame (`Orientation.HOME`, the same pieces), and its playback still counts as the Full verified baseline even if the Learner corrects colors there (the Story 10.7 rule); the scan stops counting only when the Editor is closed or the Learner leaves the Solve tab
@@ -2391,7 +2500,7 @@ So that one bad corner photo doesn't cost me the faces that were already read.
 
 **Given** the Learner backs out of the Guided Scan before the remaining faces are captured
 **When** they return
-**Then** Quick Scan resumes with the kept faces intact, or *Close* asks "Discard this scan?"
+**Then** Quick Scan resumes with the kept faces intact, or *Close* asks "Discard this scan?" *(SCP 2026-11-24, #325: unchanged; the standalone Guided Scan viewfinder's own Close follows Story 10.2's discard rule)*
 
 **Given** the combined review
 **When** it renders
@@ -2665,6 +2774,8 @@ So that Story 10.21 tunes on labels that are right, and a pastel cube's fixtures
 
 **Refs:** FR-24 · recognition NFRs (Confidence calibration) · AD-9 · Stories 10.4, 10.20, 10.21, 10.23 · #166, #315, #327
 
+*(SCP 2026-11-24 github-issue-triage, #337: this story audits the existing groups offline; Story 10.28 stops the recorder from saving a new group whose labels break the count rule. The piece check here still catches wrong labels that balance the counts. #338, corner placement, stays with AC2.)*
+
 **Depends on** Story 10.20's fixtures and the PO label review of 2026-11-23 (branch `spike/label-cleanse`, commit `c9c9f5cc`: 20 labels corrected, all 23 corner groups count 9 of each colour; tools in `tools/label-audit/`). Device-free. **Human gate:** the PO decides the stickers the pipeline quarantines, on its review page. Until this story lands, `ColorCalibrationTest` lists hold 2 `L[8]` of `lenovo-tb128xu_stlb_bar-warm` in `KNOWN_PASTEL_PROBLEMS` (expected failure, strict both ways). *(SCP 2026-11-23 pastel-plausibility, revisions 3–4. PO decisions 2026-11-23: a new story; the calibration swatch gate keeps its fixed windows; reuse the earlier pastel runs; an automated cleansing pipeline instead of a manual list; Story 10.21 does not wait for the review.)*
 
 **Acceptance Criteria:**
@@ -2692,6 +2803,74 @@ So that Story 10.21 tunes on labels that are right, and a pastel cube's fixtures
 **Given** a shared corner-fixture filter over `Fixtures/corner/label-exclusions.json`
 **When** `QuickScanSideFaceReplayTest` reads the corner fixtures through it
 **Then** it skips stickers decided `exclude` and groups that fail the audit, and reports the counts (Story 10.21's runs adopt the same filter); no keep rule, agreement gate or classifier threshold changes in this story
+
+### Story 10.28: The fixture recorder checks nine of each colour before it saves a corner group
+
+As the developer recording corner fixtures,
+I want the recorder to refuse a group whose labels cannot be a real cube, and to make me look at every side-face pre-fill,
+So that the app's own confident misreads never become fixture labels.
+
+**Refs:** FR-24 · recognition NFRs (Confidence calibration) · AD-9, AD-15 · Stories 10.12, 10.20, 10.21, 10.23, 10.27 · #337, #327, #338
+
+**Depends on** Story 10.20's corner recorder. Device-free (JVM and UI rule tests). The recorder is a debug-only developer tool (AD-15), so this is not release scope. **Runs before** any new corner-fixture recording session; it blocks neither Story 10.21, Story 10.27 nor Story 10.11. *(SCP 2026-11-24 github-issue-triage, #337: the 2026-11-23 label review corrected 20 of 1,242 corner labels, 18 of them pre-filled, all 12 WHITE→BLUE on the side faces. #338, corner placement, is Story 10.27 AC2's and is not part of this story.)*
+
+**Acceptance Criteria:**
+
+**Given** a corner group whose two holds are both complete
+**When** the operator finalizes it
+**Then** `RecorderRules` counts the labels of both holds, centres included; if any colour is not exactly 9, the group is not saved, the recorder names each over- and under-counted colour with its count, and the pre-filled stickers of the over-counted colours are highlighted
+
+**Given** a refused group
+**When** the operator overrides
+**Then** a non-empty reason is required and is written to the group's manifest (a new optional field; manifests without it still load), and an empty reason cannot override
+
+**Given** a group saved with an override reason
+**When** the group index and the fixture consumers read it
+**Then** the index lists it separately with its reason, and Story 10.21 tuning and Story 10.23 scoring skip it unless the PO includes it by name; the skipped count is reported
+
+**Given** `RecorderRulesTest`
+**When** it runs
+**Then** a group counting 10 WHITE / 8 BLUE is refused with both colours named, 9 of each is accepted, and an override saves its reason to the manifest
+
+**Given** the pre-correction labels (`add0c79e`) of the 10 groups corrected on 2026-11-23 (`docs/evidence/10-27/label-corrections-2026-11-23.json`)
+**When** they are replayed through the count check
+**Then** all 10 are refused (a wrong label swapped with another wrong label of the same pair passes the count; Story 10.27's piece check covers it)
+
+**Given** the corner-hold face review
+**When** a face on either side face of the hold (face index 1 or 2) still has a pre-filled sticker the operator has not tapped (confirm or change)
+**Then** that face cannot be confirmed, and a UI rule test pins it
+
+**Given** an incomplete or retaken hold
+**When** the group is finalized
+**Then** the count check runs only once both holds are complete and always on the labels of the latest capture of each hold
+
+### Story 10.29: Solution Playback shows the same Quick Check result as Lessons
+
+As a Learner following a solution on my real cube,
+I want a Quick Check in Solution Playback to show its result the way a Lesson does,
+So that I understand what the check saw and how to recover, wherever I run it.
+
+**Refs:** FR-26, FR-16, FR-9 · AD-3, AD-5, AD-20 · UX-DR12, UX-DR13, UX-DR20 · UX Flow 3 · Stories 10.6, 10.7, 14.3 · #326, #200
+
+**Depends on** Story 10.7. **v1.1 scope** (PO 2026-11-24: stays a later-release story, as labelled on #326). **Human gate:** a device check on the Lenovo Tab M10 Plus 3rd Gen and the Galaxy S24 FE, main app build, Solve tab and a physical Lesson. The EXPERIENCE.md update for the shared result card is made when this story is created. *(SCP 2026-11-24 github-issue-triage, #326.)*
+
+**Acceptance Criteria:**
+
+**Given** a physical-mode Quick Check result in a Lesson or in Solution Playback
+**When** it is shown
+**Then** both hosts render one shared result component: the frame label, the Certainty chip from `tutor/Assess` (never a numeric confidence), "I can't tell what changed" for an unreadable result, and the recovery actions; the Certainty is announced to TalkBack once (#200)
+
+**Given** the Lesson host
+**When** a result action is tapped
+**Then** it routes through the Lesson's step and recovery flow, unchanged
+
+**Given** the Solution Playback host
+**When** a result action is tapped
+**Then** the equivalent recovery action routes through Solution Playback's existing `SessionEvent` → `reduce()` transitions; no ViewModel or composable mutates state
+
+**Given** both hosts at a normal step and at completion
+**When** a Quick Check returns a match, a probable mismatch and an unreadable result
+**Then** tests cover each case on each host; the copy comes from content strings and fits at 200% font on the Lenovo's 600 dp width
 
 ## Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition
 
@@ -2864,6 +3043,20 @@ So that I continue from where I really am.
 **Given** `PLACEMENT` is OFF
 **When** Learn renders
 **Then** *Find my place* offers only *Choose my level* (Story 14.1), with no dead control
+
+*Amended by SCP 2026-11-24 github-issue-triage (#324), built as an issue fix through `/bmad-orchestrate-issues`; v1.0 scope; acceptance on the Lenovo Tab M10 Plus 3rd Gen and the Galaxy S24 FE, main app build, with `PLACEMENT` raised in debug:*
+
+**Given** a solved cube accepted into Placement
+**When** the outcome shows
+**Then** it offers *Scan again*, *Start Stage 1* and *I can already solve it*, in that order; the reading and reason lines are unchanged (EXPERIENCE.md *Placement outcomes*)
+
+**Given** *I can already solve it*
+**When** it is tapped
+**Then** the existing `EntryLevelScreen` (Story 14.1) opens; nothing is written until a level is chosen there (then `ChooseEntryLevel`, as Story 14.1 says), and Back returns to the solved outcome
+
+**Given** the Placement tests
+**When** they run
+**Then** they cover all three actions and the Back navigation from the picker; the new label comes from content strings and fits at 200% font on the Lenovo's 600 dp width
 
 ### Story 11.3: Recognize an OLL/PLL Case
 
@@ -3615,7 +3808,7 @@ So that I go straight to what I want to learn next.
 
 **Acceptance Criteria:**
 
-**Given** Welcome → *I can already solve it*, or Learn → *Find my place* → *Choose my level*
+**Given** Welcome → *I can already solve it*, Learn → *Find my place* → *Choose my level*, or Placement's solved outcome → *I can already solve it* (SCP 2026-11-24, #324; Story 11.2)
 **When** the picker opens
 **Then** "Where do you want to start?" lists *I can solve the first two layers*, *I solve with the beginner method*, *I know 2-look OLL and PLL* and *Check me with a scramble instead*, with "Skipped Stages stay open, and nothing is marked mastered." and, when `PLACEMENT` is on, *Not sure? Scan my cube*
 
