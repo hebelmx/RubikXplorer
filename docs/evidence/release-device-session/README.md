@@ -128,7 +128,7 @@ Screenshots: `shots/253/`.
 
 **F1 (proposed severity 3, #352):** the turn fit runs while a face is still incomplete; when the unset stickers' defaults happen to fit, the face turns mid-entry and Accept enables before every face is entered.
 **F3 (proposed severity 3–4, #353):** a face counts as entered once one of its stickers is set, so with every face touched and the last face only partly entered, the colour-count line and numbered piece markers already show (e.g. "White: 10 (one too many) · Blue: 8 (one missing)" with one Up sticker still to enter). Meets #253's wording ("faces the Learner hasn't edited"), but reads as an error mid-face.
-**Note:** when TalkBack is turned on, focus starts on *Close*; a double-tap anywhere then closes the editor and discards the entry without a confirmation (PO hit this once). Standard TalkBack behaviour; whether Close should confirm a non-empty entry is a PO call.
+**F4 (proposed severity 2, #354):** Close discards the entry without a confirmation (reproduced: 3 Up stickers set → Close → reopened editor is blank), and with TalkBack the first focus is Close, so the first double-tap closes it. Screenshots `g_close_repro_ready.png`, `g_close_reopened.png`.
 **F2 (proposed severity 3):** on the minimum device the paint that triggers the turn search drops frames (about 2× an ordinary paint); every paint already drops some frames on the Lenovo.
 
 Issue disposition: all #253 criteria pass on device (orientation, ambiguous hint, no error before every face is touched, specific errors, advance cues, TalkBack, 200%). CLOSE #253 once the PO accepts F1–F3 as follow-up issues; the main-thread timing (F2) stays with `issue-253-deferred-editor-turn-search-main-thread`.
