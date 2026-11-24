@@ -440,7 +440,8 @@ class ScanReviewScreenTest {
 
     @Test fun `wrong counts with scan evidence number the line, outline the suspects and suggest the top one`() {
         review = suspectReview()
-        assertEquals(listOf(39, 50, 9), review.suspects.map { it.index })
+        // #323: margins 50 ≈ -65.1 (blue), 39 ≈ -22.8 (orange); exact reds (≈ 34.6 to orange) do not qualify.
+        assertEquals(listOf(50, 39), review.suspects.map { it.index })
         launch()
         rule.onNodeWithTag("review:problem:0").performScrollTo().assertIsSelected()
         assertEquals(
@@ -450,15 +451,15 @@ class ScanReviewScreenTest {
                 .reason.key,
         )
         assertProblemTag("review:problem:0:tag", "1", focused = true)
-        for (index in listOf(39, 50, 9)) {
+        for (index in listOf(50, 39)) {
             val sticker = rule.onNodeWithTag("sticker:$index").fetchSemanticsNode().config
             assertTrue(sticker[StickerInvalidKey])
             assertEquals(listOf(1), sticker[StickerProblemsKey])
         }
-        assertEquals(setOf(9, 39, 50), review.outlined)
-        rule.onNodeWithTag("sticker:39").assertIsSelected()
+        assertEquals(setOf(39, 50), review.outlined)
+        rule.onNodeWithTag("sticker:50").assertIsSelected()
         val suggestion = rule.onNodeWithTag("review:suggestion")
-        suggestion.assertTextEquals("This sticker may be orange — check it.")
+        suggestion.assertTextEquals("This sticker may be blue — check it.")
         assertEquals(LiveRegionMode.Polite, suggestion.fetchSemanticsNode().config[SemanticsProperties.LiveRegion])
     }
 
@@ -492,12 +493,53 @@ class ScanReviewScreenTest {
     @Test fun `the suggestion follows the selected suspect and disappears on any other sticker`() {
         review = suspectReview()
         launch()
+        rule.onNodeWithTag("sticker:39").performClick()
+        rule.onNodeWithTag("review:suggestion").assertTextEquals("This sticker may be orange — check it.")
         rule.onNodeWithTag("sticker:50").performClick()
         rule.onNodeWithTag("review:suggestion").assertTextEquals("This sticker may be blue — check it.")
+        // An exact red is no longer a suspect (#323), so it gets no suggestion.
         rule.onNodeWithTag("sticker:9").performClick()
-        rule.onNodeWithTag("review:suggestion").assertTextEquals("This sticker may be orange — check it.")
+        rule.onNodeWithTag("review:suggestion").assertDoesNotExist()
         rule.onNodeWithTag("sticker:0").performClick()
         rule.onNodeWithTag("review:suggestion").assertDoesNotExist()
+    }
+
+    @Test fun `wrong counts with no close candidate stay a plain line while the piece problem is still outlined`() {
+        // #323: solved with R's sticker 9 read white, every sticker measuring exactly its color: whites over, reds short,
+        // and each white's margin to red is ΔE(W, R) ≈ 91 > 20, so nothing is suggested. Corner 8-9-20 has two whites.
+        val colors =
+            CubeState.SOLVED
+                .toFacelets()
+                .colors
+                .toMutableList()
+                .also { it[9] = Color.WHITE }
+        review =
+            ScanReview.from(
+                ScanResult.Full(Facelets(colors), List(54) { StickerConfidence.CONFIDENT }, colors.map(labs::getValue)),
+                CalibrationCenters(labs),
+            )
+        assertTrue(review.suspects.isEmpty())
+        val counts = review.problems.indexOfFirst { it.reason.key == "msg.validation.wrong-color-counts" }
+        assertTrue(counts >= 0)
+        launch()
+        val line = rule.onNodeWithTag("review:problem:$counts").performScrollTo()
+        line.assertTextEquals("Each color should appear on exactly nine stickers. Check the colors you entered.")
+        assertTrue(
+            line
+                .fetchSemanticsNode()
+                .config
+                .getOrNull(SemanticsProperties.ContentDescription)
+                .orEmpty()
+                .none { "Likely misreads" in it },
+        )
+        assertNull(line.fetchSemanticsNode().config.getOrNull(SemanticsActions.OnClick))
+        rule.onAllNodesWithTag("review:problem:$counts:tag", useUnmergedTree = true).assertCountEquals(0)
+        rule.onNodeWithTag("review:suggestion").assertDoesNotExist()
+        for (index in listOf(8, 9)) {
+            val sticker = rule.onNodeWithTag("sticker:$index").fetchSemanticsNode().config
+            assertTrue(sticker[StickerInvalidKey])
+            assertEquals(listOf(1), sticker[StickerProblemsKey])
+        }
     }
 
     @Test fun `wrong counts without scan evidence stay a plain line with nothing outlined`() {
@@ -1236,7 +1278,7 @@ class ScanReviewScreenTest {
         line.assertTextEquals(reason)
         assertEquals(
             "Problem 1: $reason Likely misreads, most likely first: " +
-                "Left face, position 4; Back face, position 6; Right face, position 1.",
+                "Back face, position 6; Left face, position 4.",
             line.fetchSemanticsNode().config[SemanticsProperties.ContentDescription].single(),
         )
     }
