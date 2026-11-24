@@ -789,6 +789,8 @@
   "msg.scan.discard-title": "Discard this scan?",
   "btn.scan.discard": "Discard",
   "btn.scan.cancel": "Cancel",
+  "msg.scan.discard-faces-title": "Discard the faces you captured?",
+  "btn.scan.keep-scanning": "Keep scanning",
   "btn.scan.retake-faces": "Retake faces",
   "btn.scan.retake-count": "{count, plural, one {Retake # face} other {Retake # faces}}",
   "msg.scan.retake-hint": "Tap each face to scan again.",
