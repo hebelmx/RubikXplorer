@@ -151,15 +151,23 @@ def _sample_face_cells(image_bgr: np.ndarray, aligned_quad: np.ndarray) -> Tuple
         med_rgb = np.median(pixels, axis=0)
         std_rgb = float(np.mean(np.std(pixels, axis=0)))
 
-        # Glare detection: single-channel or all-channel specular highlight clipping (max RGB > 246),
-        # or steep bright specular gradient across the patch.
-        clipped_max = float(np.mean(np.max(pixels, axis=1) > 246.0))
-        clipped_min = float(np.mean(np.min(pixels, axis=1) > 240.0))
+        # Glare detection: real specular highlight blows out all channels toward white (min > 238),
+        # or clips max > 248 WITH either desaturation (min > 180) or a steep highlight gradient across
+        # the cell (p95 - p25 > 22). Do NOT penalize uniformly vibrant neon-yellow/orange/green
+        # stickerless cells whose single bright channel naturally reaches 248-255 under webcam exposure.
+        clipped_max = float(np.mean(np.max(pixels, axis=1) > 248.0))
+        clipped_min = float(np.mean(np.min(pixels, axis=1) > 238.0))
+        min_med = float(np.min(med_rgb))
         bright_p95 = float(np.percentile(np.mean(pixels, axis=1), 95))
         bright_p25 = float(np.percentile(np.mean(pixels, axis=1), 25))
+        grad = bright_p95 - bright_p25
         glare_pen = 0.0
-        if clipped_max > 0.10 or clipped_min > 0.15 or (bright_p95 > 244.0 and (bright_p95 - bright_p25) > 20.0):
-            glare_pen = min(0.95, 0.60 + max(clipped_max, clipped_min) * 1.2 + max(0.0, (bright_p95 - bright_p25) - 18.0) / 80.0)
+        if (
+            clipped_min > 0.15
+            or (clipped_max > 0.12 and (min_med > 115.0 or grad > 22.0))
+            or (bright_p95 > 244.0 and grad > 20.0)
+        ):
+            glare_pen = min(0.95, 0.60 + max(clipped_max, clipped_min) * 1.2 + max(0.0, grad - 18.0) / 80.0)
             any_glare = True
 
         # Occlusion / heterogeneity penalty (finger edge or partial cover creates high patch std)
@@ -442,20 +450,24 @@ class ContinuousCubeMapper:
             rgbs_awb = np.clip(rgbs * awb_scale[None, :], 0.0, 255.0)
             labs = shading_invariant_lab(rgbs_awb)
 
-            # Check if >= 2 non-center cells on this face simultaneously disagree sharply with prior high-q history
-            # while the face center stays consistent and the face is glare-free (hallmark of a physical layer turn!)
+            # Check if an outer row/column (>=2 non-center cells on one outer line) simultaneously disagrees
+            # sharply with prior high-q history while the center and >=4 other cells stay consistent (hallmark
+            # of a physical 90/180-deg layer twist — avoids false triggers from webcam motion/hand bumps!).
             center_hist = frag.face_robust_lab(fname, 4)
             if not any_glare and center_hist is not None and center_hist[2] >= 5 and quals[4] > 0.55:
                 center_de = float(np.linalg.norm(labs[4] - center_hist[0]))
                 if center_de < 12.0:
-                    flips = 0
+                    flipped_cells: set[int] = set()
+                    stable_cells = 0
                     for ci in range(9):
-                        if ci == 4 or quals[ci] < 0.65:
+                        if ci == 4 or quals[ci] < 0.60:
                             continue
                         h = frag.face_robust_lab(fname, ci)
                         if h is not None and h[2] >= 5 and h[1] >= 2.2:
                             de_all = float(np.linalg.norm(labs[ci] - h[0]))
-                            if de_all > 24.0:
+                            if de_all < 16.0:
+                                stable_cells += 1
+                            elif de_all > 26.0:
                                 # Distinguish additive specular glare (brightness jumps up while chroma drops toward white)
                                 # from a real physical layer twist (color changes hue or becomes more saturated/darker).
                                 chroma_cur = float(np.linalg.norm(labs[ci, 1:]))
@@ -464,10 +476,16 @@ class ContinuousCubeMapper:
                                 face_med_bright = float(np.median(np.mean(rgbs, axis=1)))
                                 is_glare_washout = (chroma_cur < chroma_hist - 10.0) and (raw_bright > face_med_bright + 18.0)
                                 if not is_glare_washout:
-                                    flips += 1
-                    if flips >= 2:
+                                    flipped_cells.add(ci)
+                    outer_lines = ({0, 1, 2}, {6, 7, 8}, {0, 3, 6}, {2, 5, 8})
+                    line_twist = (
+                        len(flipped_cells) >= 2
+                        and stable_cells >= 4
+                        and any(flipped_cells.issubset(line) for line in outer_lines)
+                    )
+                    if line_twist:
                         self._twist_streak[fname] = self._twist_streak.get(fname, 0) + 1
-                        if self._twist_streak[fname] >= 3:
+                        if self._twist_streak[fname] >= 5:
                             self.twist_detected = True
                             if self.twist_frame is None:
                                 self.twist_frame = frame_idx

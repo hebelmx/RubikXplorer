@@ -66,7 +66,8 @@ uv run --no-project --python 3.12 --with ai-edge-litert --with opencv-python-hea
 uv run --no-project --python 3.12 --with ai-edge-litert --with opencv-python-headless --with numpy --with pillow \
   python run_real_video.py --litert-model /tmp/sticker_centers.tflite --video path/to/clip.mp4 --stride 2 --out-dir /tmp/real_replay
 
-# 4. Run live on PC webcam (/dev/video0) with interactive window (press r to reset, q to quit)
+# 4. Run live on PC webcam (/dev/video0) with interactive window:
+#    Keys: [R] reset scan, [V] toggle recording raw+HUD MP4 to /tmp/cubentia_live/, [Q/Esc] quit
 #    Note: use `opencv-python` (not `-headless`) so cv2.imshow GUI support is enabled!
 uv run --no-project --python 3.12 --with ai-edge-litert --with opencv-python --with numpy --with pillow \
   python run_real_video.py --litert-model /tmp/sticker_centers.tflite --webcam 0 --show

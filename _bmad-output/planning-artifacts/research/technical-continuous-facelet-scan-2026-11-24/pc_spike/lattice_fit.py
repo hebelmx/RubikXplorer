@@ -259,20 +259,42 @@ def fit_face_quads_from_centers(
     np.fill_diagonal(dmat, np.inf)
     nn1 = np.min(dmat, axis=1)
     d_med = float(np.median(nn1))
-    if d_med < 6.0:
+    if d_med < 6.0 and float(np.percentile(nn1, 75)) < 6.0:
         return []
 
-    avail = list(range(len(pts)))
-    faces: List[FittedFace] = []
-    existing_quads: List[np.ndarray] = []
-    for _ in range(max_faces):
-        fitted = _fit_one_face(pts, avail, d_med, existing_quads=existing_quads, min_inliers=min_inliers)
-        if fitted is None:
+    # Candidate scales: median alone for clean scenes; if background clutter creates a bimodal
+    # nearest-neighbor distribution (e.g. distant shelf clutter + close foreground cube), also
+    # test upper/lower quartiles and pick the largest-area valid face set.
+    scales = [d_med]
+    p25, p75 = float(np.percentile(nn1, 25)), float(np.percentile(nn1, 75))
+    if len(pts) > 12 and p75 > 1.6 * max(1.0, p25):
+        for s in (p75, p25):
+            if s >= 6.0 and all(abs(s - prev) / max(prev, 1.0) > 0.25 for prev in scales):
+                scales.append(s)
+
+    best_faces: List[FittedFace] = []
+    best_score = (-1, -1.0)
+    for sc_d in scales:
+        if sc_d < 6.0:
+            continue
+        avail = list(range(len(pts)))
+        faces: List[FittedFace] = []
+        existing_quads: List[np.ndarray] = []
+        for _ in range(max_faces):
+            fitted = _fit_one_face(pts, avail, sc_d, existing_quads=existing_quads, min_inliers=min_inliers)
+            if fitted is None:
+                break
+            faces.append(fitted)
+            existing_quads.append(fitted.quad.corners)
+            claimed = set(fitted.inlier_indices)
+            avail = [i for i in avail if i not in claimed]
+            if len(avail) < min_inliers:
+                break
+        tot_area = sum(_quad_area(f.quad.corners) for f in faces)
+        key = (len(faces), tot_area)
+        if faces and key > best_score:
+            best_score = key
+            best_faces = faces
+        if len(scales) == 1 or (len(faces) == max_faces and sc_d == d_med):
             break
-        faces.append(fitted)
-        existing_quads.append(fitted.quad.corners)
-        claimed = set(fitted.inlier_indices)
-        avail = [i for i in avail if i not in claimed]
-        if len(avail) < min_inliers:
-            break
-    return faces
+    return best_faces

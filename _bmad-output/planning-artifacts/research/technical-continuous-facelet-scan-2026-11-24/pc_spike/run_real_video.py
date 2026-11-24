@@ -31,6 +31,9 @@ def render_real_frame(
     centers: List[Tuple[float, float]],
     snap: MapperSnapshot,
     title: str,
+    observed_faces_count: int = 0,
+    fps: float = 0.0,
+    recording: bool = False,
 ) -> np.ndarray:
     """Render 1120x480 side-by-side view: left = live frame + sticker dots + fitted quads, right = growing net."""
     h, w = frame_bgr.shape[:2]
@@ -54,19 +57,21 @@ def render_real_frame(
         cv2.putText(left, label, (int(c[0]) - 10, int(c[1]) + 6), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
 
     cv2.rectangle(left, (0, 0), (640, 32), (20, 20, 24), -1)
+    rec_tag = " [REC]" if recording else ""
+    fps_tag = f" | {fps:.0f}fps" if fps > 0 else ""
     cv2.putText(
         left,
-        f"{title} | frame {frame_idx:04d} | stickers={len(centers)} quads={len(snap.tracked_quads)}",
+        f"{title} | f{frame_idx:04d} | pts={len(centers)} q={len(snap.tracked_quads)}{fps_tag}{rec_tag}",
         (10, 22),
         cv2.FONT_HERSHEY_SIMPLEX,
-        0.52,
-        (230, 230, 230),
+        0.50,
+        (90, 90, 255) if recording else (230, 230, 230),
         1,
         cv2.LINE_AA,
     )
     cv2.rectangle(left, (0, 444), (640, 480), (24, 24, 30), -1)
     cue_col = (80, 120, 255) if snap.twist_detected else (90, 235, 130) if snap.committed_count == 54 else (240, 220, 100)
-    cv2.putText(left, f"Cue: {snap.cue}", (10, 468), cv2.FONT_HERSHEY_SIMPLEX, 0.52, cue_col, 1, cv2.LINE_AA)
+    cv2.putText(left, f"Cue: {snap.cue}", (10, 468), cv2.FONT_HERSHEY_SIMPLEX, 0.50, cue_col, 1, cv2.LINE_AA)
 
     # Right panel: 480x480 growing URFDLB net
     right = np.full((480, 480, 3), 26, dtype=np.uint8)
@@ -89,12 +94,13 @@ def render_real_frame(
         cv2.putText(right, f, (fx0 + face_px // 2 - 6, fy0 + face_px // 2 + 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (15, 15, 18), 2)
 
     lines = [
-        f"Committed: {snap.committed_count}/54 | Anchored: {'YES' if snap.global_anchored else 'WAIT'}",
-        f"Conflicts reopened: {len(snap.conflicted_slots)} | Invariants broken: {snap.invariant_count}",
-        f"Pending regrip faces: {snap.pending_fragment_faces} | Twist: {'DETECTED' if snap.twist_detected else 'none'}",
+        f"Sides mapped: {observed_faces_count}/6 | Committed: {snap.committed_count}/54 | Anchor: {'YES' if snap.global_anchored else 'WAIT'}",
+        f"Conflicts: {len(snap.conflicted_slots)} | Pending regrip: {snap.pending_fragment_faces} | Twist: {'YES (press R)' if snap.twist_detected else 'none'}",
+        "Keys: [R] Reset  [V] Record raw+HUD MP4  [Q/Esc] Quit",
     ]
     for k, txt in enumerate(lines):
-        cv2.putText(right, txt, (20, 392 + k * 26), cv2.FONT_HERSHEY_SIMPLEX, 0.52, (215, 220, 230), 1, cv2.LINE_AA)
+        col = (150, 185, 220) if k == 2 else (215, 220, 230)
+        cv2.putText(right, txt, (14, 392 + k * 26), cv2.FONT_HERSHEY_SIMPLEX, 0.46, col, 1, cv2.LINE_AA)
     return np.concatenate([left, right], axis=1)
 
 
@@ -146,11 +152,13 @@ def main() -> int:
     parser.add_argument("--webcam", type=int, default=None, help="Webcam index (e.g. 0)")
     parser.add_argument("--stride", type=int, default=2, help="Process every Nth frame from video file")
     parser.add_argument("--max-frames", type=int, default=None, help="Max processed frames (default: 300 for --video, unlimited for --webcam)")
-    parser.add_argument("--conf", type=float, default=0.30, help="Sticker detector confidence threshold")
+    parser.add_argument("--conf", type=float, default=None, help="Sticker detector confidence threshold (default: 0.45 for LiteRT, 0.30 for YOLO)")
     parser.add_argument("--crop", type=str, default=None, help="Optional normalized ROI crop x0,y0,x1,y1 (e.g. 0,0,0.48,1)")
     parser.add_argument("--out-dir", type=Path, default=None, help="Write replay MP4 and contact sheet here")
-    parser.add_argument("--show", action="store_true", help="Display live interactive OpenCV window (q=quit, r=reset)")
+    parser.add_argument("--show", action="store_true", help="Display live interactive OpenCV window (r=reset, v=record, q/Esc=quit)")
     args = parser.parse_args()
+    if args.conf is None:
+        args.conf = 0.45 if args.litert_model is not None else 0.30
 
     detect_centers = _build_detector(args)
     src = str(args.video) if args.video is not None else (args.webcam if args.webcam is not None else 0)
@@ -160,6 +168,8 @@ def main() -> int:
 
     mapper = ContinuousCubeMapper()
     writer = None
+    raw_writer = None
+    live_rec_dir: Optional[Path] = None
     if args.out_dir is not None:
         args.out_dir.mkdir(parents=True, exist_ok=True)
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
@@ -167,10 +177,14 @@ def main() -> int:
         writer = cv2.VideoWriter(str(args.out_dir / f"{stem}_replay.mp4"), fourcc, 15.0, (1120, 480))
 
     title = args.video.name if args.video else f"webcam:{src}"
+    win_name = "Cubentia Continuous Scan Spike"
     raw_idx = proc_idx = 0
     det_ms_list, map_ms_list = [], []
     quad_counts = []
     sheet_frames: List[np.ndarray] = []
+    last_state_log = None
+    prev_t = time.perf_counter()
+    fps_ema = 0.0
 
     crop_box = None
     if args.crop:
@@ -201,24 +215,75 @@ def main() -> int:
         map_ms_list.append((time.perf_counter() - t1) * 1000.0)
         quad_counts.append(len(fitted))
 
-        vis = render_real_frame(frame, proc_idx, centers, snap, title)
+        now = time.perf_counter()
+        dt = max(1e-4, now - prev_t)
+        prev_t = now
+        fps_ema = (1.0 / dt) if fps_ema == 0.0 else (0.85 * fps_ema + 0.15 / dt)
+        obs_faces = len(mapper.master.observed_faces) if mapper.master is not None else 0
+
+        vis = render_real_frame(
+            frame,
+            proc_idx,
+            centers,
+            snap,
+            title,
+            observed_faces_count=obs_faces,
+            fps=fps_ema if args.show else 0.0,
+            recording=(raw_writer is not None),
+        )
         if writer is not None:
             writer.write(vis)
+        if raw_writer is not None:
+            raw_writer.write(frame)
         if args.out_dir is not None and (len(fitted) > 0 or proc_idx % 20 == 0):
             sheet_frames.append(vis)
 
         if args.show:
-            cv2.imshow("Cubentia Continuous Scan Spike", vis)
+            state_sig = (obs_faces, snap.committed_count, snap.global_anchored, snap.twist_detected, snap.pending_fragment_faces)
+            if state_sig != last_state_log:
+                print(
+                    f"[f{proc_idx:04d}] sides={obs_faces}/6 committed={snap.committed_count}/54 "
+                    f"anchored={snap.global_anchored} pending={snap.pending_fragment_faces} "
+                    f"twist={snap.twist_detected} | cue: {snap.cue}",
+                    flush=True,
+                )
+                last_state_log = state_sig
+
+            cv2.imshow(win_name, vis)
             key = cv2.waitKey(1) & 0xFF
-            if key == ord("q"):
+            if key in (ord("q"), ord("Q"), 27):
                 break
-            if key == ord("r"):
+            if key in (ord("r"), ord("R")):
                 mapper = ContinuousCubeMapper()
+                last_state_log = None
+                print(f"[f{proc_idx:04d}] --- SCAN RESET ---", flush=True)
+            if key in (ord("v"), ord("V")):
+                if raw_writer is None:
+                    ts = time.strftime("%Y%m%d-%H%M%S")
+                    live_rec_dir = Path("/tmp/cubentia_live") / ts
+                    live_rec_dir.mkdir(parents=True, exist_ok=True)
+                    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+                    fh, fw = frame.shape[:2]
+                    raw_writer = cv2.VideoWriter(str(live_rec_dir / "raw.mp4"), fourcc, 15.0, (fw, fh))
+                    if writer is None:
+                        writer = cv2.VideoWriter(str(live_rec_dir / "hud.mp4"), fourcc, 15.0, (1120, 480))
+                    print(f"[f{proc_idx:04d}] --- RECORDING STARTED -> {live_rec_dir} ---", flush=True)
+                else:
+                    raw_writer.release()
+                    raw_writer = None
+                    if args.out_dir is None and writer is not None:
+                        writer.release()
+                        writer = None
+                    print(f"[f{proc_idx:04d}] --- RECORDING SAVED -> {live_rec_dir} ---", flush=True)
+            if cv2.getWindowProperty(win_name, cv2.WND_PROP_VISIBLE) < 1:
+                break
         proc_idx += 1
 
     cap.release()
     if writer is not None:
         writer.release()
+    if raw_writer is not None:
+        raw_writer.release()
     if args.show:
         cv2.destroyAllWindows()
 
