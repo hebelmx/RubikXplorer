@@ -6,6 +6,7 @@ import android.util.Log
 import dev.cubentia.application.usecase.Recognition
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.CubeState
+import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.Orientation
 import dev.cubentia.domain.recognition.CalibrationCenters
@@ -18,6 +19,8 @@ import dev.cubentia.domain.recognition.FrameInspection
 import dev.cubentia.domain.recognition.FrameQuality
 import dev.cubentia.domain.recognition.FrameStats
 import dev.cubentia.domain.recognition.PhysicalObservation
+import dev.cubentia.domain.recognition.QuickScanController
+import dev.cubentia.domain.recognition.QuickScanDiagnosis
 import dev.cubentia.domain.recognition.ScanAssembler
 import dev.cubentia.domain.recognition.ScanReview
 import dev.cubentia.domain.recognition.ScanTrace
@@ -57,10 +60,94 @@ object ScanDiagnostics {
         light: SideLight.Verdict? = null,
         lightHeld: Boolean = false,
         torch: Boolean = false,
+        centers: CalibrationCenters? = null,
     ) {
+        // Story 10.21: a light state change inside the hysteresis band and a face's light level jumping between frames are
+        // logged as they happen (the level lines at most once per interval), beside the rate-limited frame line.
+        synchronized(lightTrace) {
+            lightFlipLine(lightTrace.held, lightHeld, light)?.let { Log.d(TAG, it) }
+            lightTrace.held = lightHeld
+            if (light != null) {
+                val lines = levelChangeLines(lightTrace.light, light, faces, centers)
+                if (lines.isNotEmpty() && nowMs - lightTrace.levelLoggedMs >= INTERVAL_MS) {
+                    lightTrace.levelLoggedMs = nowMs
+                    lines.forEach { Log.d(TAG, it) }
+                }
+                lightTrace.light = light
+            }
+        }
         val last = lastCornerLogMs.get()
         if (nowMs - last < INTERVAL_MS || !lastCornerLogMs.compareAndSet(last, nowMs)) return
         Log.d(TAG, cornerFrameLine(detected, faces, score, light, lightHeld, torch))
+    }
+
+    /** The light state the last corner frame showed (Story 10.21), for the flip and level-change lines. */
+    private class LightTrace {
+        var held: Boolean? = null
+        var light: SideLight.Verdict? = null
+        var levelLoggedMs = Long.MIN_VALUE / 2
+    }
+
+    private val lightTrace = LightTrace()
+
+    /**
+     * Story 10.21: `quickScan light flip` when the light hold changed ([held] against [before]) on a frame whose score is
+     * in the hysteresis band (between the mode's clear and hold cuts), where the hysteresis should keep it; else null.
+     */
+    internal fun lightFlipLine(
+        before: Boolean?,
+        held: Boolean,
+        light: SideLight.Verdict?,
+    ): String? {
+        if (before == null || before == held || light?.inBand != true) return null
+        val decimals = if (light.mode == SideLight.Mode.CALIBRATED) 3 else 1
+        return listOf(
+            "quickScan",
+            "light",
+            "flip",
+            "held=$held",
+            "lightScore=${format(light.score, decimals)}",
+            "clearCut=${format(light.mode.clearCut, decimals)}",
+            "holdCut=${format(light.mode.holdCut, decimals)}",
+            "lightMode=${light.mode.name.lowercase()}",
+        ).joinToString(" ")
+    }
+
+    /**
+     * Story 10.21: one `quickScan light levelChange` line per face (top, left, right) whose light level moved by at least
+     * [LEVEL_CHANGE_L] (uncalibrated L*) or [LEVEL_CHANGE_RATIO] (calibrated relative brightness) since [before], in the
+     * same mode, with each sticker's nearest calibrated colour on chroma ([SideLight.nearestOnChroma], `-` without
+     * [centers]). Colour letters and numbers only.
+     */
+    internal fun levelChangeLines(
+        before: SideLight.Verdict?,
+        now: SideLight.Verdict,
+        faces: List<FrameStats?>,
+        centers: CalibrationCenters?,
+    ): List<String> {
+        if (before == null || before.mode != now.mode) return emptyList()
+        val calibrated = now.mode == SideLight.Mode.CALIBRATED
+        val threshold = if (calibrated) LEVEL_CHANGE_RATIO else LEVEL_CHANGE_L
+        val decimals = if (calibrated) 3 else 1
+        val levels = listOf(before.topLevel to now.topLevel, before.leftLevel to now.leftLevel, before.rightLevel to now.rightLevel)
+        return levels.mapIndexedNotNull { index, (from, to) ->
+            if (from == null || to == null || kotlin.math.abs(to - from) < threshold) return@mapIndexedNotNull null
+            val stickers =
+                faces.getOrNull(index)?.cells.orEmpty().joinToString(",") { cell ->
+                    val colour = cell?.value?.let { lab -> centers?.let { SideLight.nearestOnChroma(lab, it) } }
+                    colour?.name?.take(1) ?: "-"
+                }
+            listOf(
+                "quickScan",
+                "light",
+                "levelChange",
+                "face=${FACE_NAMES[index]}",
+                "from=${format(from, decimals)}",
+                "to=${format(to, decimals)}",
+                "lightMode=${now.mode.name.lowercase()}",
+                "stickers=${stickers.ifEmpty { "-" }}",
+            ).joinToString(" ")
+        }
     }
 
     internal fun cornerFrameLine(
@@ -95,6 +182,8 @@ object ScanDiagnostics {
             if (calibrated) null else "sideDiff=${level(light?.darkerSideDifference)}",
             "lightScore=${level(light?.score)}",
             "lightCheck=$verdict",
+            // Story 10.21: a fail more than the hysteresis band's width above the hold cut.
+            if (light?.farAboveCut == true) "lightTag=far-above-cut" else null,
             // PO 2026-11-21: with the torch lit the check is measured but skipped (it holds nothing).
             "lightMode=${if (light != null && torch) "torch" else light?.mode?.name?.lowercase() ?: "-"}",
             "lightHold=$lightHeld",
@@ -117,7 +206,20 @@ object ScanDiagnostics {
      */
     fun onHoldEvent(event: CornerHoldEvent) {
         Log.d(TAG, holdEventLine(event))
+        // Story 10.21: a hold beginning (its viewfinder, or the capture that ends the last) starts the light trace afresh,
+        // and a clear made outside the check (torch lit, return from calibration) is not a flip on the next frame.
+        when {
+            event.kind == CornerHoldEventKind.VIEWFINDER || event.kind == CornerHoldEventKind.CAPTURE -> resetLightTrace()
+            event.kind == CornerHoldEventKind.LIGHT_CLEAR && event.reason != null -> synchronized(lightTrace) { lightTrace.held = false }
+        }
     }
+
+    /** Forgets the last corner frame's light state (Story 10.21): a new run or hold compares against nothing. */
+    private fun resetLightTrace() =
+        synchronized(lightTrace) {
+            lightTrace.held = null
+            lightTrace.light = null
+        }
 
     internal fun holdEventLine(event: CornerHoldEvent): String =
         listOfNotNull(
@@ -126,7 +228,13 @@ object ScanDiagnostics {
             "hold=${event.hold}",
             "t=${event.elapsedMs}",
             event.reason?.let { "${if (event.kind == CornerHoldEventKind.CAPTURE) "trigger" else "reason"}=$it" },
-            event.amount?.let { "amount=${format(it, 3)}" },
+            // Story 10.21: the few-confident wait's amount is a sticker count.
+            event.amount?.let {
+                if (event.reason == QuickScanController.POSE_FEW_CONFIDENT) "amount=${it.toInt()}" else "amount=${format(it, 3)}"
+            },
+            // Story 10.21 device session: the per-face counts the amount sums, and the count it is compared with.
+            event.confident?.let { "perFace=${counts(it)}" },
+            event.confident?.let { "need=${QuickScanController.MIN_CONFIDENT}" },
             event.timeout?.let { "timeout=$it" },
             event.durationMs?.let { "ms=$it" },
         ).joinToString(" ")
@@ -159,6 +267,9 @@ object ScanDiagnostics {
                     true -> "pass"
                     false -> "fail"
                 }}",
+                // Story 10.21: whether the saved calibration matched this scan (`none` without one) and the lit torch.
+                "calibration=${report.calibration?.label ?: "none"}",
+                "torch=${if (report.torchLit) "lit" else "off"}",
             ) +
                 report.faces.map { face ->
                     val reason =
@@ -188,8 +299,212 @@ object ScanDiagnostics {
                             }
                         }
                     "${face.face}:center=${face.center?.name ?: "-"},confident=${face.confident},uncertain=${face.uncertain}," +
-                        "${if (face.grid) "grid" else "kept"},reason=$reason"
+                        "${if (face.grid) "grid" else "kept"},reason=$reason" +
+                        (if (!face.grid && face.blanks > 0) ",blanks=${face.blanks}" else "")
                 }
+        ).joinToString(" ")
+
+    /** Per face in [Face] order, `U:6,F:8`; `-` for none. */
+    private fun counts(perFace: Map<Face, Int>): String =
+        perFace.entries
+            .sortedBy { it.key.ordinal }
+            .joinToString(",") { (face, n) -> "$face:$n" }
+            .ifEmpty { "-" }
+
+    private var fewConfidentHold = 0
+    private var fewConfidentLoggedMs = Long.MIN_VALUE / 2
+
+    /**
+     * Story 10.21 device session: a frame on which the few-confident wait held auto-capture, at most one line per
+     * [INTERVAL_MS] per hold: the amount compared with the need, the per-face counts, and per face its quality, centre
+     * read and why it is not CONFIDENT, the reference the reads used and why ([faceFields]).
+     */
+    fun onFewConfident(
+        quick: QuickScanController,
+        nowMs: Long,
+    ) {
+        if (!quick.fewConfident) return
+        val count = quick.confidentCount ?: return
+        synchronized(this) {
+            if (count.hold == fewConfidentHold && nowMs - fewConfidentLoggedMs < INTERVAL_MS) return
+            fewConfidentHold = count.hold
+            fewConfidentLoggedMs = nowMs
+        }
+        Log.d(TAG, fewConfidentLine(count, quick.confidentDiagnoses()))
+    }
+
+    internal fun fewConfidentLine(
+        count: QuickScanDiagnosis.ConfidentCount,
+        faces: List<QuickScanDiagnosis.FaceDiagnosis>,
+    ): String =
+        (
+            listOf(
+                "quickScan",
+                "fewConfident",
+                "hold=${count.hold}",
+                "amount=${count.amount}",
+                "perFace=${counts(count.perFace)}",
+                "need=${count.need}",
+            ) + faces.map { face -> "${face.face}:" + faceFields(face).joinToString(",") }
+        ).joinToString(" ")
+
+    /**
+     * Story 10.21 device session: after [onCornerCapture], per face of the capture one `quickScan faceRead` line (centre,
+     * reference and decision, [faceReadLine]) and one `quickScan stickers` line (each sticker's two reads, [stickersLine]).
+     */
+    fun onCornerCaptureReads(quick: QuickScanController) {
+        val hold = quick.lastCapture?.hold ?: return
+        quick.captureDiagnoses().forEach { face ->
+            Log.d(TAG, faceReadLine(hold, face))
+            Log.d(TAG, stickersLine(hold, face))
+        }
+    }
+
+    /**
+     * One face's read as key=value fields: its shutter quality; its centre (`G?`: gated colour letter, `C` CONFIDENT or
+     * `?` not, `-` unread), why the centre is not CONFIDENT (`guarded`: not plain, a logo or glare; `invalid`; `dark`;
+     * `no-reference`: fewer than two centres to read against; `uncertain`; `-` when it is) and whether it is plain; the
+     * reference the reads used (`saved-match`, `self`, `partial`, `none`) over which colours, and why: the saved
+     * calibration's match (`none` without one), the guarded colours and those with no centre; and the CONFIDENT judged
+     * stickers the few-confident wait sums (`counted`; a guarded centre is not judged, 0 with no reference).
+     */
+    internal fun faceFields(face: QuickScanDiagnosis.FaceDiagnosis): List<String> =
+        listOf(
+            "quality=${face.quality ?: "-"}",
+            "centre=${face.centre?.let(::readToken) ?: "-"}",
+            "centreWhy=${face.centreIssue?.label ?: "-"}",
+            "centrePlain=${face.centrePlain ?: "-"}",
+            "ref=${face.reference.label}",
+            "refColors=${colorLetters(face.referenceColors)}",
+            "cal=${face.calibration?.label?.replace(' ', '-') ?: "none"}",
+            "guarded=${colorLetters(face.guarded)}",
+            "unresolved=${colorLetters(face.unresolved)}",
+            "counted=${face.counted}",
+        )
+
+    /** `quickScan faceRead`: [faceFields], the judged CONFIDENT count, the decision (kept or grid, and why) and the blanks. */
+    internal fun faceReadLine(
+        hold: Int,
+        face: QuickScanDiagnosis.FaceDiagnosis,
+    ): String =
+        (
+            listOf("quickScan", "faceRead", "hold=$hold", "face=${face.face}") +
+                faceFields(face) +
+                listOf(
+                    "confident=${face.confident}/${face.stickers.count { it.judged }}",
+                    "decision=${if (face.gridReason == null) "kept" else "grid"}",
+                    "gridWhy=${face.gridReason?.label ?: "-"}",
+                    "blanks=${face.blanks.sorted().joinToString("/").ifEmpty { "-" }}",
+                )
+        ).joinToString(" ")
+
+    /**
+     * `quickScan stickers`: the nine stickers in viewfinder order, each `RC:14.2/R11.0`: the gated colour letter, `C`
+     * CONFIDENT or `?` not, the first read's margin (ΔE to the second-nearest centre), the second read's colour letter and
+     * margin; `~` marks a sticker not judged (a guarded centre), `-` one that could not be read.
+     */
+    internal fun stickersLine(
+        hold: Int,
+        face: QuickScanDiagnosis.FaceDiagnosis,
+    ): String =
+        listOf(
+            "quickScan",
+            "stickers",
+            "hold=$hold",
+            "face=${face.face}",
+            "ref=${face.reference.label}",
+            "s=${face.stickers.joinToString(",", transform = ::stickerToken)}",
+        ).joinToString(" ")
+
+    private fun readToken(sticker: QuickScanDiagnosis.StickerDiagnosis): String =
+        sticker.color?.let { ScanTrace.letter(it) + if (sticker.confident) "C" else "?" } ?: "-"
+
+    private fun stickerToken(sticker: QuickScanDiagnosis.StickerDiagnosis): String {
+        val head = (if (sticker.judged) "" else "~") + readToken(sticker)
+        if (sticker.color == null) return head
+        return "$head:${format(sticker.firstMargin)}/${ScanTrace.letter(sticker.secondColor)}${format(sticker.secondMargin)}"
+    }
+
+    private fun colorLetters(colors: Set<Color>): String =
+        colors.sortedBy { it.ordinal }.joinToString("") { ScanTrace.letter(it) }.ifEmpty { "-" }
+
+    private fun faceList(faces: Collection<Face>): String = faces.joinToString(",").ifEmpty { "-" }
+
+    /**
+     * Story 10.21 device session: Quick Scan handed over (after the second corner or on *Scan face by face*): the faces
+     * kept, those sent to the Guided grid with why, each kept face's blank positions (viewfinder order), whether it went
+     * straight to review (`result=done`) and the calibration match.
+     */
+    fun onHandOver(report: QuickScanDiagnosis.HandOverReport?) {
+        report?.let { Log.d(TAG, handOverLine(it)) }
+    }
+
+    internal fun handOverLine(report: QuickScanDiagnosis.HandOverReport): String =
+        listOf(
+            "quickScan",
+            "handOver",
+            "trigger=${report.trigger.label}",
+            "result=${if (report.done) "done" else "fallback"}",
+            "kept=${faceList(report.kept)}",
+            "grid=${report.grid.entries.joinToString(",") { (face, why) -> "$face:${why.label}" }.ifEmpty { "-" }}",
+            "blanks=${report.blanks.entries.joinToString(",") { (face, at) -> "$face:${at.sorted().joinToString("/")}" }.ifEmpty { "-" }}",
+            "calibration=${report.calibration?.label?.replace(' ', '-') ?: "none"}",
+        ).joinToString(" ")
+
+    /**
+     * Story 10.21 device session: one face captured in Quick Scan's face-by-face hand-over: which, the how-many-th, its
+     * rotation and quality, the reference it reads against, and per sticker (frame order) the colour letter and `C`
+     * CONFIDENT or `?` not.
+     */
+    fun onGuidedCapture(
+        quick: QuickScanController,
+        sample: FaceSample,
+    ) {
+        Log.d(TAG, guidedCaptureLine(quick.handOverRead(sample), quick.added.size))
+    }
+
+    internal fun guidedCaptureLine(
+        read: QuickScanDiagnosis.GuidedFaceRead,
+        number: Int,
+    ): String =
+        listOf(
+            "guided",
+            "capture",
+            "face=${read.face}",
+            "n=$number",
+            "rot=${read.orientationDegrees}",
+            "quality=${read.quality}",
+            "ref=${read.reference.label}",
+            "colours=${read.readings.joinToString("") { ScanTrace.letter(it?.color) }}",
+            "confidence=${read.readings.joinToString("") { reading ->
+                when (reading?.confidence) {
+                    null -> "-"
+                    dev.cubentia.domain.recognition.StickerConfidence.CONFIDENT -> "C"
+                    dev.cubentia.domain.recognition.StickerConfidence.UNCERTAIN -> "?"
+                }
+            }}",
+        ).joinToString(" ")
+
+    /** Story 10.21 device session: the face-by-face hand-over ended ([outcome] `done` or `backOut`) with the faces kept and added. */
+    fun onGuidedEnd(
+        outcome: String,
+        kept: Collection<Face>,
+        added: Collection<Face>,
+    ) {
+        Log.d(TAG, guidedEndLine(outcome, kept, added))
+    }
+
+    internal fun guidedEndLine(
+        outcome: String,
+        kept: Collection<Face>,
+        added: Collection<Face>,
+    ): String =
+        listOf(
+            "guided",
+            "end",
+            "outcome=$outcome",
+            "kept=${faceList(kept.sortedBy { it.ordinal })}",
+            "added=${faceList(added)}",
         ).joinToString(" ")
 
     /** Quick Scan's calibration offer showed (Story 10.19): at corner [hold], after an uncalibrated light hold of [heldMs]. */
@@ -285,7 +600,10 @@ object ScanDiagnostics {
 
     private fun elapsed(start: Long?): String = start?.let { (SystemClock.elapsedRealtime() - it).toString() } ?: "-"
 
-    fun startRun(): Long? = device?.let { SystemClock.elapsedRealtime() }
+    fun startRun(): Long? {
+        resetLightTrace()
+        return device?.let { SystemClock.elapsedRealtime() }
+    }
 
     fun onGuidedScanRun(
         started: Long?,
@@ -451,6 +769,11 @@ object ScanDiagnostics {
 
     const val TAG = "CubentiaScanDiag"
     private const val INTERVAL_MS = 500L
+
+    /** Story 10.21: the light-level moves a `levelChange` line reports (uncalibrated L*, calibrated relative brightness). */
+    private const val LEVEL_CHANGE_L = 5.0
+    private const val LEVEL_CHANGE_RATIO = 0.05
+    private val FACE_NAMES = listOf("top", "left", "right")
     private val lastLogMs = AtomicLong(Long.MIN_VALUE / 2)
 
     fun onFrame(

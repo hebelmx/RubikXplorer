@@ -126,7 +126,7 @@ class ScanDiagnosticsRunLineTest {
         val line = ScanDiagnostics.cornerFrameLine(true, listOf(face, face, face), 0.9, dark, lightHeld = true, torch = true)
         assertEquals(
             "quickScan frame detected=true quality=GLARE,GLARE,GLARE score=0.9 light=90.0,55.0,80.0 sideDiff=35.0 " +
-                "lightScore=35.0 lightCheck=fail lightMode=torch lightHold=true torch=on glare=torch",
+                "lightScore=35.0 lightCheck=fail lightTag=far-above-cut lightMode=torch lightHold=true torch=on glare=torch",
             line,
         )
         val calibrated =
@@ -275,12 +275,204 @@ class ScanDiagnosticsRunLineTest {
         assertEquals(
             listOf(
                 "quickScan capture hold=2 trigger=auto totalMs=3210 undetectedMs=400 sinceDetectedMs=2900 lightScore=1.457 light=fail " +
+                    "calibration=none torch=off " +
                     "D:center=YELLOW,confident=8,uncertain=0,kept,reason=- " +
                     "L:center=ORANGE,confident=5,uncertain=3,grid,reason=disagree=2/closeCall=1/correction=rejected " +
                     "B:center=-,confident=0,uncertain=0,grid,reason=missing",
-                "quickScan capture hold=1 trigger=manual totalMs=900 undetectedMs=900 sinceDetectedMs=- lightScore=- light=-",
+                "quickScan capture hold=1 trigger=manual totalMs=900 undetectedMs=900 sinceDetectedMs=- lightScore=- light=- " +
+                    "calibration=none torch=off",
             ),
             lines,
         )
+    }
+
+    @Test fun `quick scan logs the calibration match, kept blanks and the few-confident count`() {
+        // Story 10.21: `calibration=match|mismatch torch|mismatch centre` on each capture, a kept face's blanks, the lit torch.
+        fun report(calibration: dev.cubentia.domain.recognition.CalibrationMatch?) =
+            dev.cubentia.domain.recognition.CornerCaptureReport(
+                1,
+                listOf(
+                    dev.cubentia.domain.recognition.QuickScanClassification.FaceReport(
+                        Face.R,
+                        dev.cubentia.domain.cube.Color.RED,
+                        8,
+                        1,
+                        false,
+                        dev.cubentia.domain.recognition.CaptureQuality.ACCEPTABLE,
+                        false,
+                        1,
+                        0,
+                        false,
+                        blanks = 1,
+                    ),
+                ),
+                manual = false,
+                totalMs = 1200,
+                undetectedMs = 0,
+                calibration = calibration,
+                torchLit = calibration != null,
+            )
+        listOf(
+            dev.cubentia.domain.recognition.CalibrationMatch.Match,
+            dev.cubentia.domain.recognition.CalibrationMatch
+                .Mismatch(dev.cubentia.domain.recognition.CalibrationMatch.Reason.TORCH),
+            dev.cubentia.domain.recognition.CalibrationMatch
+                .Mismatch(dev.cubentia.domain.recognition.CalibrationMatch.Reason.CENTRE),
+        ).forEach { ScanDiagnostics.onCornerCapture(report(it)) }
+        ScanDiagnostics.onHoldEvent(
+            dev.cubentia.domain.recognition.CornerHoldEvent(
+                1,
+                700,
+                CornerHoldEventKind.POSE_REJECTED,
+                dev.cubentia.domain.recognition.QuickScanController.POSE_FEW_CONFIDENT,
+                4.0,
+            ),
+        )
+        val lines = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }
+        val tail = "R:center=RED,confident=8,uncertain=1,kept,reason=-,blanks=1"
+        assertEquals(
+            listOf(
+                "quickScan capture hold=1 trigger=auto totalMs=1200 undetectedMs=0 sinceDetectedMs=- lightScore=- light=- calibration=match torch=lit $tail",
+                "quickScan capture hold=1 trigger=auto totalMs=1200 undetectedMs=0 sinceDetectedMs=- lightScore=- light=- calibration=mismatch torch torch=lit $tail",
+                "quickScan capture hold=1 trigger=auto totalMs=1200 undetectedMs=0 sinceDetectedMs=- lightScore=- light=- calibration=mismatch centre torch=lit $tail",
+                "quickScan poseRejected hold=1 t=700 reason=few-confident amount=4",
+            ),
+            lines,
+        )
+        // Story 10.21 device session: a rejection carrying its per-face counts logs them beside the amount and the need.
+        val perFace =
+            dev.cubentia.domain.recognition.CornerHoldEvent(
+                1,
+                800,
+                CornerHoldEventKind.POSE_REJECTED,
+                dev.cubentia.domain.recognition.QuickScanController.POSE_FEW_CONFIDENT,
+                5.0,
+                confident = mapOf(Face.R to 3, Face.U to 0, Face.F to 2),
+            )
+        assertEquals(
+            "quickScan poseRejected hold=1 t=800 reason=few-confident amount=5 perFace=U:0,R:3,F:2 " +
+                "need=${dev.cubentia.domain.recognition.QuickScanController.MIN_CONFIDENT}",
+            ScanDiagnostics.holdEventLine(perFace),
+        )
+    }
+
+    @Test fun `quick scan logs a light flip inside the hysteresis band and a face's light level jumping, with its stickers' colours`() {
+        val calibrated = dev.cubentia.domain.recognition.SideLight.Mode.CALIBRATED
+        val band =
+            dev.cubentia.domain.recognition.SideLight
+                .Verdict(true, 1.34, 1.0, 1.0, calibrated)
+        assertEquals(
+            "quickScan light flip held=false lightScore=1.340 clearCut=1.330 holdCut=1.350 lightMode=calibrated",
+            ScanDiagnostics.lightFlipLine(before = true, held = false, light = band),
+        )
+        // No flip: unchanged, the first frame, or a change outside the band.
+        assertEquals(null, ScanDiagnostics.lightFlipLine(before = true, held = true, light = band))
+        assertEquals(null, ScanDiagnostics.lightFlipLine(before = null, held = false, light = band))
+        val clear =
+            dev.cubentia.domain.recognition.SideLight
+                .Verdict(true, 1.1, 1.0, 1.0, calibrated)
+        assertEquals(null, ScanDiagnostics.lightFlipLine(before = true, held = false, light = clear))
+        val labs =
+            mapOf(
+                dev.cubentia.domain.cube.Color.WHITE to
+                    dev.cubentia.domain.recognition
+                        .Lab(90.0, 0.0, 0.0),
+                dev.cubentia.domain.cube.Color.GREEN to
+                    dev.cubentia.domain.recognition
+                        .Lab(55.0, -60.0, 40.0),
+                dev.cubentia.domain.cube.Color.RED to
+                    dev.cubentia.domain.recognition
+                        .Lab(45.0, 65.0, 45.0),
+                dev.cubentia.domain.cube.Color.YELLOW to
+                    dev.cubentia.domain.recognition
+                        .Lab(85.0, -5.0, 80.0),
+                dev.cubentia.domain.cube.Color.ORANGE to
+                    dev.cubentia.domain.recognition
+                        .Lab(65.0, 45.0, 65.0),
+                dev.cubentia.domain.cube.Color.BLUE to
+                    dev.cubentia.domain.recognition
+                        .Lab(40.0, 10.0, -50.0),
+            )
+
+        fun face(color: dev.cubentia.domain.cube.Color) =
+            dev.cubentia.domain.recognition.FrameStats(
+                List(9) {
+                    dev.cubentia.domain.recognition
+                        .CellReading(labs.getValue(color), true)
+                },
+                120.0,
+                0.0,
+                100.0,
+                12,
+            )
+        val before =
+            dev.cubentia.domain.recognition.SideLight
+                .Verdict(true, 1.0, 1.0, 1.0, calibrated)
+        val after =
+            dev.cubentia.domain.recognition.SideLight
+                .Verdict(true, 1.0, 0.9, 0.98, calibrated)
+        val faces =
+            listOf(
+                face(dev.cubentia.domain.cube.Color.WHITE),
+                face(dev.cubentia.domain.cube.Color.GREEN),
+                face(dev.cubentia.domain.cube.Color.RED),
+            )
+        assertEquals(
+            listOf("quickScan light levelChange face=left from=1.000 to=0.900 lightMode=calibrated stickers=G,G,G,G,G,G,G,G,G"),
+            ScanDiagnostics.levelChangeLines(
+                before,
+                after,
+                faces,
+                dev.cubentia.domain.recognition
+                    .CalibrationCenters(labs),
+            ),
+        )
+        assertEquals(
+            "quickScan light levelChange face=left from=1.000 to=0.900 lightMode=calibrated stickers=-,-,-,-,-,-,-,-,-",
+            ScanDiagnostics.levelChangeLines(before, after, faces, null).single(),
+        )
+        assertTrue(ScanDiagnostics.levelChangeLines(null, after, faces, null).isEmpty())
+    }
+
+    @Test fun `no light flip is logged across a new hold, a new run or a clear made outside the check`() {
+        // Story 10.21: the light trace starts afresh with a hold or a run, and a torch or calibration clear is no flip.
+        val band =
+            dev.cubentia.domain.recognition.SideLight
+                .Verdict(true, 1.34, 1.0, 1.0, dev.cubentia.domain.recognition.SideLight.Mode.CALIBRATED)
+
+        fun frame(
+            nowMs: Long,
+            held: Boolean,
+        ) = ScanDiagnostics.onCornerFrame(nowMs, true, listOf(null, null, null), 0.9, band, lightHeld = held)
+
+        fun event(
+            kind: CornerHoldEventKind,
+            reason: String? = null,
+        ) = ScanDiagnostics.onHoldEvent(
+            dev.cubentia.domain.recognition
+                .CornerHoldEvent(1, 0, kind, reason),
+        )
+
+        fun flips() = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }.filter { it.startsWith("quickScan light flip") }
+        ScanDiagnostics.startRun()
+        frame(0, held = true)
+        event(CornerHoldEventKind.LIGHT_CLEAR, reason = "torch")
+        frame(10, held = false)
+        ScanDiagnostics.startRun()
+        frame(20, held = true)
+        event(CornerHoldEventKind.LIGHT_CLEAR, reason = "calibration")
+        frame(30, held = false)
+        ScanDiagnostics.startRun()
+        frame(40, held = true)
+        event(CornerHoldEventKind.VIEWFINDER)
+        frame(50, held = false)
+        ScanDiagnostics.startRun()
+        frame(60, held = true)
+        ScanDiagnostics.startRun()
+        frame(70, held = false)
+        assertTrue(flips().toString(), flips().isEmpty())
+        // A change inside the band with no such clear is still logged.
+        frame(80, held = true)
+        assertEquals(1, flips().size)
     }
 }

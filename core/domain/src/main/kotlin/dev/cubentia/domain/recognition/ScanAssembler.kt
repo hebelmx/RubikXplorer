@@ -288,10 +288,15 @@ object ScanAssembler {
     private val CORNERS = FaceletTables.CORNER_FACELETS.size
     private val PIECES = CORNERS + FaceletTables.EDGE_FACELETS.size
 
+    /**
+     * The scan of [samples] read against [calibration]. [blanks] (Story 10.21, Quick Scan review) names per sample face
+     * the stickers (viewfinder order) to leave UNCERTAIN whatever they read: a kept corner face's gated-uncertain ones.
+     */
     fun assemble(
         samples: List<FaceSample>,
         calibration: CalibrationCenters,
-    ): ScanResult = analyze(samples, calibration).result
+        blanks: Map<Face, Set<Int>> = emptyMap(),
+    ): ScanResult = analyze(samples, calibration, blanks = blanks).result
 
     /** The faces around [face] in the [Facelets] net: top, right, bottom, left (the hold a face is entered in). */
     fun netNeighbors(face: Face): List<Face> = NET_NEIGHBORS.getValue(face)
@@ -387,6 +392,7 @@ object ScanAssembler {
         samples: List<FaceSample>,
         calibration: CalibrationCenters,
         repromptPosed: Boolean = false,
+        blanks: Map<Face, Set<Int>> = emptyMap(),
     ): Outcome {
         if (!StickerClassifier.isValid(calibration)) {
             return Outcome(
@@ -416,7 +422,7 @@ object ScanAssembler {
                 }
 
                 1 -> {
-                    when (val placement = place(slot, claims.single(), calibration.centers)) {
+                    when (val placement = place(slot, claims.single(), calibration.centers, blanks[claims.single().face].orEmpty())) {
                         is Placement.Placed -> placed[slot] = placement
                         is Placement.Gap -> gaps[slot] = placement.gap
                     }
@@ -464,6 +470,7 @@ object ScanAssembler {
         slot: Face,
         sample: FaceSample,
         centers: Map<Color, Lab>,
+        blanks: Set<Int> = emptySet(),
     ): Placement {
         if (sample.quality != CaptureQuality.ACCEPTABLE) return Placement.Gap(ScanGap.POOR_QUALITY)
         if (sample.stickers.size != STICKERS || sample.stickers.any { !it.isValid() }) return Placement.Gap(ScanGap.MALFORMED)
@@ -476,7 +483,9 @@ object ScanAssembler {
         val centerRead = StickerClassifier.read(sample.stickers[FaceSample.CENTER_INDEX], centers)
         val readings =
             sample.stickers.mapIndexed { index, sticker ->
-                if (index != FaceSample.CENTER_INDEX) {
+                if (index in blanks && index != FaceSample.CENTER_INDEX) {
+                    StickerClassifier.read(sticker, centers).copy(confidence = StickerConfidence.UNCERTAIN)
+                } else if (index != FaceSample.CENTER_INDEX) {
                     StickerClassifier.read(sticker, centers)
                 } else {
                     // The prompt fixes the center's color; it is CONFIDENT only if the read agrees confidently.

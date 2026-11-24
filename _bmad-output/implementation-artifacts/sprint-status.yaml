@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-24-2026 07:44'
+last_updated: '11-24-2026 10:26'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -152,7 +152,7 @@ development_status:
   10-18-quick-scan-finds-the-cube-s-real-edges-and-corners: done
   10-19-quick-scan-reads-the-side-faces-in-good-light: done
   10-20-record-10-19-pipeline-corner-fixtures-and-check-the-corner-m: done
-  10-21-quick-scan-keeps-the-side-faces-it-reads-well: backlog
+  10-21-quick-scan-keeps-the-side-faces-it-reads-well: done
   10-24-retake-a-corner-in-quick-scan: backlog
   10-25-quick-scan-starts-from-whichever-corner-it-is-shown: backlog
   10-26-quick-scan-fills-a-few-unread-stickers-from-the-cube-s-rules: backlog
@@ -2303,107 +2303,230 @@ action_items:
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-23-pastel-plausibility.md"
   - id: "issue-329-deferred-glare-gets-ev-plus-hint"
     epic: 10
-    action: "A located corner frame whose faces miss the evidence floors because of glare also
-      gets the 'too dark, try EV+' hint, which would make glare worse; check FrameQuality
-      on the located faces and drop the EV+ hint when glare is the cause (low; deferred
-      from #329, RecorderRules.kt:370)"
+    action: "A located corner frame whose faces miss the evidence floors because of
+      glare also gets the 'too dark, try EV+' hint, which would make glare worse;
+      check FrameQuality on the located faces and drop the EV+ hint when glare is
+      the cause (low; deferred from #329, RecorderRules.kt:370)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-329-recorder-dark-faces-hint.md"
   - id: "issue-329-deferred-no-jpeg-says-detector-missed"
     epic: 10
-    action: "A corner capture with no encoded JPEG still shows 'Detector missed' although the
-      detector found the cube; show a separate 'no image encoded' status (low; deferred
-      from #329, FixtureRecorderScreen.kt:351)"
+    action: "A corner capture with no encoded JPEG still shows 'Detector missed' although
+      the detector found the cube; show a separate 'no image encoded' status (low;
+      deferred from #329, FixtureRecorderScreen.kt:351)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-329-recorder-dark-faces-hint.md"
   - id: "issue-329-deferred-evidence-floor-constant-drift"
     epic: 10
-    action: "CORNER_FACE_MIN_EVIDENCE_CELLS = 6 copies the literal 6 in CornerReader.read; expose
-      one constant and use it in both places so they cannot drift (low; deferred from
-      #329, RecorderRules.kt:355, CornerLocator.kt:497)"
+    action: "CORNER_FACE_MIN_EVIDENCE_CELLS = 6 copies the literal 6 in CornerReader.read;
+      expose one constant and use it in both places so they cannot drift (low; deferred
+      from #329, RecorderRules.kt:355, CornerLocator.kt:497)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-329-recorder-dark-faces-hint.md"
   - id: "issue-324-deferred-give-up-check-lands-off-outcome"
     epic: 11
-    action: "From the entry-level picker opened on Placement's solved outcome, giving up 'Check
-      me with a scramble instead' lands on Welcome or Learn, not back on the outcome;
-      untested (low; deferred from #324, AppShell.kt:610,621)"
+    action: "From the entry-level picker opened on Placement's solved outcome, giving
+      up 'Check me with a scramble instead' lands on Welcome or Learn, not back on
+      the outcome; untested (low; deferred from #324, AppShell.kt:610,621)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-324-placement-solved-offers-entry-level.md"
   - id: "issue-324-deferred-picker-scan-loop-from-placement"
     epic: 11
-    action: "The picker opened from Placement's solved outcome still offers 'Not sure? Scan my
-      cube', allowing a Placement -> picker -> Scan loop; hide it from this entry (low;
-      deferred from #324, SCP 2026-11-24 F13)"
+    action: "The picker opened from Placement's solved outcome still offers 'Not sure?
+      Scan my cube', allowing a Placement -> picker -> Scan loop; hide it from this
+      entry (low; deferred from #324, SCP 2026-11-24 F13)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-324-placement-solved-offers-entry-level.md"
   - id: "issue-324-deferred-process-death-back-from-picker"
     epic: 11
-    action: "After process death, entryLevelFrom = placement is restored while the Placement
-      phase may come back Idle, so Back from the picker goes to Welcome or Learn; clear
-      the caller when the phase is Idle (low; deferred from #324, AppShell.kt:671)"
+    action: "After process death, entryLevelFrom = placement is restored while the
+      Placement phase may come back Idle, so Back from the picker goes to Welcome
+      or Learn; clear the caller when the phase is Idle (low; deferred from #324,
+      AppShell.kt:671)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-324-placement-solved-offers-entry-level.md"
   - id: "issue-324-deferred-device-check-solved-picker"
     epic: 11
-    action: "Check the solved Placement outcome's 'I can already solve it' flow on the Lenovo
-      TB128XU and Galaxy S24 FE (low; deferred from #324)"
+    action: "Check the solved Placement outcome's 'I can already solve it' flow on
+      the Lenovo TB128XU and Galaxy S24 FE (low; deferred from #324)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-324-placement-solved-offers-entry-level.md"
   - id: "issue-330-deferred-evindex-wiring-untested"
     epic: 10
-    action: "No test covers the capture-to-screen wiring of evIndex into corner-N.json; the null
-      defaults on holdDiagnostics(evIndex) and CapturedFrame.evIndex would hide a dropped
-      argument; remove the default so callers must pass it (medium; deferred from #330,
-      FixtureRecorderScreen.kt:423)"
+    action: "No test covers the capture-to-screen wiring of evIndex into corner-N.json;
+      the null defaults on holdDiagnostics(evIndex) and CapturedFrame.evIndex would
+      hide a dropped argument; remove the default so callers must pass it (medium;
+      deferred from #330, FixtureRecorderScreen.kt:423)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-330-recorder-hold-settle-after-ev.md"
   - id: "issue-330-deferred-evindex-without-ev-step"
     epic: 10
-    action: "evIndex is saved without the camera EV step size, so the EV offset cannot be
-      compared across devices; add an evStep field (low; deferred from #330,
-      LiveFixture.kt:209)"
+    action: "evIndex is saved without the camera EV step size, so the EV offset cannot
+      be compared across devices; add an evStep field (low; deferred from #330, LiveFixture.kt:209)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-330-recorder-hold-settle-after-ev.md"
   - id: "issue-330-deferred-settle-null-holds-refit"
     epic: 10
-    action: "The already-recorded 10.20 corner holds with settle null (group 3
-      sm-s721u1_stka_bar-warm-2, group 9 sm-s721u1_stla_ceilback hold 2) need a refit
-      decision or a re-record (low; deferred from #330)"
+    action: "The already-recorded 10.20 corner holds with settle null (group 3 sm-s721u1_stka_bar-warm-2,
+      group 9 sm-s721u1_stla_ceilback hold 2) need a refit decision or a re-record
+      (low; deferred from #330)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-330-recorder-hold-settle-after-ev.md"
   - id: "issue-325-deferred-find-my-place-discard-lands-stage-list"
     epic: 10
-    action: "After Discard from a Guided scan opened via Learn > Find my place, the Learner lands
-      on the Stage list, not the Find my place sheet that EXPERIENCE.md names; PO decides:
-      accept and amend EXPERIENCE.md, or reopen the sheet on Cancelled (medium; deferred
-      from #325, GuidedScanCloseRouteTest.kt:125)"
+    action: "After Discard from a Guided scan opened via Learn > Find my place, the
+      Learner lands on the Stage list, not the Find my place sheet that EXPERIENCE.md
+      names; PO decides: accept and amend EXPERIENCE.md, or reopen the sheet on Cancelled
+      (medium; deferred from #325, GuidedScanCloseRouteTest.kt:125)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-325-guided-scan-close-asks-before-discarding-faces.md"
   - id: "issue-325-deferred-close-discard-back-keep-untested"
     epic: 10
-    action: "Story 10.2 asks Keep scanning and Discard for both Close and system Back, but only
-      Close>Keep and Back>Discard are run; add the swapped pass (medium; deferred from
-      #325, GuidedScanCloseRouteTest.kt:236)"
+    action: "Story 10.2 asks Keep scanning and Discard for both Close and system Back,
+      but only Close>Keep and Back>Discard are run; add the swapped pass (medium;
+      deferred from #325, GuidedScanCloseRouteTest.kt:236)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-325-guided-scan-close-asks-before-discarding-faces.md"
   - id: "issue-325-deferred-close-during-capture-freeze"
     epic: 10
-    action: "Tapping Close during the last face's capture freeze opens the discard question,
-      which then vanishes when the held Review is published; ignore Close while the freeze
-      is active (low; deferred from #325, GuidedScanActivity.kt:453)"
+    action: "Tapping Close during the last face's capture freeze opens the discard
+      question, which then vanishes when the held Review is published; ignore Close
+      while the freeze is active (low; deferred from #325, GuidedScanActivity.kt:453)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-325-guided-scan-close-asks-before-discarding-faces.md"
+  - id: "epic-10-deferred-10-21-po-beta-quick-scan-off-pipeline-rethink"
+    epic: 10
+    action: "PO BETA call 2026-11-24: QUICK_SCAN stays OFF because the Quick Scan
+      recognition pipeline does not work on device (near-zero side-face coverage,
+      calibration centre check fails even right after calibrating); plan a pipeline
+      rethink via bmad-correct-course before more Quick Scan stories (10.24-10.27)
+      (high; decision; deferred from 10.21, docs/evidence/10-21/device-session-notes.md)"
+    owner: "PO (Abel)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
+  - id: "epic-10-deferred-10-21-cal-centre-check-fails-after-calibrating"
+    epic: 10
+    action: "The calibration match centre check fails on both reference devices right
+      after calibrating (Lenovo on every hold, S24 FE on hold 2), so the 1-blank keep
+      rule ran on a single face in the whole device session (high; deferred from 10.21,
+      docs/evidence/10-21/device-session-notes.md)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
+  - id: "epic-10-deferred-10-21-light-check-front-lit-false-blocks"
+    epic: 10
+    action: "The light check marks most front-lit holds light=fail (lightScore 28-58),
+      so front-lit false blocks are common on both reference devices (medium; deferred
+      from 10.21, docs/evidence/10-21/device-session-notes.md)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
+  - id: "epic-10-deferred-10-21-face-by-face-first-face-ref-none"
+    epic: 10
+    action: "The face-by-face fallback logs ref=none with no colours for its first
+      face on every run, and it misread 3 stickers on Lenovo stka (U1 Y as W, U8 O
+      as W, F2 W as B) (medium; deferred from 10.21, docs/evidence/10-21/device-session-notes.md)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
+  - id: "epic-10-deferred-10-21-pastel-bar-warm-keeps-wrong-sticker"
+    epic: 10
+    action: "The pastel tuning group lenovo-tb128xu_stlb_bar-warm still keeps a confidently
+      wrong sticker (D2, Orange read as Red) on a kept face; settle with Story 10.27
+      (pastel judged against the cube's own calibrated colours) and the PO BETA call
+      (medium; deferred from 10.21, QuickScanClassification.kt AGREEMENT_MARGIN)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
+  - id: "epic-10-deferred-10-21-per-frame-match-cost-unmeasured"
+    epic: 10
+    action: "QuickScanController.onFrame runs matchAll plus three gated decide() calls
+      (each re-running SelfCalibration) on every settled frame on the analyzer thread
+      with the frame-time cost unmeasured; compute self-calibration and match once
+      per frame or log analyzer frame time on the S24 FE and Lenovo (medium, unverified;
+      deferred from 10.21, QuickScan.kt:252)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
+  - id: "epic-10-deferred-10-21-calibration-torch-only-fake-tested"
+    epic: 10
+    action: "Lighting the torch in the calibration phase (ScanFrameSource.applyTorch
+      while calibrating) is only checked against a fake camera; confirm with the run
+      sheet's physical torch check on the S24 FE and the Lenovo (medium; deferred
+      from 10.21, ScanFrameSource.kt applyTorch)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
+  - id: "epic-10-deferred-10-21-orange-margin-one-sticker-mislabel"
+    epic: 10
+    action: "The Orange agreement margin 21.3 is driven by one tuning sticker (sm-s721u1_stla_bar-warm-2
+      h1 F2, labelled Red, read Orange) that may be a mislabel; refit once Story 10.27's
+      label-exclusions.json lands (medium; deferred from 10.21, QuickScanClassification.kt
+      AGREEMENT_MARGIN)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
+  - id: "epic-10-deferred-10-21-light-hysteresis-jitter-untested"
+    epic: 10
+    action: "The calibrated light hysteresis band (1.33 to 1.35) was never tested
+      against frame-to-frame jitter; compare flip counts of the old single cut and
+      the new band on recorded bursts or check light-clear steadiness on the S24 FE
+      (medium, unverified; deferred from 10.21, SideLight.kt)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
+  - id: "epic-10-deferred-10-21-one-blank-rule-no-held-out-group"
+    epic: 10
+    action: "The 1-blank keep rule never applies on any held-out group because every
+      held-out own calibration fails the centre check; add a held-out group with a
+      matching calibration before 10.11 raises QUICK_SCAN (medium; deferred from 10.21,
+      docs/evidence/10-21/tuning-and-replay.md:96)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
+  - id: "epic-10-deferred-10-21-calibrated-light-cut-backlit-unfit"
+    epic: 10
+    action: "The calibrated light hold cut 1.35 was fitted on front light only and
+      sm-s721u1_stla_ceilback would not trip with a matching calibration; report backlit
+      groups in calibrated mode with their own calibration forced and refit (medium;
+      deferred from 10.21, SideLight.kt:40)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
+  - id: "epic-10-deferred-10-21-guided-scan-uses-torch-on-calibrations"
+    epic: 10
+    action: "Calibrations opened from Settings or the Quick Scan review now default
+      to torch on, and the Guided 6-face scan reads with them without checking the
+      torch tag (low, Learner-visible; deferred from 10.21, GuidedScanActivity.kt:339)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
+  - id: "epic-10-deferred-10-21-plain-only-fit-choice-disclosure"
+    epic: 10
+    action: "The agreement fit used plain tuning groups only after one disclosed held-out
+      replay run with the pastel-inclusive fit; confirm the plain-fit choice under
+      the epic pastel rule when refitting (low; deferred from 10.21, docs/evidence/10-21/tuning-and-replay.md)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
+  - id: "epic-10-deferred-10-21-retake-test-no-visible-difference"
+    epic: 10
+    action: "The mismatched-calibration retake test checks which calibration is carried,
+      not a visible sticker difference, because self-calibration overrides the saved
+      centres on the synthetic samples (low; deferred from 10.21, GuidedScanFlowTest.kt)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"

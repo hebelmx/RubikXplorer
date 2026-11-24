@@ -23,24 +23,39 @@ import kotlin.math.hypot
  */
 object SideLight {
     /**
-     * Uncalibrated cut, derived from the recorded Lenovo captures in `Fixtures/corner/`
-     * (docs/evidence/10-19/light-check-and-replay.md): front-lit holds measure 13.8–25.0, backlit holds 28.6–36.3 (one
-     * backlit hold 17.2). 27 passes every front-lit hold and trips at least one hold of every backlit group.
+     * Uncalibrated hold cut: a light fail starts above it. Story 10.21 refit it on the 10.20 tuning split
+     * (`QuickScanGateTuningTest`, docs/evidence/10-21/tuning-and-replay.md): the tuning front-lit holds measure at most
+     * 25.35, and the cut sits 10% of that above it, so ordinary front light keeps a margin (the 10.19 cut of 27 had
+     * none on the S24 FE). It still trips every legacy and held-out backlit group in uncalibrated mode.
      */
-    const val MAX_SIDE_DARKER_L = 27.0
+    const val MAX_SIDE_DARKER_L = 27.9
+
+    /** Uncalibrated clear cut (Story 10.21): a running light fail clears only below it, midway between the front-lit maximum and [MAX_SIDE_DARKER_L]. */
+    const val CLEAR_SIDE_DARKER_L = 26.6
 
     /**
-     * Calibrated cut (PO 2026-11-21 F), derived from the same captures with each group's own recorder calibration
-     * (docs/evidence/10-19/light-check-and-replay.md): front-lit holds measure 0.991–1.286, backlit holds 1.337–1.553
-     * and every backlit group's worse hold at least 1.392. 1.34 is the midpoint of 1.286 and 1.392: it passes every
-     * front-lit hold and trips at least one hold of every backlit group (7 of 8 backlit holds).
+     * Calibrated hold cut (PO 2026-11-21 F). Story 10.21 refit it like [MAX_SIDE_DARKER_L]: the tuning front-lit holds
+     * measure at most 1.315 against their own recorder calibration, and the cut sits 10% of that excess over 1 above it.
      */
-    const val MAX_TOP_OVER_SIDES_RATIO = 1.34
+    const val MAX_TOP_OVER_SIDES_RATIO = 1.35
+
+    /** Calibrated clear cut (Story 10.21), midway between the tuning front-lit maximum and [MAX_TOP_OVER_SIDES_RATIO]. */
+    const val CLEAR_TOP_OVER_SIDES_RATIO = 1.33
 
     /** The fraction of a face's stickers at or below its uncalibrated light level. */
     const val LEVEL_PERCENTILE = 0.75
 
-    enum class Mode { CALIBRATED, UNCALIBRATED }
+    /**
+     * The two modes with their hysteresis cuts (Story 10.21): a fail starts above [holdCut] and clears only below
+     * [clearCut]; a score between the two (the band) changes nothing.
+     */
+    enum class Mode(
+        val holdCut: Double,
+        val clearCut: Double,
+    ) {
+        CALIBRATED(MAX_TOP_OVER_SIDES_RATIO, CLEAR_TOP_OVER_SIDES_RATIO),
+        UNCALIBRATED(MAX_SIDE_DARKER_L, CLEAR_SIDE_DARKER_L),
+    }
 
     /**
      * One check: [passed] is false only when every face was measured and [score] is above the mode's cut: the darker side
@@ -56,6 +71,15 @@ object SideLight {
         val rightLevel: Double?,
         val mode: Mode = Mode.UNCALIBRATED,
     ) {
+        /** The score is below the mode's clear cut: a running light fail may clear (Story 10.21); false when unscored. */
+        val belowClear: Boolean get() = score?.let { it < mode.clearCut } == true
+
+        /** The score lies in the hysteresis band, between the clear and hold cuts: the light state never changes on it. */
+        val inBand: Boolean get() = score?.let { it >= mode.clearCut && it <= mode.holdCut } == true
+
+        /** The score is above the hold cut by more than the band's width (debug diagnostics only). */
+        val farAboveCut: Boolean get() = score?.let { it > 2 * mode.holdCut - mode.clearCut } == true
+
         val leftDifference: Double? get() = difference(leftLevel)
         val rightDifference: Double? get() = difference(rightLevel)
 
@@ -171,8 +195,7 @@ object SideLight {
     ): Verdict {
         val verdict = Verdict(true, topLevel, leftLevel, rightLevel, mode)
         val score = verdict.score ?: return verdict
-        val cut = if (mode == Mode.CALIBRATED) MAX_TOP_OVER_SIDES_RATIO else MAX_SIDE_DARKER_L
-        return verdict.copy(passed = score <= cut)
+        return verdict.copy(passed = score <= mode.holdCut)
     }
 
     /** The top's level divided by the mean of the two sides' levels; null when one is unmeasured or the sides are not positive. */

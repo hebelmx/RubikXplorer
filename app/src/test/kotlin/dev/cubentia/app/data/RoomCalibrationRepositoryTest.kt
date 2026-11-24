@@ -68,4 +68,24 @@ class RoomCalibrationRepositoryTest {
             assertEquals(CalibrationWrite.Failed, repo.save(initial))
             assertEquals(CalibrationWrite.Failed, repo.reset())
         }
+
+    @Test fun theTorchTagRoundTripsAndAnUntaggedCalibrationStaysUntagged() =
+        runBlocking {
+            // Story 10.21: the torch state lit when the calibration was saved persists; untagged reads back null (torch-off).
+            val app = RuntimeEnvironment.getApplication()
+            val name = "calibration-torch.db"
+            app.deleteDatabase(name)
+            val database = Room.databaseBuilder<RubikDatabase>(app, name).setDriver(AndroidSQLiteDriver()).build()
+            try {
+                val repo = RoomCalibrationRepository(database)
+                val centers = CalibrationCenters(Color.entries.associateWith { Lab(60.0, it.ordinal.toDouble(), 12.0) })
+                listOf(centers.copy(torchOn = true), centers.copy(torchOn = false), centers).forEach { saved ->
+                    assertEquals(CalibrationWrite.Saved, repo.save(saved))
+                    assertEquals(CalibrationLoad.Loaded(saved), repo.load())
+                }
+            } finally {
+                database.close()
+                app.deleteDatabase(name)
+            }
+        }
 }

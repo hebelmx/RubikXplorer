@@ -76,6 +76,9 @@ internal interface ScanFrameSource {
 
     fun cornerMode(enabled: Boolean) = Unit
 
+    /** Story 10.21: the calibration phase is shown; the torch may be lit in it as in the corner view. */
+    fun calibrationMode(enabled: Boolean) = Unit
+
     fun stop()
 
     fun meter()
@@ -111,7 +114,7 @@ internal interface ScanFrameSource {
     /** Whether the bound camera has a flash unit; null before a camera is bound. */
     fun hasFlashUnit(): Boolean? = null
 
-    /** The torch the corner view wants (Story 10.19); applied only on a camera with a flash unit. */
+    /** The torch the corner view or calibration wants (Stories 10.19, 10.21); applied only on a camera with a flash unit. */
     fun torch(on: Boolean) = Unit
 
     /** The app went to the background (true) or came back (false): the torch is off while suspended. */
@@ -265,7 +268,7 @@ internal class CameraXFrameSource
         private fun applyTorch(force: Boolean) {
             val bound = camera ?: return
             val hasFlash = bound.cameraInfo.hasFlashUnit()
-            val lit = hasFlash && torchWanted && !torchSuspended && corner
+            val lit = hasFlash && torchWanted && !torchSuspended && (corner || calibrating)
             if (flashReported != hasFlash || force) {
                 flashReported = hasFlash
                 ScanDiagnostics.onTorch(hasFlash, lit)
@@ -490,6 +493,13 @@ internal class CameraXFrameSource
 
         @Volatile private var corner = false
 
+        /** Story 10.21: the calibration phase is shown, where the torch may be lit. */
+        @Volatile private var calibrating = false
+
+        override fun calibrationMode(enabled: Boolean) {
+            calibrating = enabled
+        }
+
         override fun cornerMode(enabled: Boolean) {
             corner = enabled
             // Story 10.22: leaving the corner view releases every lock; the Guided grid meters as before.
@@ -564,6 +574,8 @@ internal class CameraXFrameSource
                 deliver(ScanFrame(EMPTY_STATS, rotation, corner = reading.copy(normalizedQuads = viewQuads)))
                 return
             }
+            // Story 10.21: the calibration phase keeps the torch as wanted (re-applied when it drifted after a reopen).
+            if (calibrating) applyTorch(force = false)
             val reading = FrameReader.locate(image, grid, rotation)
             val lattice = reading.lattice
             ScanDiagnostics.onFrame(reading.stats, SystemClock.elapsedRealtime(), lattice.scale, lattice.dx, lattice.dy, lattice.score)
