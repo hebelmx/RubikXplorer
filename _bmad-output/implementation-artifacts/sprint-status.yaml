@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-24-2026 15:14'
+last_updated: '11-24-2026 15:39'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -157,7 +157,7 @@ development_status:
   10-25-quick-scan-starts-from-whichever-corner-it-is-shown: backlog
   10-26-quick-scan-fills-a-few-unread-stickers-from-the-cube-s-rules: backlog
   10-27-clean-the-corner-fixture-labels-and-judge-pastel-stickers-ag: backlog
-  10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa: review
+  10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa: done
   10-29-solution-playback-shows-the-same-quick-check-result-as-lesso: backlog
   10-22-quick-scan-captures-promptly-once-the-cube-is-in-view: done
   10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads: done
@@ -2585,3 +2585,27 @@ action_items:
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-313-guided-scan-close-in-control-group.md"
+  - id: "epic-10-deferred-10.28-recorder-screen-wiring-tests"
+    epic: 10
+    action: "Extract the corner recorder post-write decision (count-check status, next hold, refusal or clear) and the CornerFixtureRecord building (reviewed flags from the operator taps) into pure RecorderRules functions and unit-test them; confirmCornerFace, retakeHold and saveOverride have no test (medium; deferred from 10.28, FixtureRecorderScreen.kt:415)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa.md"
+  - id: "epic-10-deferred-10.28-count-check-write-retry"
+    epic: 10
+    action: "When the count check passes but recordCountCheck fails, the group stays PENDING (unsaved, ignored by every consumer) with only a status line; keep the holds and offer a retry as saveOverride does (medium; deferred from 10.28, FixtureRecorderScreen.kt:471)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa.md"
+  - id: "epic-10-deferred-10.28-epic-10-context-drift"
+    epic: 10
+    action: "Check the epic-10-context.md recompiled in 10.28 against epics.md: it may have dropped the 10.24-10.26 rules (retake merge, corner naming, cube-rule fill) and exposure/prompt-capture rules, and added unrelated 10.29 scope (medium; deferred from 10.28, epic-10-context.md; see also epic-10-deferred-10.20-epic-10-context-refresh)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa.md"
+  - id: "epic-10-deferred-10.28-recorder-ui-device-check"
+    epic: 10
+    action: "Before the next corner-fixture recording session, try the 10.28 recorder UI on a device: refusal row with named colours, ringed pre-fills, Retake corner 1/2, Override dialog (blank reason refused), side-face Confirm lock (medium; deferred from 10.28, FixtureRecorderScreen.kt)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa.md"
