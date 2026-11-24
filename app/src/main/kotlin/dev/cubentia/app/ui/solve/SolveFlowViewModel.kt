@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.cubentia.app.scan.ScanOutcome
 import dev.cubentia.app.solver.SolverLoad
 import dev.cubentia.app.solver.SolverSource
+import dev.cubentia.app.ui.editor.editedFrom
 import dev.cubentia.application.session.Effect
 import dev.cubentia.application.usecase.SolveCube
 import dev.cubentia.application.usecase.SolveCubeOutcome
@@ -84,12 +85,47 @@ class SolveFlowViewModel
         /** The open editor's set stickers, kept with [draft]. */
         private var draftSet: Set<Int> = emptySet()
 
+        /** The stickers the open editor opened on, kept across a Solve tab switch: what an edit is measured against. */
+        private var opened: Facelets? = null
+
+        private val mutableConfirmDiscard = MutableStateFlow(false)
+
+        /** Whether the "Discard the colors you entered?" dialog shows (GH #354). */
+        val confirmDiscard: StateFlow<Boolean> = mutableConfirmDiscard.asStateFlow()
+
         /** Shows [next]; any editor draft belongs to the phase it replaces, so it is dropped. */
         private fun show(next: SolvePhase) {
             draft = null
             draftSet = emptySet()
+            opened = (next as? SolvePhase.Editing)?.initial
+            mutableConfirmDiscard.value = false
             mutablePhase.value = next
         }
+
+        /**
+         * Whether the open editor holds Learner input (GH #354): a seeded (scan-kept) editor always; a fresh one once a
+         * sticker is set; any other once a sticker differs from the cube it opened on.
+         */
+        private fun holdsInput(editing: SolvePhase.Editing): Boolean {
+            if (editing.seeded) return true
+            val current = draft ?: editing.initial
+            val set = if (draft != null) draftSet else editing.set
+            return if (editing.fresh) set.isNotEmpty() else editedFrom(opened ?: editing.initial, current)
+        }
+
+        /** Close or Back in the editor: asks before discarding the Learner's input, else closes at once (GH #354). */
+        fun requestCloseEditor() {
+            val current = mutablePhase.value
+            if (current is SolvePhase.Editing && holdsInput(current)) mutableConfirmDiscard.value = true else closeEditor()
+        }
+
+        /** *Keep entering*: dismisses the dialog, keeping the editor and its stickers. */
+        fun keepEditing() {
+            mutableConfirmDiscard.value = false
+        }
+
+        /** *Discard*: drops the entry and returns to Solve Home. */
+        fun discardAndClose() = closeEditor()
 
         /** The Learner changed a sticker in the open editor; kept so leaving the Solve tab does not lose it. */
         fun onEdit(
@@ -184,6 +220,7 @@ class SolveFlowViewModel
             if (current is SolvePhase.Editing && edited != null) mutablePhase.value = current.copy(initial = edited, set = draftSet)
             draft = null
             draftSet = emptySet()
+            mutableConfirmDiscard.value = false
             scanned = null
             scannedColors = null
             mutablePendingScan.value = null
