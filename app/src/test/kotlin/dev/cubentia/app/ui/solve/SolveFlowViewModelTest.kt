@@ -10,6 +10,7 @@ import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.FaceTurn
+import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.Orientation
 import dev.cubentia.domain.cube.Turn
 import dev.cubentia.domain.text.Text
@@ -239,6 +240,59 @@ class SolveFlowViewModelTest {
         vm.onEdit(cube.toFacelets(), emptySet())
         vm.leaveSolveTab()
         assertEquals(SolvePhase.Home, vm.phase.value)
+    }
+
+    @Test fun closeAsksOnlyWhenTheEditorHoldsInput() {
+        val vm = viewModel(source(CubeSolver { error("A draft must not solve") }))
+        // A fresh editor with nothing set closes at once.
+        vm.enterColors()
+        vm.requestCloseEditor()
+        assertFalse(vm.confirmDiscard.value)
+        assertEquals(SolvePhase.Home, vm.phase.value)
+        // One set sticker asks; Keep entering keeps the editor and its draft, even across a tab switch.
+        vm.enterColors()
+        vm.onEdit(CubeState.SOLVED.toFacelets(), setOf(0))
+        vm.requestCloseEditor()
+        assertTrue(vm.confirmDiscard.value)
+        vm.keepEditing()
+        assertFalse(vm.confirmDiscard.value)
+        vm.leaveSolveTab()
+        assertEquals(setOf(0), (vm.phase.value as SolvePhase.Editing).set)
+        vm.requestCloseEditor()
+        assertTrue(vm.confirmDiscard.value)
+        // Discard returns to Solve Home and drops the dialog.
+        vm.discardAndClose()
+        assertFalse(vm.confirmDiscard.value)
+        assertEquals(SolvePhase.Home, vm.phase.value)
+    }
+
+    @Test fun closingANonFreshEditorAsksOnlyAfterAStickerChanges() =
+        runBlocking {
+            val vm = viewModel(source(CubeSolver { SolveResult.Solved(listOf(move.inverse())) }))
+            vm.accept(cube) { _, _ -> }
+            withTimeout(5000) { vm.phase.first { it == SolvePhase.Home } }
+            vm.enterColors()
+            val opened = (vm.phase.value as SolvePhase.Editing).initial
+            assertFalse((vm.phase.value as SolvePhase.Editing).fresh)
+            // A same-color tap is no change: Close leaves at once.
+            vm.onEdit(opened, setOf(0))
+            vm.requestCloseEditor()
+            assertEquals(SolvePhase.Home, vm.phase.value)
+            vm.enterColors()
+            vm.onEdit(Facelets(opened.colors.toMutableList().also { it[0] = Color.RED }), setOf(0))
+            vm.leaveSolveTab()
+            // The edit, folded into the reopened editor by the tab switch, still asks.
+            vm.requestCloseEditor()
+            assertTrue(vm.confirmDiscard.value)
+        }
+
+    @Test fun closingAScanKeptEditorAlwaysAsks() {
+        val vm = viewModel(source(CubeSolver { error("A draft must not solve") }))
+        vm.onScanOutcome(ScanOutcome.FellBackToEditor(CubeState.SOLVED.toFacelets().colors))
+        assertTrue((vm.phase.value as SolvePhase.Editing).seeded)
+        vm.requestCloseEditor()
+        assertTrue(vm.confirmDiscard.value)
+        assertTrue(vm.phase.value is SolvePhase.Editing)
     }
 
     @Test fun scanSolveRecoveryUsesTheHomeFrameAndKeepsTheBaselineOnRetry() =

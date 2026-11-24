@@ -35,8 +35,8 @@ data class FaceDone(
  * Validation is derived live through [CubeValidator]; this is not a session (AD-3/AD-20), so nothing
  * here is persisted or goes through a reducer.
  *
- * A [fresh] editor (opened on the default solved cube with no caller cube, #253) counts a face as entered only once a
- * sticker of it is [set], shows no problem until every face is entered ([unentered]) and opens with the first sticker
+ * A [fresh] editor (opened on the default solved cube with no caller cube, #253) counts a face as entered only once all
+ * its stickers are [set] ([complete], GH #352/#353), shows no problem until every face is entered ([unentered]) and opens with the first sticker
  * selected. Once every face is entered and the stickers are invalid, each paint tries the faces' quarter turns through
  * [ScanAssembler.orient] (AD-9) once every color count is right: a unique fit replaces the stickers ([turned]), turning
  * the set flags, the selection and [cueIndex] with them; otherwise [checkFace] names the face to check.
@@ -83,10 +83,10 @@ class ManualCubeEditorState(
         private set
 
     /**
-     * Whether [face] counts as entered: when [seeded], once it is [complete]; else always, unless [fresh]; then once any
-     * of its stickers is [set].
+     * Whether [face] counts as entered: when [fresh] or [seeded], once it is [complete] (GH #352/#353: a partly entered
+     * face is never turned or checked); else always.
      */
-    fun entered(face: Int): Boolean = if (seeded) complete(face) else !fresh || stickersOf(face).any { it in set }
+    fun entered(face: Int): Boolean = if (fresh || seeded) complete(face) else true
 
     /** Whether sticker [index] of a [seeded] editor has no color yet (a blank well); never a center. */
     fun isUnset(index: Int): Boolean = seeded && isEditable(index) && index !in set

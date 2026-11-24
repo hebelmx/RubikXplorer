@@ -292,13 +292,19 @@ class ManualCubeEditorStateTest {
         assertEquals(emptyMap<Int, StickerProblemMark>(), state.marks)
         assertEquals(emptySet<Int>(), state.facesWithProblems)
         assertNull(state.validState)
-        // A different color on Up and same-color taps on Front and Left: Right, Back and Down are left, with no error.
+        // A different color on Up and same-color taps on Front and Left: no face is complete, so none counts (GH #352).
         state.paint(Color.RED)
         state.select(18)
         state.paint(Color.GREEN)
         state.select(36)
         state.paint(Color.ORANGE)
-        assertEquals(listOf(1, 5, 3), state.unentered)
+        assertEquals(listOf(0, 2, 1, 5, 4, 3), state.unentered)
+        assertEquals(emptyList<EditorProblem>(), state.lines)
+        // Up's other seven stickers complete it: now only Up counts as entered, still with no error.
+        state.select(1)
+        repeat(7) { state.paint(Color.WHITE) }
+        assertTrue(state.complete(0))
+        assertEquals(listOf(2, 1, 5, 4, 3), state.unentered)
         assertEquals(emptyList<EditorProblem>(), state.lines)
         assertNull(state.validState)
     }
@@ -315,20 +321,43 @@ class ManualCubeEditorStateTest {
     @Test
     fun `a face entered at 180 degrees is turned to the only valid cube and its set stickers turn with it`() {
         val entered = EditorFixtures.turned(scrambled, mapOf(0 to 2))
-        val state = almostEntered(entered, unset = setOf(0))
+        val state = almostEntered(entered)
         assertNull(state.validState)
         state.paint(scrambled.colors[53])
         assertEquals(scrambled, state.facelets)
         assertEquals(listOf(0), state.turned)
         assertEquals(scrambled, state.validState?.toFacelets())
         assertNull(state.checkFace)
-        // Up's unset sticker 0 sits at 8 after the half turn.
-        assertTrue(0 in state.set)
-        assertFalse(8 in state.set)
+        // A turn only runs once every face is complete (GH #352), so every sticker is still set after it.
+        assertEquals(editable.toSet(), state.set)
         // The next paint clears the note.
         state.select(1)
         state.paint(state.facelets.colors[1])
         assertEquals(emptyList<Int>(), state.turned)
+    }
+
+    @Test
+    fun `a partly entered last face shows no problem and is not turned until its last sticker is set`() {
+        // GH #352/#353: five faces complete, Up entered at 270 degrees with 7 of its 8 stickers set.
+        val entered = EditorFixtures.turned(scrambled, mapOf(0 to 3))
+        val state = almostEntered(entered, last = 3)
+        assertEquals(listOf(0), state.unentered)
+        assertTrue(state.lines.isEmpty())
+        assertTrue(state.problems.isEmpty())
+        assertNull(state.checkFace)
+        assertNull(state.validState)
+        assertEquals(entered, state.facelets)
+        // Painting another Up sticker first leaves Up incomplete: still no turn.
+        state.select(0)
+        state.paint(entered.colors[0])
+        assertEquals(emptyList<Int>(), state.turned)
+        assertEquals(entered, state.facelets)
+        // The 8th Up sticker completes it: the turn fit runs once, turning Up back.
+        state.select(3)
+        state.paint(entered.colors[3])
+        assertEquals(listOf(0), state.turned)
+        assertEquals(scrambled, state.facelets)
+        assertEquals(scrambled, state.validState?.toFacelets())
     }
 
     @Test
@@ -383,15 +412,14 @@ class ManualCubeEditorStateTest {
         // After F' B, Up reads the same after a half turn; entered 270 degrees, one clockwise quarter turn fits.
         val cube = CubeState.SOLVED.apply((Notation.parse("F' B") as NotationResult.Parsed).moves).toFacelets()
         val entered = EditorFixtures.turned(cube, mapOf(0 to 3))
-        val state = almostEntered(entered, last = 3, unset = setOf(0))
+        val state = almostEntered(entered, last = 3)
         state.paint(entered.colors[3])
         assertEquals(cube, state.facelets)
         assertEquals(listOf(0), state.turned)
-        // One clockwise quarter turn: 3 -> 1, the advanced selection 5 -> 7, and the unset 0 -> 2.
+        // One clockwise quarter turn: 3 -> 1 and the advanced selection 5 -> 7; every sticker stays set.
         assertEquals(1, state.cueIndex)
         assertEquals(7, state.selected)
-        assertFalse(2 in state.set)
-        assertEquals((editable.toSet() - 2), state.set)
+        assertEquals(editable.toSet(), state.set)
     }
 
     @Test
@@ -460,7 +488,7 @@ class ManualCubeEditorStateTest {
     @Test
     fun `the saver round-trips fresh, set stickers, turned faces and the face to check`() {
         val entered = EditorFixtures.turned(scrambled, mapOf(0 to 2))
-        val turned = almostEntered(entered, unset = setOf(0))
+        val turned = almostEntered(entered)
         turned.paint(scrambled.colors[53])
         val restored = roundTrip(turned)
         assertEquals(turned.facelets, restored.facelets)

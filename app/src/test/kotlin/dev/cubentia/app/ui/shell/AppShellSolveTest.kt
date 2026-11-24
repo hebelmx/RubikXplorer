@@ -6,6 +6,7 @@ import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
@@ -79,6 +80,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -451,6 +453,8 @@ class AppShellSolveTest {
         with(dev.cubentia.app.ui.editor.EditorFixtures) { rule.assertEditorGated() }
         rule.onNodeWithTag("sticker:0").performClick()
         rule.onNodeWithTag("swatch:RED").performScrollTo().performClick()
+        // Up counts once all 8 of its stickers are set (GH #352): auto-advance walks the other seven.
+        repeat(7) { rule.onNodeWithTag("swatch:WHITE").performScrollTo().performClick() }
         rule.waitForIdle()
         val fiveLeft = "5 faces left to enter: Front, Right, Back, Left, Down."
         with(dev.cubentia.app.ui.editor.EditorFixtures) { rule.assertEditorGated(fiveLeft) }
@@ -463,14 +467,83 @@ class AppShellSolveTest {
                 )
         click("nav:learn")
         click("nav:solve")
+        // The reopened editor selects the first unset sticker (Right 1); in one-face mode show Up again.
+        if (rule.onAllNodesWithTag("editor:face:0").fetchSemanticsNodes().isNotEmpty()) click("editor:face:0")
         assertEquals(red, rule.onNodeWithTag("sticker:0").fetchSemanticsNode().config[StickerColorKey])
         // The set stickers survive too: Up still counts as entered.
         with(dev.cubentia.app.ui.editor.EditorFixtures) { rule.assertEditorGated(fiveLeft) }
-        // Close discards the draft: Enter colors opens on the accepted stickers again.
+        // Close asks first (GH #354); Discard drops the draft: Enter colors opens on the accepted stickers again.
         click("solve:close")
+        click("solve:discard:confirm")
         click("solve:enterColors")
         assertEquals(CubeColor.WHITE, (flow.phase.value as SolvePhase.Editing).initial.colors[0])
         org.junit.Assert.assertNotEquals(red, rule.onNodeWithTag("sticker:0").fetchSemanticsNode().config[StickerColorKey])
+    }
+
+    @Test fun closingAFreshEditorWithNothingEnteredReturnsHomeAtOnce() {
+        show()
+        click("nav:solve")
+        click("solve:enterColors")
+        click("solve:close")
+        rule.onNodeWithTag("solve:discard").assertDoesNotExist()
+        assertEquals(SolvePhase.Home, flow.phase.value)
+        click("solve:enterColors")
+        rule.runOnIdle { back!!.onBackPressed() }
+        rule.waitForIdle()
+        rule.onNodeWithTag("solve:discard").assertDoesNotExist()
+        assertEquals(SolvePhase.Home, flow.phase.value)
+    }
+
+    @Test fun closeAfterInputAsksAndKeepEnteringKeepsTheStickers() {
+        show()
+        click("nav:solve")
+        click("solve:enterColors")
+        listOf(0, 1, 2).forEach { index ->
+            rule.onNodeWithTag("sticker:$index").performClick()
+            rule.onNodeWithTag("swatch:RED").performScrollTo().performClick()
+        }
+        rule.waitForIdle()
+        click("solve:close")
+        rule.onNodeWithTag("solve:discard").assertExists()
+        rule.onNodeWithText("Discard the colors you entered?").assertExists()
+        rule.onNodeWithTag("solve:discard:confirm").assertTextEquals("Discard")
+        rule.onNodeWithTag("solve:discard:cancel").assertTextEquals("Keep entering")
+        click("solve:discard:cancel")
+        rule.onNodeWithTag("solve:discard").assertDoesNotExist()
+        val red =
+            androidx.compose.ui.graphics
+                .Color(
+                    dev.cubentia.domain.appearance.StickerAppearance
+                        .of(CubeColor.RED)
+                        .fill,
+                )
+        listOf(0, 1, 2).forEach { assertEquals(red, rule.onNodeWithTag("sticker:$it").fetchSemanticsNode().config[StickerColorKey]) }
+        // Painting moved the selection on to Up 4; Keep entering leaves it there.
+        assertEquals(
+            true,
+            rule
+                .onNodeWithTag("sticker:3")
+                .fetchSemanticsNode()
+                .config
+                .getOrNull(SemanticsProperties.Selected),
+        )
+        // System Back asks the same; Back on the dialog keeps entering; Discard returns to Solve Home.
+        rule.runOnIdle { back!!.onBackPressed() }
+        rule.onNodeWithTag("solve:discard").assertExists()
+        rule.runOnIdle {
+            (
+                org.robolectric.shadows.ShadowDialog
+                    .getLatestDialog() as androidx.activity.ComponentDialog
+            ).onBackPressedDispatcher
+                .onBackPressed()
+        }
+        rule.waitForIdle()
+        rule.onNodeWithTag("solve:discard").assertDoesNotExist()
+        assertTrue(flow.phase.value is SolvePhase.Editing)
+        rule.runOnIdle { back!!.onBackPressed() }
+        click("solve:discard:confirm")
+        assertEquals(SolvePhase.Home, flow.phase.value)
+        rule.onNodeWithTag("solve:enterColors").assertExists()
     }
 
     @Test fun leavingSolveCancelsARunningSolve() {
