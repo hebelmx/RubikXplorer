@@ -224,7 +224,6 @@ class AppShellSkipCheckTest {
             .assertTextContains("Solve this scramble your way. Hints are off.")
         rule.onNodeWithTag("lesson:hint").assertIsNotEnabled()
         rule.onNodeWithTag("lesson:modeSwitcher").assertDoesNotExist()
-        rule.onNodeWithTag("lesson:physicalMode").assertDoesNotExist()
         rule.onNodeWithTag("lesson:physicalModeSwitch").assertDoesNotExist()
     }
 
@@ -349,7 +348,6 @@ class AppShellSkipCheckTest {
         rule.onNodeWithTag("stageDetail:skipCheck").performClick()
         rule.onNodeWithTag("lesson").assertIsDisplayed()
         rule.onNodeWithTag("lesson:hint").assertIsNotEnabled()
-        rule.onNodeWithTag("lesson:physicalMode").assertDoesNotExist()
         rule.onNodeWithTag("lesson:physicalModeSwitch").assertDoesNotExist()
 
         // Commit a move

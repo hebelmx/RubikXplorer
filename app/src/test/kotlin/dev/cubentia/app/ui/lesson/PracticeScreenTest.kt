@@ -1,12 +1,11 @@
 package dev.cubentia.app.ui.lesson
 
 import android.app.Application
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
-import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onChildAt
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -76,8 +75,7 @@ class PracticeScreenTest {
         rule.waitUntil(5_000) { host.state.value.kind == SessionKind.PRACTICE }
         rule.waitForIdle()
 
-        rule.onNodeWithTag("lesson:physicalMode").onChildAt(0).assertTextEquals("Physical mode")
-        rule.onNodeWithTag("lesson:physicalModeSwitch").assertExists().performClick()
+        rule.onNodeWithTag("lesson:physicalModeSwitch").assertContentDescriptionEquals("Physical mode").performClick()
         rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM }
         rule.waitForIdle()
 
