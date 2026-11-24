@@ -13,11 +13,15 @@ import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -27,6 +31,8 @@ import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import dev.cubentia.app.content.ContentStrings
+import dev.cubentia.app.ui.a11y.assertNoTextOverflow
+import dev.cubentia.app.ui.a11y.fontScale200
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.domain.content.ContentLoadResult
 import dev.cubentia.domain.content.ContentLoader
@@ -203,6 +209,111 @@ class GuidedScanScreenTest {
             LiveRegionMode.Polite,
             rule.onNodeWithTag("scanCoaching").fetchSemanticsNode().config[SemanticsProperties.LiveRegion],
         )
+    }
+
+    /** GH #313: *Close* sits in *Capture*'s row below the net, not alone in the top-left corner. */
+    @Test
+    fun `Close sits beside Capture below the net and closes the scan`() {
+        var closed = 0
+        show(
+            GuidedScanPhase.Viewfinder(stepIndex = 1, captured = greenCaptured, coaching = Coaching.GLARE),
+            GuidedScanActions(onClose = { closed++ }),
+            offerEnterColors = true,
+        )
+        assertFitsOnOneScreen()
+        rule.assertCloseBesideCapture()
+        val close = rule.onNodeWithTag("scanClose").assertIsDisplayed().getUnclippedBoundsInRoot()
+        val net = rule.onNodeWithTag("scanNet").getUnclippedBoundsInRoot()
+        assertTrue("scanClose $close below the net $net", close.top >= net.bottom)
+        assertTrue("scanClose $close below the prompt", close.top >= rule.onNodeWithTag("scanPrompt").getUnclippedBoundsInRoot().bottom)
+        assertTrue(close.bottom <= rule.onRoot().getUnclippedBoundsInRoot().bottom)
+        rule.onNodeWithTag("scanClose").performClick()
+        assertEquals(1, closed)
+    }
+
+    /** GH #313: TalkBack reaches *Close* right before *Capture*, after the prompt and its progress. */
+    @Test
+    fun `TalkBack reaches Close immediately before Capture, after the prompt and progress`() {
+        show(GuidedScanPhase.Viewfinder(stepIndex = 1, coaching = Coaching.WRONG_FACE, canUseAnyway = true), offerEnterColors = true)
+        val clickables = rule.clickableTags()
+        val close = clickables.indexOf("scanClose")
+        assertTrue("scanClose in $clickables", close >= 0)
+        assertEquals("$clickables", "scanCapture", clickables.getOrNull(close + 1))
+        assertTrue("$clickables", clickables.indexOf("scanUseAnyway") in 0 until close)
+        val all = rule.taggedNodeOrder()
+        assertTrue("$all", all.indexOf("scanPrompt") < all.indexOf("scanProgress"))
+        assertTrue("$all", all.indexOf("scanProgress") < all.indexOf("scanClose"))
+    }
+
+    /** GH #313: the progress sits beside the face prompt, at its end, and still announces itself. */
+    @Test
+    fun `the progress sits beside the face prompt`() {
+        show(GuidedScanPhase.Viewfinder(stepIndex = 1, captured = greenCaptured))
+        val prompt = rule.onNodeWithTag("scanPrompt").getUnclippedBoundsInRoot()
+        val progress = rule.onNodeWithTag("scanProgress").assertIsDisplayed().getUnclippedBoundsInRoot()
+        assertTrue("progress $progress beside prompt $prompt", progress.top < prompt.bottom && prompt.top < progress.bottom)
+        assertTrue("progress $progress after prompt $prompt", progress.left >= prompt.right)
+        val grid = rule.onNodeWithTag("scanGrid").getUnclippedBoundsInRoot()
+        assertTrue(progress.bottom <= grid.top)
+        assertEquals(
+            LiveRegionMode.Polite,
+            rule.onNodeWithTag("scanProgress").fetchSemanticsNode().config[SemanticsProperties.LiveRegion],
+        )
+    }
+
+    /** GH #313 at 200% font: nothing cut off, *Close* and *Capture* still on screen and nothing scrolls. */
+    @Test
+    fun `at 200 percent font Close and Capture stay on one compact screen`() {
+        rule.setContent {
+            fontScale200 {
+                CubentiaTheme {
+                    GuidedScanScreen(
+                        GuidedScanPhase.Viewfinder(stepIndex = 1, captured = greenCaptured, coaching = Coaching.GLARE),
+                        strings,
+                        GuidedScanActions(),
+                    )
+                }
+            }
+        }
+        rule.assertNoTextOverflow("Guided Scan viewfinder at 200%") { it.isSwatchGlyph() }
+        val root = rule.onRoot().getUnclippedBoundsInRoot()
+        listOf("scanClose", "scanCapture").forEach { tag ->
+            val bounds = rule.onNodeWithTag(tag).assertIsDisplayed().getUnclippedBoundsInRoot()
+            assertTrue("$tag $bounds inside $root", bounds.inside(root))
+        }
+        rule.assertCloseBesideCapture()
+        assertEquals(0, rule.onAllNodes(hasScrollAction()).fetchSemanticsNodes().size)
+    }
+
+    /** GH #313 at 200% font: a re-prompt naming its top keeps its room beside "Again: face 1 of 2". */
+    @Test
+    fun `at 200 percent font a re-prompt keeps its width beside the progress`() {
+        rule.setContent {
+            fontScale200 {
+                CubentiaTheme {
+                    GuidedScanScreen(
+                        GuidedScanPhase.Viewfinder(
+                            stepIndex = 6,
+                            captured = greenCaptured,
+                            coaching = Coaching.GLARE,
+                            step = GuidedScanPlan.reprompt(Face.F),
+                            again = RepromptProgress(1, 2),
+                        ),
+                        strings,
+                        GuidedScanActions(),
+                    )
+                }
+            }
+        }
+        rule.assertNoTextOverflow("Guided Scan re-prompt at 200%") { it.isSwatchGlyph() }
+        val root = rule.onRoot().getUnclippedBoundsInRoot()
+        val prompt = rule.onNodeWithTag("scanPrompt").assertIsDisplayed().getUnclippedBoundsInRoot()
+        val progress = rule.onNodeWithTag("scanProgress").assertIsDisplayed().getUnclippedBoundsInRoot()
+        assertTrue("scanPrompt $prompt inside $root", prompt.inside(root))
+        assertTrue("scanProgress $progress inside $root", progress.inside(root))
+        val row = progress.right - prompt.left
+        assertTrue("scanPrompt $prompt at least half the row beside $progress", prompt.right - prompt.left >= row / 2)
+        assertFitsOnOneScreen()
     }
 
     @Test
@@ -493,6 +604,35 @@ class GuidedScanScreenTest {
         }
     }
 }
+
+/** GH #313: *Close* starts *Capture*'s row: their heights overlap and at most 16 dp sit between them. */
+internal fun ComposeTestRule.assertCloseBesideCapture() {
+    val close = onNodeWithTag("scanClose").assertIsDisplayed().getUnclippedBoundsInRoot()
+    val capture = onNodeWithTag("scanCapture").assertIsDisplayed().getUnclippedBoundsInRoot()
+    assertTrue("scanClose $close in the row of scanCapture $capture", close.top < capture.bottom && capture.top < close.bottom)
+    assertTrue("scanClose $close before scanCapture $capture", close.right <= capture.left)
+    assertTrue("scanClose $close within 16 dp of scanCapture $capture", capture.left - close.right <= 16.dp)
+    assertTrue(close.bottom - close.top >= 48.dp)
+}
+
+/**
+ * A prompt swatch's color-blind glyph: sized in dp (font scale never resizes it, AD-17) inside a 32 dp swatch, where
+ * Robolectric's fixed line metrics report a height overflow even at 100% font, so the 200% text checks leave it out.
+ */
+internal fun androidx.compose.ui.semantics.SemanticsNode.isSwatchGlyph(): Boolean =
+    parent?.config?.getOrNull(SemanticsProperties.TestTag)?.startsWith("scanSwatch:") == true
+
+/** Test tags of the clickable nodes, in the semantics tree order TalkBack traverses. */
+internal fun ComposeTestRule.clickableTags(): List<String> =
+    onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsActions.OnClick))
+        .fetchSemanticsNodes()
+        .mapNotNull { it.config.getOrNull(SemanticsProperties.TestTag) }
+
+/** Test tags of every tagged node, in semantics tree order. */
+internal fun ComposeTestRule.taggedNodeOrder(): List<String> =
+    onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.TestTag), useUnmergedTree = true)
+        .fetchSemanticsNodes()
+        .map { it.config[SemanticsProperties.TestTag] }
 
 /** True when this rectangle and [other] share any area. */
 internal fun DpRect.overlaps(other: DpRect): Boolean = left < other.right && other.left < right && top < other.bottom && other.top < bottom

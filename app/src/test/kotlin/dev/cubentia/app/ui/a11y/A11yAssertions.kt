@@ -20,12 +20,17 @@ internal fun fontScale200(content: @Composable () -> Unit) {
     CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale = 2f), content = content)
 }
 
-internal fun ComposeTestRule.assertNoTextOverflow(screen: String) {
+/** [skip] leaves out nodes the check cannot judge, such as dp-sized glyphs that Robolectric's fixed font metrics overstate. */
+internal fun ComposeTestRule.assertNoTextOverflow(
+    screen: String,
+    skip: (SemanticsNode) -> Boolean = { false },
+) {
     val nodes =
         onAllNodes(
             SemanticsMatcher.keyIsDefined(SemanticsActions.GetTextLayoutResult),
             useUnmergedTree = true,
         ).fetchSemanticsNodes()
+            .filterNot(skip)
     assertTrue("$screen has text", nodes.isNotEmpty())
     nodes.forEach { node ->
         val results = mutableListOf<TextLayoutResult>()
