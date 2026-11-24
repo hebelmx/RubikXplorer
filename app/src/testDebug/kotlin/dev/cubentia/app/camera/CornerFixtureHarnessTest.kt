@@ -3,6 +3,7 @@ package dev.cubentia.app.camera
 import dev.cubentia.domain.cube.CubeValidator
 import dev.cubentia.domain.cube.ValidationResult
 import dev.cubentia.domain.recognition.CornerFixtureJson
+import dev.cubentia.domain.recognition.CornerFixturePaths
 import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.FrameQuality
 import dev.cubentia.domain.recognition.ScanAssembler
@@ -25,7 +26,7 @@ class CornerFixtureHarnessTest {
         var scans = 0
         var valid = 0
         root.listFiles(File::isDirectory).orEmpty().sorted().forEach { group ->
-            val files = group.listFiles { file -> file.extension == "json" }.orEmpty().sorted()
+            val files = (1..2).map { hold -> File(group, CornerFixturePaths.fileName(hold)) }.filter(File::isFile)
             val samples = mutableListOf<FaceSample>()
             val holds = mutableSetOf<Int>()
             files.forEach { file ->

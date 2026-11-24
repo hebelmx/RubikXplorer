@@ -252,7 +252,11 @@ action_items:
     action: "Device/emulator smoke of the release build: 12 Lessons listed, content
       decodes under R8, a Stage 2 Lesson completes in Guide me, switcher fits at 411dp"
     owner: "hebelmx"
-    status: open
+    status: done
+    evidence: "docs/evidence/release-device-session/README.md Block 1.1-1.2 (2026-11-23, benchmark build dfc5c3d6): Galaxy
+      fresh install, Learn lists 7 Stages / 23 Lessons (the '12 Lessons' was stale);
+      Lenovo Stage 2 Lesson completes in Guide me and survives a restart; switcher
+      fits at 384 dp on the Galaxy"
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-10-30.md"
   - id: "story-1-10-deferred-delete-sceneview-spike"
     epic: 1
@@ -788,7 +792,10 @@ action_items:
       check on device whether the guided scan can emit a non-HOME orientation, then
       fix (medium, unverified; pre-existing, deferred from #178, SolveFlowViewModel.onScanOutcome)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
+    resolution: "Not reproducible, PO agreed 2026-11-23: the guided scan prompts by
+      centre + top neighbour, so every accepted scan opened White on top, Green in front,
+      and the Editor fallback opened in the home frame (docs/evidence/release-device-session/README.md 8.9)"
     ref: "_bmad-output/implementation-artifacts/spec-gh-178-solved-cube-already-solved.md"
   - id: "epic-12-deferred-12.14-device-render-sync-bench-talkback"
     epic: 12
@@ -1444,7 +1451,10 @@ action_items:
       the automated offline run covers only the debug build (medium, unverified; deferred
       from 12.3, tools/run-keyflow-rotation.sh, .github/scripts/run-instrumentation.sh)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
+    evidence: "docs/evidence/release-device-session/README.md Block 1.3 (2026-11-23): benchmark build dfc5c3d6 on the
+      Lenovo in airplane mode; Learn, a Lesson check, Library, Enter colors, solve and
+      playback with no network message or hang"
     ref: "_bmad-output/implementation-artifacts/spec-12-3-stability-size-and-privacy-hardening.md"
   - id: "epic-12-deferred-12.3-epic-12-context-rules"
     epic: 12

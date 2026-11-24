@@ -159,7 +159,7 @@ internal fun prefill(
 internal data class TruthEntry(
     val colors: List<Color?> = List(STICKERS) { null },
     val sources: List<TruthSource?> = List(STICKERS) { null },
-    val selected: Int? = 0,
+    val selected: Int? = null,
 ) {
     val complete: Boolean get() = colors.all { it != null }
     val anyEntered: Boolean get() = sources.any { it == TruthSource.ENTERED }
