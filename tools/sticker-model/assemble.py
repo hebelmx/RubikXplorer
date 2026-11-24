@@ -219,9 +219,7 @@ def assemble_corner(out: Path, items: list, excluded: list, sources: list, detec
         # Story 10.28: an unsaved group, or an override the PO has not included, is never trained or scored on.
         use = corner_groups.folder_use(directory, group_index)
         if use != corner_groups.USED:
-            for stem, face, frame in corner_groups.skipped_faces(directory):
-                source = (directory / frame).relative_to(REPO_ROOT).as_posix()
-                excluded.append({"item": f"{group}/{stem}/{face}", "source": source, "reason": corner_groups.REASONS[use]})
+            excluded.extend(corner_groups.excluded_entries(directory, use, REPO_ROOT))
             continue
         device_id, cube, light = directory.name.split("_", 2)
         meta = {

@@ -533,6 +533,8 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                 status = "Saved corner group ${current.directory.name} with an override."
                 clearGroupCheck()
             } catch (failure: Exception) {
+                // Close the dialog so the failure in the status line is visible; Override… stays available to retry.
+                overriding = false
                 status = "Save failed: ${failure.message}"
             } finally {
                 saving = false

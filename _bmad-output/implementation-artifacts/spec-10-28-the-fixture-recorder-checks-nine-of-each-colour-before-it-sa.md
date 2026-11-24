@@ -5,7 +5,7 @@ created: '2026-11-24'
 status: 'done'
 baseline_revision: '6e8cf79cd2cbe84827e57a2a3c27b25d24924c8f'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-10-context.md'
 warnings: ['oversized']
@@ -31,6 +31,20 @@ deferred:
     location: >-
       _bmad-output/implementation-artifacts/epic-10-context.md
     severity: medium (unverified)
+  - summary: >-
+      The reviewed flags written into each CornerFixtureRecord are not checked against the operator's taps.
+    evidence: |-
+      The recorder builds reviewed from cornerReviewed in confirmCornerFace; only decode checks list sizes. Same screen-wiring root as the first deferred item; a pure record-building function would make it testable.
+    location: >-
+      app/src/camera/debug/kotlin/dev/cubentia/app/camera/recorder/FixtureRecorderScreen.kt
+    severity: medium
+  - summary: >-
+      The recompiled epic-10-context.md also adds scope unrelated to 10.28 (Story 10.29, Quick Check v1.1, exit and review rules).
+    evidence: |-
+      Blind review of the cache diff in the follow-up pass; the file is the workflow's compiled context. Check it against epics.md at the next compile.
+    location: >-
+      _bmad-output/implementation-artifacts/epic-10-context.md
+    severity: medium
 ---
 
 <intent-contract>
@@ -137,6 +151,51 @@ Refs (binding): FR-24 · recognition NFRs (Confidence calibration) · AD-9, AD-1
   - `[medium]` `[defer]` (vgap) recorder screen wiring untested — debug tool without Compose tests; device session covers it.
   - `[high]` `[patch]` (vgap other) assemble.py `index` variable bug — same fix as above.
 
+### 2026-11-24 — Review pass
+- verdicts: 41 findings — high 0, medium 11, low 14, false 16, maybe-false 0
+- findings:
+  - `[false]` `[reject]` (intent) "not saved" is a manifest state, files stay on disk — carried: PO clarification (1) "Write, mark unsaved" selects A2.
+  - `[false]` `[reject]` (intent) a hold-1-only group counts as unsaved (pending) and drops out of tuning — a half group is not a checked group; the intent saves a group only after both holds pass the check, and the status line says "Saved corner 1", not the group.
+  - `[low]` `[reject]` (intent) the check exists only in one recorder session — carried: lost state leaves the group PENDING (unsaved, the safe side).
+  - `[medium]` `[defer]` (intent) recorder screen not tested — carried; already in deferred.
+  - `[false]` `[reject]` (intent) replay runs on a snapshot through the pure function — carried: snapshot verified against `git show add0c79e`.
+  - `[false]` `[reject]` (intent) domain types outside the debug source set — carried: the manifest type already lived in LiveFixture.kt.
+  - `[false]` `[reject]` (intent) "names them" became an `included` flag — carried: groups.json is hand-written by the PO by design (10.20); the flag is how the PO names a group.
+  - `[false]` `[reject]` (intent) `entry()` returns null for non-included overrides — that is the skip the intent asks for; no consumer needs a skipped group's entry.
+  - `[false]` `[reject]` (intent) ringing covers reviewed pre-fills and face 0 — the matrix row says pre-filled WHITE stickers are highlighted, not only unreviewed side-face ones.
+  - `[medium]` `[defer]` (intent) epic-10-context.md rewritten beyond 10.28 — carried; already in deferred.
+  - `[low]` `[patch]` (vgap) "no committed unsaved group" checked only by the Python test CI never runs — added `story 10-28 no committed corner group is unsaved` to CornerGroupIndexTest (Gradle, CI).
+  - `[medium]` `[patch]` (vgap) assemble_corner skip path never executed by a test — moved the excluded-entry building into `corner_groups.excluded_entries` (stdlib), assemble calls it, test_corner_groups covers it.
+  - `[medium]` `[defer]` (vgap) recorder screen wiring untested — carried; already in deferred.
+  - `[medium]` `[reject]` (vgap other) passing check whose write fails leaves the group pending with no retry — carried: rare disk-IO path, status says "Count check not written".
+  - `[low]` `[reject]` (vgap other) tools/corner-model ignores the `overridden` list, so an included override is never trained there — errs on the skip side, no override exists yet, and the fix adds a parse branch to another tool.
+  - `[medium]` `[reject]` (blind) passing check write failure, no retry — carried (same as above).
+  - `[low]` `[reject]` (blind) failed recordHold still produces a refusal or pass — carried: same rare IO path as the logged recordHold-failure row; status reports the failure.
+  - `[low]` `[patch]` (blind) failed override save hidden behind the open dialog — saveOverride now closes the dialog on failure so the status line shows; Override… stays available.
+  - `[false]` `[reject]` (blind) keypoint captures during a refusal land in an unsaved folder and are lost — they belong to the group and are used once it passes after a retake or is overridden; the spec keeps the row unchanged by design.
+  - `[low]` `[patch]` (blind) Kotlin CI and the Python test disagree on committed unsaved groups — same root as the vgap row; same fix.
+  - `[medium]` `[patch]` (blind) assemble skip path never run — same root as the vgap row; same fix.
+  - `[low]` `[reject]` (blind) manifest OVERRIDDEN ⇔ non-blank reason not validated on decode — only a hand edit reaches it; withCountCheck keeps them consistent; fix adds a guard.
+  - `[false]` `[reject]` (blind) ColorCalibrationTest checks an unsaved group listed by mistake — CornerGroupIndexTest fails CI on any unsaved group the index lists, so that state cannot be committed.
+  - `[low]` `[reject]` (blind) skippedLine duplicated / KDoc / flat walk — carried.
+  - `[false]` `[reject]` (blind) CornerHoldLabels.reviewed never read — no bad outcome follows from it; the spec defines the type with it.
+  - `[medium]` `[defer]` (blind) reviewed flags written to records are untested — screen-wiring root; added to deferred.
+  - `[false]` `[reject]` (blind) AC5 test reads evidence by a working-directory-relative path — Gradle runs unit tests from the module directory; it passes in `./gradlew build`.
+  - `[low]` `[reject]` (blind) refusal nets clip at 200% font — debug-only tool; fix needs layout measurement.
+  - `[low]` `[reject]` (blind) override reason typed twice and dialog does not mention groups.json — the index is hand-written by design; CornerGroupIndexTest names the missing entry.
+  - `[medium]` `[defer]` (blind) rebuilt epic-10-context.md drops 10.24-10.26 rules — carried; already in deferred.
+  - `[medium]` `[defer]` (blind) epic-10-context.md adds unrelated scope (10.29, Quick Check, exit rules) — workflow cache; added to deferred.
+  - `[medium]` `[reject]` (edge) passing check, failed write clears groupHolds — carried.
+  - `[false]` `[reject]` (edge) retake leaves the discarded hold's positive keypoint fixture — a keypoint fixture is a standalone geometry sample, valid whatever the colour labels were.
+  - `[false]` `[reject]` (edge) keypoint row enabled during refusal — same as the blind row: captures are used once the group is saved.
+  - `[false]` `[reject]` (edge) assemble skipped count too low for groups with no labelled faces — carried.
+  - `[low]` `[reject]` (edge) replay skipped count enumeration differs from groups() — carried (flat walk).
+  - `[low]` `[reject]` (edge) LEGACY_SCHEMA record with reviewed decodes — hand edit only; fix adds a guard.
+  - `[low]` `[reject]` (edge, claim) corner-model ignores included overrides — same as the vgap row.
+  - `[low]` `[reject]` (edge, claim) recordHold failure discards the check — carried.
+  - `[false]` `[reject]` (edge, claim) skipped count understated — carried.
+  - `[false]` `[reject]` (edge, claim) ColorCalibrationTest unsaved group — same refutation as the blind row.
+
 ## Design Notes
 
 PO clarifications 2026-11-24 (binding): (1) write each hold at once; a refused group stays on disk marked unsaved and the index and consumers ignore it. (2) after refusal: retake one hold, or Override with a reason dialog. (3) per-face outline: list the faces holding pre-filled stickers of over colours; each face's net rings those stickers, never tints them. (4) tap or colour pick confirms a pre-fill; an unchanged sticker keeps PREFILLED and gets a `reviewed` flag; automatic selection does not count. (5) Override dialog with a reason field; spaces only counts as empty.
@@ -181,3 +240,17 @@ Status: done
 **Verification:** `./gradlew spotlessCheck build` BUILD SUCCESSFUL (after patches); `RecorderRulesTest` 51/51, `LiveFixtureTest` 12, `CornerGroupIndexTest` 4, `QuickScanSideFaceReplayTest` 11, `QuickScanGateTuningTest` 2, 0 skipped; `python3 -m unittest test_corner_groups` 5 OK; all I/O-matrix rows covered by passing tests.
 
 **Residual risks:** the recorder UI (refusal row, dialog, lock line) has not been tried on a device; new manifests/records serialize `countCheck: null`/`reviewed: null` explicitly (encodeDefaults).
+
+### Follow-up review pass (2026-11-24)
+
+**Patches:** 3 entries — medium 1 (`assemble_corner` skip path now in `corner_groups.excluded_entries`, covered by `test_corner_groups`), low 2 (Gradle test `story 10-28 no committed corner group is unsaved` in CornerGroupIndexTest; `saveOverride` closes the dialog on failure). High patched: 0.
+
+**Files changed this pass:** `tools/sticker-model/corner_groups.py` (excluded_entries), `tools/sticker-model/assemble.py` (uses it), `tools/sticker-model/test_corner_groups.py` (covers it), `core/domain/src/test/.../CornerGroupIndexTest.kt` (no committed unsaved group), `app/src/camera/debug/.../FixtureRecorderScreen.kt` (override failure visible).
+
+**Deferred:** 2 new (reviewed flags untested, epic context unrelated scope); carried deferrals unchanged. Rejected findings with reasons are in the triage log (41 findings: 11 medium, 14 low, 16 false).
+
+**Follow-up review recommended:** false — this follow-up pass patched no high; the earlier unexecuted `assemble_corner` skip path is now exercised by a stdlib test.
+
+**Verification:** `./gradlew spotlessApply` + `:core:domain:test :app:testDebugUnitTest --tests '*recorder*'` BUILD SUCCESSFUL (CornerGroupIndexTest 5/5, RecorderRulesTest 51/51); `python3 -m unittest test_corner_groups` 5 OK; `./gradlew spotlessCheck build` BUILD SUCCESSFUL.
+
+**Residual risks:** recorder UI still untried on a device; `assemble.py` itself still needs TensorFlow to run end to end.

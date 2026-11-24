@@ -57,6 +57,20 @@ def folder_use(directory: Path, index: dict | None) -> str:
     return group_use(directory.name, load_manifest(directory), index)
 
 
+def excluded_entries(directory: Path, use: str, repo_root: Path, prefix: str = "corner") -> list[dict]:
+    """The assembled manifest's `excluded` entries for a group folder that `use` skips (empty for a used group)."""
+    if use == USED:
+        return []
+    return [
+        {
+            "item": f"{prefix}/{directory.name}/{stem}/{face}",
+            "source": (directory / frame).relative_to(repo_root).as_posix(),
+            "reason": REASONS[use],
+        }
+        for stem, face, frame in skipped_faces(directory)
+    ]
+
+
 def skipped_faces(directory: Path) -> list[tuple[str, str, str]]:
     """Every labelled face of a group folder as (hold file stem, face, frame name), in hold order."""
     faces = []

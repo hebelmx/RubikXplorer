@@ -166,6 +166,19 @@ class CornerGroupIndexTest {
         assertTrue(problems.isEmpty(), problems.joinToString("\n"))
     }
 
+    @Test
+    fun `story 10-28 no committed corner group is unsaved`() {
+        // A pending or refused group may stay on the device, but it is never committed (same rule as test_corner_groups.py).
+        val unsaved =
+            FIXTURES
+                .listFiles()
+                .orEmpty()
+                .filter { dir -> manifest(dir)?.saved == false }
+                .map { "${it.name} (count check ${manifest(it)?.countCheck?.name?.lowercase()})" }
+                .sorted()
+        assertEquals(emptyList<String>(), unsaved)
+    }
+
     private val lenovo = DeviceInfo("Lenovo TB128XU", "LENOVO", "13", "b", 33)
     private val s24 = DeviceInfo("SM-S721U1", "samsung", "15", "b", 35)
 

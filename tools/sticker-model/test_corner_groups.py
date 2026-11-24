@@ -68,6 +68,15 @@ class GroupUseTest(unittest.TestCase):
                  ("corner-2", "D", "corner-2.jpg"), ("corner-2", "B", "corner-2.jpg"), ("corner-2", "L", "corner-2.jpg")],
                 corner_groups.skipped_faces(root / "refused"),
             )
+            self.assertEqual(
+                [
+                    {"item": f"corner/refused/corner-{h}/{f}", "source": f"refused/corner-{h}.jpg", "reason": "count check: unsaved"}
+                    for h, faces in ((1, "UFR"), (2, "DBL"))
+                    for f in faces
+                ],
+                corner_groups.excluded_entries(root / "refused", UNSAVED, root),
+            )
+            self.assertEqual([], corner_groups.excluded_entries(root / "a", USED, root))
             self.assertEqual("count check: unsaved", corner_groups.REASONS[UNSAVED])
             self.assertEqual("count check: override not included by the PO", corner_groups.REASONS[OVERRIDE_SKIPPED])
 
