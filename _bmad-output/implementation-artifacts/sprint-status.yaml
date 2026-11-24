@@ -2188,7 +2188,7 @@ action_items:
       evaluate.py on them and add the report to docs/evidence/10-23/ (H3) (medium;
       PO-deferred human gate from 10.23, AC9)"
     owner: "PO (hebelmx)"
-    status: open
+    status: done  # 2026-11-23: docs/evidence/10-23/evaluation-10-20.md (spike/label-cleanse), labels after the PO review
     ref: "_bmad-output/implementation-artifacts/spec-10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads.md"
   - id: "issue-252-deferred-reached-two-look-redundant-unlock"
     epic: 11

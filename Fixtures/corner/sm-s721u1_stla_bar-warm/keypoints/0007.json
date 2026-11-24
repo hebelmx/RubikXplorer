@@ -1,0 +1,19 @@
+{
+    "kind": "corner-keypoints",
+    "frame": "0007.png",
+    "label": "negative",
+    "keypoints": null,
+    "detectorKeypoints": null,
+    "device": {
+        "model": "SM-S721U1",
+        "manufacturer": "samsung",
+        "osRelease": "17",
+        "osBuild": "CP2A.260605.016.S721U1UEUEEZJ6",
+        "sdkInt": 37
+    },
+    "cube": "stla",
+    "light": "bar-warm",
+    "lightDirection": "front",
+    "capturedAt": "2026-11-23T19:35:05.625043Z",
+    "torch": true
+}
