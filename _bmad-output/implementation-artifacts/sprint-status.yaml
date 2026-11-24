@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-24-2026 09:48'
+last_updated: '11-24-2026 09:49'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -152,7 +152,7 @@ development_status:
   10-18-quick-scan-finds-the-cube-s-real-edges-and-corners: done
   10-19-quick-scan-reads-the-side-faces-in-good-light: done
   10-20-record-10-19-pipeline-corner-fixtures-and-check-the-corner-m: done
-  10-21-quick-scan-keeps-the-side-faces-it-reads-well: review
+  10-21-quick-scan-keeps-the-side-faces-it-reads-well: done
   10-24-retake-a-corner-in-quick-scan: backlog
   10-25-quick-scan-starts-from-whichever-corner-it-is-shown: backlog
   10-26-quick-scan-fills-a-few-unread-stickers-from-the-cube-s-rules: backlog
@@ -2382,3 +2382,128 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-330-recorder-hold-settle-after-ev.md"
+  - id: "epic-10-deferred-10-21-po-beta-quick-scan-off-pipeline-rethink"
+    epic: 10
+    action: "PO BETA call 2026-11-24: QUICK_SCAN stays OFF because the Quick Scan
+      recognition pipeline does not work on device (near-zero side-face coverage,
+      calibration centre check fails even right after calibrating); plan a pipeline
+      rethink via bmad-correct-course before more Quick Scan stories (10.24-10.27)
+      (high; decision; deferred from 10.21, docs/evidence/10-21/device-session-notes.md)"
+    owner: "PO (Abel)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
+  - id: "epic-10-deferred-10-21-cal-centre-check-fails-after-calibrating"
+    epic: 10
+    action: "The calibration match centre check fails on both reference devices right
+      after calibrating (Lenovo on every hold, S24 FE on hold 2), so the 1-blank keep
+      rule ran on a single face in the whole device session (high; deferred from 10.21,
+      docs/evidence/10-21/device-session-notes.md)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
+  - id: "epic-10-deferred-10-21-light-check-front-lit-false-blocks"
+    epic: 10
+    action: "The light check marks most front-lit holds light=fail (lightScore 28-58),
+      so front-lit false blocks are common on both reference devices (medium; deferred
+      from 10.21, docs/evidence/10-21/device-session-notes.md)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
+  - id: "epic-10-deferred-10-21-face-by-face-first-face-ref-none"
+    epic: 10
+    action: "The face-by-face fallback logs ref=none with no colours for its first face
+      on every run, and it misread 3 stickers on Lenovo stka (U1 Y as W, U8 O as W, F2 W
+      as B) (medium; deferred from 10.21, docs/evidence/10-21/device-session-notes.md)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
+  - id: "epic-10-deferred-10-21-pastel-bar-warm-keeps-wrong-sticker"
+    epic: 10
+    action: "The pastel tuning group lenovo-tb128xu_stlb_bar-warm still keeps a
+      confidently wrong sticker (D2, Orange read as Red) on a kept face; settle with
+      Story 10.27 (pastel judged against the cube's own calibrated colours) and the PO
+      BETA call (medium; deferred from 10.21, QuickScanClassification.kt
+      AGREEMENT_MARGIN)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
+  - id: "epic-10-deferred-10-21-per-frame-match-cost-unmeasured"
+    epic: 10
+    action: "QuickScanController.onFrame runs matchAll plus three gated decide() calls
+      (each re-running SelfCalibration) on every settled frame on the analyzer thread
+      with the frame-time cost unmeasured; compute self-calibration and match once per
+      frame or log analyzer frame time on the S24 FE and Lenovo (medium, unverified;
+      deferred from 10.21, QuickScan.kt:252)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
+  - id: "epic-10-deferred-10-21-calibration-torch-only-fake-tested"
+    epic: 10
+    action: "Lighting the torch in the calibration phase (ScanFrameSource.applyTorch
+      while calibrating) is only checked against a fake camera; confirm with the run
+      sheet's physical torch check on the S24 FE and the Lenovo (medium; deferred from
+      10.21, ScanFrameSource.kt applyTorch)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
+  - id: "epic-10-deferred-10-21-orange-margin-one-sticker-mislabel"
+    epic: 10
+    action: "The Orange agreement margin 21.3 is driven by one tuning sticker
+      (sm-s721u1_stla_bar-warm-2 h1 F2, labelled Red, read Orange) that may be a
+      mislabel; refit once Story 10.27's label-exclusions.json lands (medium; deferred
+      from 10.21, QuickScanClassification.kt AGREEMENT_MARGIN)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
+  - id: "epic-10-deferred-10-21-light-hysteresis-jitter-untested"
+    epic: 10
+    action: "The calibrated light hysteresis band (1.33 to 1.35) was never tested
+      against frame-to-frame jitter; compare flip counts of the old single cut and the
+      new band on recorded bursts or check light-clear steadiness on the S24 FE (medium,
+      unverified; deferred from 10.21, SideLight.kt)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
+  - id: "epic-10-deferred-10-21-one-blank-rule-no-held-out-group"
+    epic: 10
+    action: "The 1-blank keep rule never applies on any held-out group because every
+      held-out own calibration fails the centre check; add a held-out group with a
+      matching calibration before 10.11 raises QUICK_SCAN (medium; deferred from 10.21,
+      docs/evidence/10-21/tuning-and-replay.md:96)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
+  - id: "epic-10-deferred-10-21-calibrated-light-cut-backlit-unfit"
+    epic: 10
+    action: "The calibrated light hold cut 1.35 was fitted on front light only and
+      sm-s721u1_stla_ceilback would not trip with a matching calibration; report backlit
+      groups in calibrated mode with their own calibration forced and refit (medium;
+      deferred from 10.21, SideLight.kt:40)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
+  - id: "epic-10-deferred-10-21-guided-scan-uses-torch-on-calibrations"
+    epic: 10
+    action: "Calibrations opened from Settings or the Quick Scan review now default to
+      torch on, and the Guided 6-face scan reads with them without checking the torch
+      tag (low, Learner-visible; deferred from 10.21, GuidedScanActivity.kt:339)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
+  - id: "epic-10-deferred-10-21-plain-only-fit-choice-disclosure"
+    epic: 10
+    action: "The agreement fit used plain tuning groups only after one disclosed
+      held-out replay run with the pastel-inclusive fit; confirm the plain-fit choice
+      under the epic pastel rule when refitting (low; deferred from 10.21,
+      docs/evidence/10-21/tuning-and-replay.md)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
+  - id: "epic-10-deferred-10-21-retake-test-no-visible-difference"
+    epic: 10
+    action: "The mismatched-calibration retake test checks which calibration is carried,
+      not a visible sticker difference, because self-calibration overrides the saved
+      centres on the synthetic samples (low; deferred from 10.21, GuidedScanFlowTest.kt)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
