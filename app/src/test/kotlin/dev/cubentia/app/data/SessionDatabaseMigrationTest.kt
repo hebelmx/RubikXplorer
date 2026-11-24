@@ -355,4 +355,39 @@ class SessionDatabaseMigrationTest {
                 Files.deleteIfExists(path)
             }
         }
+
+    @Test fun versionTenToElevenReadsOldCalibrationsTorchOffAndKeepsTheTag() =
+        runBlocking {
+            val path = Files.createTempFile("calibration-torch-migration", ".db")
+            Files.delete(path)
+            val helper =
+                MigrationTestHelper(
+                    InstrumentationRegistry.getInstrumentation(),
+                    path.toFile(),
+                    AndroidSQLiteDriver(),
+                    RubikDatabase::class,
+                )
+            val values = (1..18).joinToString(", ") { "$it.5" }
+            try {
+                helper.createDatabase(10).use { connection ->
+                    connection.prepare("INSERT INTO color_calibration VALUES (1, $values)").use { it.step() }
+                }
+                helper.runMigrationsAndValidate(11).use { connection ->
+                    // Story 10.21: a calibration saved before the torch tag has none (null), read as torch-off.
+                    connection.prepare("SELECT white_l, blue_b, torch_on FROM color_calibration WHERE id = 1").use { row ->
+                        assertEquals(true, row.step())
+                        assertEquals(1.5, row.getDouble(0), 0.0)
+                        assertEquals(18.5, row.getDouble(1), 0.0)
+                        assertEquals(true, row.isNull(2))
+                    }
+                    connection.prepare("INSERT OR REPLACE INTO color_calibration VALUES (1, $values, 1)").use { it.step() }
+                    connection.prepare("SELECT torch_on FROM color_calibration WHERE id = 1").use { row ->
+                        assertEquals(true, row.step())
+                        assertEquals(1L, row.getLong(0))
+                    }
+                }
+            } finally {
+                Files.deleteIfExists(path)
+            }
+        }
 }

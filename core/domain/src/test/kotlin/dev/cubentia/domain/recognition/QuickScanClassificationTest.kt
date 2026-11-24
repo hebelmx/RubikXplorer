@@ -91,36 +91,59 @@ class QuickScanClassificationTest {
             ScanAssembler.repromptFaces(samples, calibration, repromptPosed = true),
             QuickScanClassification.involvedFaces(samples, null),
         )
-        // Against a swapped saved calibration the gate leaves R uncertain, so R is involved.
+        // Story 10.21: a swapped saved calibration fails the centre check, so it is ignored: as with none.
         val swapped =
             CalibrationCenters(saved.centers + mapOf(Color.RED to labs.getValue(Color.ORANGE), Color.ORANGE to labs.getValue(Color.RED)))
-        assertTrue(Face.R in QuickScanClassification.involvedFaces(samples, swapped))
+        assertEquals(CalibrationMatch.Mismatch(CalibrationMatch.Reason.CENTRE), QuickScanClassification.matchAll(samples, swapped))
+        assertEquals(QuickScanClassification.involvedFaces(samples, null), QuickScanClassification.involvedFaces(samples, swapped))
+        // A sticker the normalized read contradicts leaves F uncertain after the gate, so F is involved.
+        val shaded = shadedFront()
+        assertTrue(Face.F in QuickScanClassification.involvedFaces(shaded, null))
     }
+
+    /** F (Green) shaded to half with its first sticker a dark bluish grey: the gate leaves it uncertain (see below). */
+    private fun shadedFront(): List<FaceSample> =
+        solved { if (it == Face.F) 0.5 else 1.0 }.map { sample ->
+            if (sample.face ==
+                Face.F
+            ) {
+                sample.copy(stickers = sample.stickers.toMutableList().also { it[0] = Lab(30.0, 3.0, -15.0) })
+            } else {
+                sample
+            }
+        }
 
     @Test
     fun `kept faces are never asked again, and the assembly's reprompt faces are the fallback when only kept faces are uncertain`() {
-        // A broken cube (one U edge sticker reads Green) against a swapped saved calibration: R is uncertain after the gate.
+        // A broken cube (one U edge sticker reads Green) with a green-yellow close call on F: F is uncertain after the gate.
         val samples =
-            solved().map { sample ->
-                if (sample.face ==
-                    Face.U
-                ) {
-                    sample.copy(stickers = sample.stickers.toMutableList().also { it[1] = labs.getValue(Color.GREEN) })
-                } else {
-                    sample
+            solved()
+                .map { sample ->
+                    if (sample.face ==
+                        Face.F
+                    ) {
+                        sample.copy(stickers = sample.stickers.toMutableList().also { it[0] = Lab(69.0, -35.0, 58.0) })
+                    } else {
+                        sample
+                    }
+                }.map { sample ->
+                    if (sample.face ==
+                        Face.U
+                    ) {
+                        sample.copy(stickers = sample.stickers.toMutableList().also { it[1] = labs.getValue(Color.GREEN) })
+                    } else {
+                        sample
+                    }
                 }
-            }
-        val swapped =
-            CalibrationCenters(saved.centers + mapOf(Color.RED to labs.getValue(Color.ORANGE), Color.ORANGE to labs.getValue(Color.RED)))
-        val uncertain = QuickScanClassification.needGrid(samples, samples.map { it.face }, swapped)
-        assertTrue(Face.R in uncertain)
+        val uncertain = QuickScanClassification.needGrid(samples, samples.map { it.face }, null)
+        assertTrue(Face.F in uncertain)
         val kept = uncertain.toSet()
-        val calibration = QuickScanClassification.calibration(samples, swapped)!!
+        val calibration = QuickScanClassification.calibration(samples, null)!!
         val expected = ScanAssembler.repromptFaces(samples, calibration, repromptPosed = true).filter { it !in kept }
         assertTrue(expected.isNotEmpty(), "the broken cube needs a reprompt outside the kept faces")
-        assertEquals(expected, QuickScanClassification.involvedFaces(samples, swapped, kept))
+        assertEquals(expected, QuickScanClassification.involvedFaces(samples, null, kept))
         // With nothing kept, the gated uncertain faces are asked.
-        assertEquals(uncertain, QuickScanClassification.involvedFaces(samples, swapped))
+        assertEquals(uncertain, QuickScanClassification.involvedFaces(samples, null))
     }
 
     @Test
@@ -161,7 +184,8 @@ class QuickScanClassificationTest {
     /** Story 10.23: the report exposes both pre-gate reads for logging; gating them gives exactly what [read] decides. */
     @Test
     fun `the report carries the self and second reads the gate combines, and which second read it was`() {
-        val samples = solved { if (it == Face.R) 0.6 else 1.0 }
+        // R shaded, its centre still within Red's centre closeness, so the saved calibration matches.
+        val samples = solved { if (it == Face.R) 0.75 else 1.0 }
         listOf(saved to QuickScanClassification.SecondRead.CALIBRATION, null to QuickScanClassification.SecondRead.NORMALIZED)
             .forEach { (calibration, source) ->
                 val reports = QuickScanClassification.report(samples, Face.entries, calibration)
@@ -183,5 +207,161 @@ class QuickScanClassificationTest {
         // A face not captured has no reads.
         val missing = QuickScanClassification.report(samples.filter { it.face != Face.B }, listOf(Face.B), saved).single()
         assertTrue(missing.self.isEmpty() && missing.second.isEmpty() && missing.secondRead == null)
+    }
+
+    // Story 10.21: the calibration match and the keep rule (spec I/O matrix).
+
+    private fun withSticker(
+        samples: List<FaceSample>,
+        face: Face,
+        vararg cells: Pair<Int, Lab>,
+    ): List<FaceSample> =
+        samples.map { sample ->
+            if (sample.face ==
+                face
+            ) {
+                sample.copy(stickers = sample.stickers.toMutableList().also { s -> cells.forEach { (i, lab) -> s[i] = lab } })
+            } else {
+                sample
+            }
+        }
+
+    /** Red and Orange equidistant: a close call whatever the centres. */
+    private val redOrange = Lab(55.0, 55.0, 55.0)
+
+    @Test
+    fun `a saved calibration matches only with the torch it was saved under and centres read as their own colours`() {
+        val samples = solved()
+        val lit = samples.associate { it.face to true }
+        assertNull(QuickScanClassification.matchAll(samples, null))
+        assertEquals(CalibrationMatch.Match, QuickScanClassification.matchAll(samples, saved.copy(torchOn = false)))
+        assertEquals(CalibrationMatch.Match, QuickScanClassification.matchAll(samples, saved.copy(torchOn = true), lit))
+        // Torch mismatch either way; a legacy row (no tag) counts as torch-off, as does a camera with no flash.
+        val torch = CalibrationMatch.Mismatch(CalibrationMatch.Reason.TORCH)
+        assertEquals(torch, QuickScanClassification.matchAll(samples, saved.copy(torchOn = true)))
+        assertEquals(torch, QuickScanClassification.matchAll(samples, saved.copy(torchOn = false), lit))
+        assertEquals(CalibrationMatch.Match, QuickScanClassification.matchAll(samples, saved))
+        assertEquals(torch, QuickScanClassification.matchAll(samples, saved, lit))
+        assertEquals("mismatch torch", torch.label)
+        // One captured centre not CONFIDENT as its own colour: a centre mismatch.
+        val centre = withSticker(samples, Face.R, FaceSample.CENTER_INDEX to redOrange)
+        assertEquals(CalibrationMatch.Mismatch(CalibrationMatch.Reason.CENTRE), QuickScanClassification.matchAll(centre, saved))
+        assertEquals("mismatch centre", CalibrationMatch.Mismatch(CalibrationMatch.Reason.CENTRE).label)
+        // A guarded (logo) centre is not judged.
+        val logo = centre.map { if (it.face == Face.R) it.copy(centerPlain = false) else it }
+        assertEquals(CalibrationMatch.Match, QuickScanClassification.matchAll(logo, saved))
+        // No plain centre to check (no face at all, or every centre guarded) is never a match.
+        val centreMismatch = CalibrationMatch.Mismatch(CalibrationMatch.Reason.CENTRE)
+        assertEquals(centreMismatch, QuickScanClassification.matchAll(emptyList(), saved))
+        assertEquals(centreMismatch, QuickScanClassification.matchAll(samples.map { it.copy(centerPlain = false) }, saved))
+    }
+
+    @Test
+    fun `a calibration whose centres read right but lie beyond the centre closeness is a centre mismatch`() {
+        // PO 2026-11-24: another cube's or another light's calibration. R's centre still reads CONFIDENT Red against it.
+        val red = labs.getValue(Color.RED)
+        val limit = QuickScanClassification.MAX_CENTRE_DELTA_E.getValue(Color.RED)
+        val far = withSticker(solved(), Face.R, FaceSample.CENTER_INDEX to red.copy(l = red.l - limit - 0.1))
+        val near = withSticker(solved(), Face.R, FaceSample.CENTER_INDEX to red.copy(l = red.l - limit + 0.1))
+        val farCentre = checkNotNull(far.single { it.face == Face.R }.center)
+        assertEquals(StickerReading(Color.RED, StickerConfidence.CONFIDENT), StickerClassifier.read(farCentre, saved.centers))
+        assertEquals(CalibrationMatch.Mismatch(CalibrationMatch.Reason.CENTRE), QuickScanClassification.matchAll(far, saved))
+        assertEquals("mismatch centre", QuickScanClassification.matchAll(far, saved)?.label)
+        assertEquals(CalibrationMatch.Match, QuickScanClassification.matchAll(near, saved))
+        // The centre read alone (the tuning fit's view, no closeness) still matches.
+        assertEquals(CalibrationMatch.Match, QuickScanClassification.matchAll(far, saved, maxCentreDeltaE = null))
+        // A mismatched face is read exactly as with no saved calibration.
+        val rFace = far.single { it.face == Face.R }
+        assertEquals(QuickScanClassification.read(rFace, far, null), QuickScanClassification.read(rFace, far, saved))
+    }
+
+    @Test
+    fun `an uncertain plain centre is never the allowed blank, so the matched face goes to the grid`() {
+        // L's orange centre reads CONFIDENT against the saved centres (so it matches) but below the Orange margin after the gate.
+        val samples = withSticker(solved(), Face.L, FaceSample.CENTER_INDEX to Lab(60.0, 52.0, 58.0))
+        assertEquals(CalibrationMatch.Match, QuickScanClassification.matchAll(samples, saved))
+        val decision = QuickScanClassification.decide(samples.single { it.face == Face.L }, samples, saved)
+        assertEquals(StickerConfidence.UNCERTAIN, decision.readings[FaceSample.CENTER_INDEX]?.confidence)
+        assertTrue(!decision.keep, "$decision")
+        assertTrue(FaceSample.CENTER_INDEX !in decision.blanks)
+        assertTrue(Face.L in QuickScanClassification.needGrid(samples, Face.entries, saved))
+    }
+
+    @Test
+    fun `with a matching calibration a face with one uncertain sticker is kept with that sticker blank`() {
+        val samples = withSticker(solved(), Face.R, 0 to redOrange)
+        val r = samples.single { it.face == Face.R }
+        val decision = QuickScanClassification.decide(r, samples, saved)
+        assertTrue(decision.keep && decision.matched)
+        assertEquals(setOf(0), decision.blanks)
+        assertEquals(StickerConfidence.UNCERTAIN, decision.readings[0]?.confidence)
+        assertTrue(Face.R !in QuickScanClassification.needGrid(samples, Face.entries, saved))
+        assertEquals(1, QuickScanClassification.report(samples, listOf(Face.R), saved).single().blanks)
+        // Without a match (none, or a torch mismatch) the all-9 rule holds.
+        assertTrue(Face.R in QuickScanClassification.needGrid(samples, Face.entries, null))
+        assertTrue(Face.R in QuickScanClassification.needGrid(samples, Face.entries, saved.copy(torchOn = true)))
+    }
+
+    @Test
+    fun `with a matching calibration two uncertain stickers send the face to the grid`() {
+        val samples = withSticker(solved(), Face.R, 0 to redOrange, 2 to redOrange)
+        val decision = QuickScanClassification.decide(samples.single { it.face == Face.R }, samples, saved)
+        assertEquals(setOf(0, 2), decision.blanks)
+        assertTrue(!decision.keep)
+        assertTrue(Face.R in QuickScanClassification.needGrid(samples, Face.entries, saved))
+    }
+
+    @Test
+    fun `a hard disagreement, both reads confident on different colours, sends a matched face to the grid`() {
+        // R's red and L's orange are captured leaning towards each other's hue, each centre within its colour's centre
+        // closeness (so the saved calibration matches): the self read (the captured centres) says Red, the saved read Orange.
+        val leaning = mapOf(Face.R to Lab(45.0, 56.5, 53.5), Face.L to Lab(65.0, 34.75, 75.25))
+        val captured = solved().map { sample -> leaning[sample.face]?.let { lab -> sample.copy(stickers = List(9) { lab }) } ?: sample }
+        val samples = withSticker(captured, Face.R, 0 to Lab(58.0, 52.0, 58.0))
+        assertEquals(CalibrationMatch.Match, QuickScanClassification.matchAll(samples, saved))
+        val reads = QuickScanClassification.stickerReads(samples.single { it.face == Face.R }, samples, saved)[0]
+        assertEquals(StickerReading(Color.RED, StickerConfidence.CONFIDENT), reads.first)
+        assertEquals(StickerReading(Color.ORANGE, StickerConfidence.CONFIDENT), reads.second)
+        val decision = QuickScanClassification.decide(samples.single { it.face == Face.R }, samples, saved)
+        assertTrue(decision.hardDisagreement && !decision.keep, "$decision")
+        assertEquals(setOf(0), decision.blanks, "one blank alone would be kept: the hard disagreement decides")
+    }
+
+    @Test
+    fun `the per-colour gate needs each colour's margin from both reads`() {
+        val orange = QuickScanClassification.AGREEMENT_MARGIN.getValue(Color.ORANGE)
+        assertTrue(orange > StickerClassifier.CLOSE_CALL_DELTA_E)
+        assertEquals(
+            StickerConfidence.UNCERTAIN,
+            QuickScanClassification.gate(Color.ORANGE to 30.0, Color.ORANGE to orange - 0.1)?.confidence,
+        )
+        assertEquals(StickerConfidence.CONFIDENT, QuickScanClassification.gate(Color.ORANGE to 30.0, Color.ORANGE to orange)?.confidence)
+        assertEquals(StickerConfidence.CONFIDENT, QuickScanClassification.gate(Color.BLUE to 10.0, Color.BLUE to 10.0)?.confidence)
+        // Different colours never agree, and the first read's colour is kept.
+        assertEquals(
+            StickerReading(Color.RED, StickerConfidence.UNCERTAIN),
+            QuickScanClassification.gate(
+                Color.RED to 50.0,
+                Color.ORANGE to 50.0,
+            ),
+        )
+        assertNull(QuickScanClassification.gate(null, Color.RED to 50.0))
+        // The 10.19 rule is the gate with every margin at the close-call delta.
+        assertEquals(
+            StickerConfidence.CONFIDENT,
+            QuickScanClassification.gate(Color.ORANGE to 15.0, Color.ORANGE to 15.0, QuickScanClassification.STRICT_MARGIN)?.confidence,
+        )
+    }
+
+    @Test
+    fun `quick scan review leaves the kept faces' blanks blank and pre-selects the first`() {
+        val samples = withSticker(solved(), Face.R, 0 to labs.getValue(Color.RED))
+        val plain = ScanReview.fromSamples(samples, saved)
+        val blanked = ScanReview.fromSamples(samples, saved, mapOf(Face.R to setOf(0)))
+        assertTrue(plain.stickers.none { it == null })
+        val blank = blanked.stickers.indices.filter { blanked.stickers[it] == null }
+        assertEquals(1, blank.size, "${blanked.stickers}")
+        assertEquals(Face.R, Face.entries[blank.single() / 9])
+        assertEquals(blank.single(), blanked.selected)
     }
 }

@@ -174,13 +174,18 @@ class ScanReview(
             return samples.map { byFace[it.face] ?: it } + retaken.filter { sample -> samples.none { it.face == sample.face } }
         }
 
+        /**
+         * The review of a finished scan's [samples], self-calibrated over [saved]. [blanks] (Story 10.21, Quick Scan) are
+         * the kept corner faces' gated-uncertain stickers (viewfinder order): they stay blank, so the first is pre-selected.
+         */
         fun fromSamples(
             samples: List<FaceSample>,
             saved: CalibrationCenters? = null,
+            blanks: Map<Face, Set<Int>> = emptyMap(),
         ): ScanReview =
             when (val calibration = SelfCalibration.from(samples, saved)) {
                 is SelfCalibration.Calibrated -> {
-                    from(ScanAssembler.assemble(samples, calibration.calibration), calibration.calibration)
+                    from(ScanAssembler.assemble(samples, calibration.calibration, blanks), calibration.calibration)
                 }
 
                 is SelfCalibration.NeedsCalibration -> {

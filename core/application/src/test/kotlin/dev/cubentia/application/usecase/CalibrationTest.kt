@@ -66,4 +66,15 @@ class CalibrationTest {
             assertEquals(CalibrationWrite.Saved, ResetCalibration(repo)())
             assertEquals(CalibrationLoad.Loaded(null), repo.load())
         }
+
+    @Test fun `update keeps the torch tag the calibration was saved under`() =
+        runBlocking {
+            // Story 10.21: the tag travels through the use case and the port unchanged.
+            val repo = Fake()
+            val lit = centers.copy(torchOn = true)
+            assertEquals(CalibrationWrite.Saved, UpdateCalibration(repo)(lit))
+            assertEquals(CalibrationLoad.Loaded(lit), repo.load())
+            assertEquals(CalibrationWrite.Saved, UpdateCalibration(repo)(centers))
+            assertEquals(null, (repo.load() as CalibrationLoad.Loaded).calibration?.torchOn)
+        }
 }

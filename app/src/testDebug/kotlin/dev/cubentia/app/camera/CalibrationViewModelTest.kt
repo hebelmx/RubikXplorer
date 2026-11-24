@@ -95,7 +95,8 @@ class CalibrationViewModelTest {
                 assertTrue(vm.phase is GuidedScanPhase.Viewfinder)
                 assertNotSame(previousController, vm.controller)
                 assertEquals(0, vm.controller.stepIndex)
-                assertEquals(CalibrationCenters(labs), vm.saved)
+                // Story 10.21: tagged with the torch lit when saved (no flash unit known here: off).
+                assertEquals(CalibrationCenters(labs, torchOn = false), vm.saved)
                 assertFalse(vm.calibrationFinished)
             } finally {
                 vm.analyzerExecutor.shutdownNow()
@@ -114,6 +115,47 @@ class CalibrationViewModelTest {
                 withTimeout(5000) { while (vm.saving) delay(1) }
                 assertTrue(vm.calibrationFinished)
             } finally {
+                vm.analyzerExecutor.shutdownNow()
+            }
+        }
+
+    /** A repository that saves at once and keeps the last calibration written. */
+    private class Recording : CalibrationRepository {
+        var saved: CalibrationCenters? = null
+
+        override suspend fun load(): CalibrationLoad = CalibrationLoad.Loaded(saved)
+
+        override suspend fun reset(): CalibrationWrite = CalibrationWrite.Saved
+
+        override suspend fun save(calibration: CalibrationCenters): CalibrationWrite {
+            saved = calibration
+            return CalibrationWrite.Saved
+        }
+    }
+
+    @Test fun savedCalibrationIsTaggedWithTheTorchActuallyLit() =
+        runBlocking {
+            // Story 10.21: on (flash, wanted, applied), off when only asked for, and off without a flash unit.
+            listOf(
+                Triple(true, true, true) to true,
+                Triple(true, true, false) to false,
+                Triple(true, false, false) to false,
+                Triple(false, true, true) to false,
+            ).forEach { (state, expected) ->
+                val (flash, wanted, applied) = state
+                val vm = GuidedScanViewModel()
+                val repository = Recording()
+                vm.hasFlash = flash
+                vm.torchOn = wanted
+                vm.phase =
+                    GuidedScanPhase.Calibration(
+                        session = ready(),
+                        fromReview = GuidedScanPhase.Review(ScanReview(List(54) { null }, 0), true),
+                    )
+                vm.saveCalibration(UpdateCalibration(repository), torchApplied = applied)
+                withTimeout(5000) { while (vm.saving || repository.saved == null) delay(1) }
+                assertEquals("$state", expected, repository.saved?.torchOn)
+                assertEquals(expected, vm.saved?.torchOn)
                 vm.analyzerExecutor.shutdownNow()
             }
         }

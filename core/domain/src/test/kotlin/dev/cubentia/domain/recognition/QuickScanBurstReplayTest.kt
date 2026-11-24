@@ -267,6 +267,73 @@ class QuickScanBurstReplayTest {
         assertTrue(again <= turned.first().tMs + CornerHold.STEADY_MS + 300, "captured at $again")
     }
 
+    /**
+     * CONFIDENT judged stickers of a frame's hold-1 faces as the Story 10.21 wait counts them (no saved calibration); null
+     * when no face has a colour reference (the wait does not hold such a frame).
+     */
+    private fun confidentCount(frame: BurstFrame): Int? {
+        val samples =
+            QuickScanPlan.holds[0].zip(frame.faces).mapNotNull { (step, stats) ->
+                val cells = stats?.cells?.filterNotNull()?.takeIf { it.size == 9 } ?: return@mapNotNull null
+                FaceSample(
+                    face = step.face,
+                    orientationDegrees = 0,
+                    stickers = cells.map { it.value },
+                    quality = FrameQuality.assessShutter(stats),
+                    centerColor = step.centerColor,
+                    upNeighborColor = step.upNeighborColor,
+                    centerPlain = cells[FaceSample.CENTER_INDEX].plain,
+                )
+            }
+        val counts = samples.mapNotNull { QuickScanClassification.confidentJudged(it, samples, null) }
+        return if (samples.isNotEmpty() && counts.isEmpty()) null else counts.sum()
+    }
+
+    @Test
+    fun `the confident-count wait is replayed over the Lenovo bursts and every resting or hand-held hold still captures within 10 s`() {
+        val report =
+            buildString {
+                appendLine(
+                    "# Story 10.21 confident-count wait over the 2026-11-22 Lenovo bursts (N = ${QuickScanController.MIN_CONFIDENT})",
+                )
+                appendLine()
+                appendLine("| burst | detected frames | below N | longest run below N (ms) | auto capture since detected (ms) |")
+                appendLine("|---|---|---|---|---|")
+                RecordedBursts.all.forEach { name ->
+                    val frames = RecordedBursts.load(name)
+                    val detected = frames.filter { it.detected }
+                    var longest = 0L
+                    var since: Long? = null
+                    var below = 0
+                    for (frame in detected) {
+                        if ((confidentCount(frame) ?: Int.MAX_VALUE) < QuickScanController.MIN_CONFIDENT) {
+                            below++
+                            val start = since ?: frame.tMs.also { since = it }
+                            longest = maxOf(longest, frame.tMs - start)
+                        } else {
+                            since = null
+                        }
+                    }
+                    val scan = QuickScanController(lightCheck = false)
+                    val captured =
+                        frames.firstNotNullOfOrNull { frame ->
+                            scan.onFrame(frame.detected, frame.faces, frame.tMs, settled = true, outline = frame.outline)
+                            scan.lastCapture
+                        }
+                    appendLine("| $name | ${detected.size} | $below | $longest | ${captured?.sinceDetectedMs ?: "none"} |")
+                    if (name in setOf(RecordedBursts.STILL, RecordedBursts.STILL_LONG, RecordedBursts.HANDHELD)) {
+                        val ms = checkNotNull(captured?.sinceDetectedMs) { "$name captures automatically" }
+                        assertTrue(ms <= 10_000, "$name captured $ms ms after detection")
+                    }
+                }
+            }
+        println(report)
+        java.io
+            .File("build/reports/quick-scan/burst-wait-10-21.md")
+            .apply { parentFile.mkdirs() }
+            .writeText(report)
+    }
+
     /** The face with a* and b* negated: every centre reads as another colour, as on the opposite corner. */
     private fun recoloured(face: FrameStats): FrameStats =
         face.copy(cells = face.cells.map { cell -> cell?.copy(value = cell.value.copy(a = -cell.value.a, b = -cell.value.b)) })

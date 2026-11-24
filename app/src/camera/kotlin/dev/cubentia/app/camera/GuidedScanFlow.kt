@@ -279,13 +279,57 @@ internal object GuidedScanFlow {
     /**
      * Story 10.19: the torch control [phase] shows: the Learner's choice [torchOn] in Quick Scan's corner view on a camera
      * with a flash unit; null (no control, no torch copy) without a flash unit, before the camera is known, or in any
-     * other phase (Case capture, the Guided grid and the hand-over included).
+     * other phase (Case capture, the Guided grid and the hand-over included). Story 10.21: the calibration phase shows it
+     * too, the same shared choice.
      */
     fun torchControl(
         phase: GuidedScanPhase,
         hasFlash: Boolean?,
         torchOn: Boolean,
-    ): Boolean? = torchOn.takeIf { hasFlash == true && phase is GuidedScanPhase.CornerViewfinder && phase.faceByFace }
+    ): Boolean? =
+        torchOn.takeIf {
+            hasFlash == true &&
+                ((phase is GuidedScanPhase.CornerViewfinder && phase.faceByFace) || phase is GuidedScanPhase.Calibration)
+        }
+
+    /**
+     * Story 10.21 (PO clarification 2): the calibration phase's torch toggle is locked (disabled, still shown) from the
+     * first kept centre swatch until the calibration is saved or left, so every swatch is sampled under one torch state.
+     */
+    fun torchLocked(phase: GuidedScanPhase): Boolean = phase is GuidedScanPhase.Calibration && phase.session.kept.isNotEmpty()
+
+    /**
+     * Story 10.21: whether the calibration phase's *Keep* may keep the shown swatch: not while the torch it wants
+     * ([torchLit] of [phase], [hasFlash], [torchOn]) differs from the one the camera last [applied] (an `enableTorch` still
+     * pending or failed), so no swatch is kept, and the toggle locked, under a torch tag that does not match its light.
+     * Always true outside the calibration phase.
+     */
+    fun keepAllowed(
+        phase: GuidedScanPhase,
+        hasFlash: Boolean?,
+        torchOn: Boolean,
+        applied: Boolean?,
+    ): Boolean = phase !is GuidedScanPhase.Calibration || torchLit(phase, hasFlash, torchOn) == (applied == true)
+
+    /**
+     * Story 10.21: the torch choice a calibration opens with: the corner view's own choice [current] when opened from its
+     * *Calibrate colors* offer ([fromQuickScan]; one shared choice, so a change there carries back), else on (Settings or
+     * the review).
+     */
+    fun calibrationTorch(
+        fromQuickScan: Boolean,
+        current: Boolean,
+    ): Boolean = if (fromQuickScan) current else true
+
+    /**
+     * Story 10.21: the torch tag a calibration is saved with: the torch actually lit, i.e. wanted ([torchOn]) on a camera
+     * with a flash unit ([hasFlash]) and [applied] by the camera; no flash or a pending or failed torch is off.
+     */
+    fun savedTorchTag(
+        hasFlash: Boolean?,
+        torchOn: Boolean,
+        applied: Boolean?,
+    ): Boolean = hasFlash == true && torchOn && applied == true
 
     /**
      * One corner frame's torch state into Quick Scan (Story 10.19): the torch wanted is the Learner's choice [torchOn] on a
@@ -310,26 +354,42 @@ internal object GuidedScanFlow {
             .map { OutlinePoint(it.x, it.y) }
             .takeIf { corner.detected && it.isNotEmpty() }
 
-    /** Whether the torch is physically on in [phase]: only in Quick Scan's corner view, with a flash unit, when chosen. */
+    /**
+     * Whether the torch is wanted on in [phase]: only in Quick Scan's corner view or the calibration phase (Story 10.21),
+     * with a flash unit, when chosen.
+     */
     fun torchLit(
         phase: GuidedScanPhase,
         hasFlash: Boolean?,
         torchOn: Boolean,
     ): Boolean = torchControl(phase, hasFlash, torchOn) == true
 
+    /**
+     * The review of a finished scan. [blanks] (Story 10.21, Quick Scan) are the kept corner faces' gated-uncertain
+     * stickers, left blank and pre-selected.
+     */
     fun reviewOf(
         effects: List<GuidedScanEffect>,
         saved: CalibrationCenters?,
+        blanks: Map<Face, Set<Int>> = emptyMap(),
     ): GuidedScanPhase.Review? =
         effects.filterIsInstance<GuidedScanEffect.Done>().firstOrNull()?.let {
-            val review = ScanReview.fromSamples(it.samples, saved)
+            val review = ScanReview.fromSamples(it.samples, saved, blanks)
             GuidedScanPhase.Review(
                 review,
                 CalibrationOffer
                     .offered(it.samples, saved, review),
                 samples = it.samples,
+                calibration = saved,
             )
         }
+
+    /**
+     * Quick Scan's review of [done] (Story 10.21): read with the calibration the scan matched ([QuickScanEffect.Done.calibration],
+     * null after a torch or centre mismatch, as when no calibration exists), the kept faces' blanks left blank.
+     */
+    fun quickReviewOf(done: dev.cubentia.domain.recognition.QuickScanEffect.Done): GuidedScanPhase.Review? =
+        reviewOf(listOf(GuidedScanEffect.Done(done.samples)), done.calibration, done.blanks)
 
     /** A retake's plan (Story 10.16): the fixed Guided Scan order filtered to [faces], each prompt naming only its center. */
     fun retakePlan(faces: Set<Face>): List<ScanStep> = GuidedScanPlan.steps.filter { it.face in faces }
@@ -354,12 +414,13 @@ internal object GuidedScanFlow {
      * The review after a retake from [before] whose [retaken] samples are all captured: kept faces exactly as reviewed
      * (edits included), retaken faces from the new capture only ([ScanReview.retaken]); corrections on retaken faces are
      * dropped, the review counts as edited (so *Close* asks), the calibration offer is recomputed over the merged samples,
-     * and those merged samples are what a later retake starts from.
+     * and those merged samples are what a later retake starts from. By default it reads with the calibration [before] was
+     * read with (Story 10.21: none after a Quick Scan mismatch, not the saved one the scan rejected).
      */
     fun reviewAfterRetake(
         before: GuidedScanPhase.Review,
         retaken: List<FaceSample>,
-        saved: CalibrationCenters?,
+        saved: CalibrationCenters? = before.calibration,
     ): GuidedScanPhase.Review {
         val faces = retaken.map { it.face }.toSet()
         val samples = ScanReview.mergedSamples(before.samples, retaken)

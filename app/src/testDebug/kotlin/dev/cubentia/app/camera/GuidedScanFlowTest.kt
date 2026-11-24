@@ -1020,11 +1020,145 @@ class GuidedScanFlowTest {
         assertFalse(GuidedScanFlow.torchLit(GuidedScanFlow.phaseOf(case), hasFlash = true, torchOn = true))
         listOf(
             GuidedScanPhase.Viewfinder(),
-            GuidedScanPhase.Calibration(),
             GuidedScanPhase.Rationale,
             GuidedScanPhase.Unavailable,
         ).forEach {
             assertFalse("$it", GuidedScanFlow.torchLit(it, hasFlash = true, torchOn = true))
         }
+    }
+
+    // Story 10.21: the calibration phase's torch toggle, its lock, its defaults and the saved torch tag.
+    @Test fun `the calibration phase shows the shared torch toggle on a flash device, locked once a swatch is kept`() {
+        val fresh = GuidedScanPhase.Calibration()
+        assertEquals(true, GuidedScanFlow.torchControl(fresh, hasFlash = true, torchOn = true))
+        assertTrue(GuidedScanFlow.torchLit(fresh, hasFlash = true, torchOn = true))
+        assertEquals(false, GuidedScanFlow.torchControl(fresh, hasFlash = true, torchOn = false))
+        assertFalse(GuidedScanFlow.torchLit(fresh, hasFlash = true, torchOn = false))
+        // No flash unit: no control, the torch is off.
+        assertNull(GuidedScanFlow.torchControl(fresh, hasFlash = false, torchOn = true))
+        assertFalse(GuidedScanFlow.torchLit(fresh, hasFlash = false, torchOn = true))
+        // Unlocked until the first Keep; locked from then on (until saved or left: a new phase starts unlocked).
+        assertFalse(GuidedScanFlow.torchLocked(fresh))
+        val offered = fresh.copy(session = fresh.session.offer(CellReading(Lab(55.0, -60.0, 40.0), true)))
+        assertFalse("a swatch shown but not kept", GuidedScanFlow.torchLocked(offered))
+        val kept = offered.copy(session = offered.session.keep())
+        assertTrue(GuidedScanFlow.torchLocked(kept))
+        assertTrue("still shown while locked", GuidedScanFlow.torchControl(kept, hasFlash = true, torchOn = true) == true)
+        assertFalse(GuidedScanFlow.torchLocked(GuidedScanPhase.Viewfinder()))
+    }
+
+    @Test fun `a swatch is kept only once the camera applied the torch the calibration wants`() {
+        val offered =
+            GuidedScanPhase.Calibration().let { it.copy(session = it.session.offer(CellReading(Lab(55.0, -60.0, 40.0), true))) }
+        assertTrue(GuidedScanFlow.keepAllowed(offered, hasFlash = true, torchOn = true, applied = true))
+        assertFalse("enableTorch(true) pending", GuidedScanFlow.keepAllowed(offered, hasFlash = true, torchOn = true, applied = false))
+        assertFalse("nothing applied yet", GuidedScanFlow.keepAllowed(offered, hasFlash = true, torchOn = true, applied = null))
+        assertFalse("enableTorch(false) pending", GuidedScanFlow.keepAllowed(offered, hasFlash = true, torchOn = false, applied = true))
+        assertTrue(GuidedScanFlow.keepAllowed(offered, hasFlash = true, torchOn = false, applied = false))
+        assertTrue("no flash: the torch is off", GuidedScanFlow.keepAllowed(offered, hasFlash = false, torchOn = true, applied = null))
+        assertTrue(GuidedScanFlow.keepAllowed(GuidedScanPhase.Viewfinder(), hasFlash = true, torchOn = true, applied = false))
+    }
+
+    @Test fun `a calibration opens with the corner view's torch choice from its offer and on otherwise`() {
+        assertFalse(GuidedScanFlow.calibrationTorch(fromQuickScan = true, current = false))
+        assertTrue(GuidedScanFlow.calibrationTorch(fromQuickScan = true, current = true))
+        assertTrue(GuidedScanFlow.calibrationTorch(fromQuickScan = false, current = false))
+    }
+
+    @Test fun `a calibration is tagged with the torch actually lit, off without a flash or an applied torch`() {
+        assertTrue(GuidedScanFlow.savedTorchTag(hasFlash = true, torchOn = true, applied = true))
+        assertFalse("requested, not applied", GuidedScanFlow.savedTorchTag(hasFlash = true, torchOn = true, applied = false))
+        assertFalse("pending", GuidedScanFlow.savedTorchTag(hasFlash = true, torchOn = true, applied = null))
+        assertFalse(GuidedScanFlow.savedTorchTag(hasFlash = true, torchOn = false, applied = false))
+        assertFalse("no flash", GuidedScanFlow.savedTorchTag(hasFlash = false, torchOn = true, applied = true))
+        assertFalse(GuidedScanFlow.savedTorchTag(hasFlash = null, torchOn = true, applied = true))
+    }
+
+    @Test fun `quick scan review leaves a kept face's carried blank blank and pre-selects it`() {
+        val labs =
+            mapOf(
+                Color.GREEN to Lab(55.0, -60.0, 40.0),
+                Color.RED to Lab(45.0, 65.0, 45.0),
+                Color.BLUE to Lab(40.0, 10.0, -50.0),
+                Color.ORANGE to Lab(65.0, 45.0, 65.0),
+                Color.WHITE to Lab(90.0, 0.0, 0.0),
+                Color.YELLOW to Lab(85.0, -5.0, 80.0),
+            )
+        val samples =
+            dev.cubentia.domain.recognition.QuickScanPlan.holds.flatten().map { step ->
+                FaceSample(
+                    face = step.face,
+                    orientationDegrees = 0,
+                    stickers = List(9) { labs.getValue(step.centerColor) },
+                    quality = CaptureQuality.ACCEPTABLE,
+                    centerColor = step.centerColor,
+                    upNeighborColor = step.upNeighborColor,
+                    centerPlain = true,
+                )
+            }
+        val saved = CalibrationCenters(labs)
+        val done = listOf(GuidedScanEffect.Done(samples))
+        val plain = GuidedScanFlow.reviewOf(done, saved)!!.review
+        val review = GuidedScanFlow.reviewOf(done, saved, mapOf(Face.R to setOf(0)))!!.review
+        assertTrue(plain.stickers.none { it == null })
+        val blank = review.stickers.indices.single { review.stickers[it] == null }
+        assertEquals(Face.R, Face.entries[blank / 9])
+        assertEquals(blank, review.selected)
+        // Quick Scan's review reads with the calibration its Done carries: the matched one, or none after a mismatch.
+        val matched =
+            dev.cubentia.domain.recognition.QuickScanEffect
+                .Done(samples, mapOf(Face.R to setOf(0)), saved)
+        assertEquals(review, GuidedScanFlow.quickReviewOf(matched)!!.review)
+        val mismatched =
+            dev.cubentia.domain.recognition.QuickScanEffect
+                .Done(samples, mapOf(Face.R to setOf(0)), calibration = null)
+        assertEquals(
+            GuidedScanFlow.reviewOf(done, null, mapOf(Face.R to setOf(0)))!!.review,
+            GuidedScanFlow.quickReviewOf(mismatched)!!.review,
+        )
+    }
+
+    @Test fun `a retake from a quick scan review read after a calibration mismatch reads as with no calibration`() {
+        val labs =
+            mapOf(
+                Color.GREEN to Lab(55.0, -60.0, 40.0),
+                Color.RED to Lab(45.0, 65.0, 45.0),
+                Color.BLUE to Lab(40.0, 10.0, -50.0),
+                Color.ORANGE to Lab(65.0, 45.0, 65.0),
+                Color.WHITE to Lab(90.0, 0.0, 0.0),
+                Color.YELLOW to Lab(85.0, -5.0, 80.0),
+            )
+        val samples =
+            dev.cubentia.domain.recognition.QuickScanPlan.holds.flatten().map { step ->
+                FaceSample(
+                    face = step.face,
+                    orientationDegrees = 0,
+                    stickers = List(9) { labs.getValue(step.centerColor) },
+                    quality = CaptureQuality.ACCEPTABLE,
+                    centerColor = step.centerColor,
+                    upNeighborColor = step.upNeighborColor,
+                    centerPlain = true,
+                )
+            }
+        // The saved calibration the scan rejected (its torch tag differs); the Guided review below reads with it.
+        val saved =
+            CalibrationCenters(
+                labs + mapOf(Color.RED to labs.getValue(Color.ORANGE), Color.ORANGE to labs.getValue(Color.RED)),
+                torchOn = true,
+            )
+        val review =
+            checkNotNull(
+                GuidedScanFlow.quickReviewOf(
+                    dev.cubentia.domain.recognition.QuickScanEffect
+                        .Done(samples, calibration = null),
+                ),
+            )
+        assertNull(review.calibration)
+        val retaken = listOf(samples.first { it.face == Face.F })
+        val after = GuidedScanFlow.reviewAfterRetake(review, retaken)
+        assertEquals(GuidedScanFlow.reviewAfterRetake(review, retaken, null), after)
+        assertNull(after.calibration)
+        // A Guided review keeps the saved calibration it was read with.
+        assertEquals(saved, GuidedScanFlow.reviewOf(listOf(GuidedScanEffect.Done(samples)), saved)!!.calibration)
     }
 }

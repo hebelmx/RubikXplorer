@@ -4,6 +4,40 @@ import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.Face
 
 /**
+ * Whether a saved calibration may be used for a Quick Scan face (Story 10.21, AD-9): only when its torch tag equals the
+ * torch actually lit at the face's capture (a legacy row with no tag counts as torch-off) and every plain captured centre
+ * (captured under that torch) reads CONFIDENT as its own colour against it. Otherwise Quick Scan self-calibrates as
+ * when no calibration exists. Each such centre must also lie within [QuickScanClassification.MAX_CENTRE_DELTA_E] of the
+ * saved centre of its colour (PO 2026-11-24), so another cube's or another light's calibration fails as a centre
+ * mismatch. [label] is the debug word (`match`, `mismatch torch`, `mismatch centre`).
+ */
+sealed interface CalibrationMatch {
+    val label: String
+
+    data object Match : CalibrationMatch {
+        override val label: String get() = "match"
+    }
+
+    data class Mismatch(
+        val reason: Reason,
+    ) : CalibrationMatch {
+        // Debug words only (never Learner text): "mismatch" and the reason.
+        override val label: String get() = listOf(MISMATCH, reason.label).joinToString(" ")
+    }
+
+    enum class Reason(
+        val label: String,
+    ) {
+        TORCH("torch"),
+        CENTRE("centre"),
+    }
+
+    private companion object {
+        const val MISMATCH = "mismatch"
+    }
+}
+
+/**
  * Quick-Scan-only sticker classification with an agreement gate (Story 10.19). The Guided 6-face Scan never uses it;
  * [SelfCalibration] and [StickerClassifier] keep their semantics and are only reused.
  *
@@ -19,70 +53,415 @@ import dev.cubentia.domain.cube.Face
  * - With **no saved calibration**, the second read uses the same centers after per-face light normalization: each
  *   center's L* is scaled by this face's light level over the light level of the face that center came from
  *   ([SideLight.level]).
+ *
+ * Story 10.21: the saved calibration takes part only for faces it [match]es (torch tag and centres); a face it does not
+ * match is read exactly as with no saved calibration. The gate is per colour: a sticker is CONFIDENT when the
+ * self-calibration read is CONFIDENT and the second read names the same colour with a margin of at least
+ * [AGREEMENT_MARGIN] for that colour (fitted on the tuning split; a margin of [StickerClassifier.CLOSE_CALL_DELTA_E] is
+ * the 10.19 rule, "both CONFIDENT"). With a matching calibration a face is kept with at most [MAX_KEPT_BLANKS] judged
+ * sticker not CONFIDENT (left blank for review) and no hard disagreement (both reads CONFIDENT naming different
+ * colours); otherwise all of its judged stickers must be CONFIDENT.
  */
 object QuickScanClassification {
+    /**
+     * The margin (ΔE to the second-nearest centre) both reads need, per colour they name, for the gate to agree (Story
+     * 10.21). Fitted on the 10.20 tuning split only by `QuickScanGateTuningTest` (docs/evidence/10-21/tuning-and-replay.md):
+     * from the 10.19 rule upwards until no face the keep rule keeps on a plain tuning group, under any calibration, carries a
+     * confidently wrong sticker. Orange needs more: a red read confidently as orange by both reads on a kept face
+     * (`sm-s721u1_stla_bar-warm-2`, 21.3). The pastel tuning group is left to Story 10.27 (its orange read as red would
+     * need Red at 44.1, so Red would never be CONFIDENT on any cube).
+     */
+    val AGREEMENT_MARGIN: Map<Color, Double> =
+        mapOf(
+            Color.WHITE to StickerClassifier.CLOSE_CALL_DELTA_E,
+            Color.YELLOW to StickerClassifier.CLOSE_CALL_DELTA_E,
+            Color.GREEN to StickerClassifier.CLOSE_CALL_DELTA_E,
+            Color.BLUE to StickerClassifier.CLOSE_CALL_DELTA_E,
+            Color.RED to StickerClassifier.CLOSE_CALL_DELTA_E,
+            Color.ORANGE to 21.3,
+        )
+
+    /** The 10.19 gate: both reads CONFIDENT and the same colour. */
+    internal val STRICT_MARGIN: Map<Color, Double> = Color.entries.associateWith { StickerClassifier.CLOSE_CALL_DELTA_E }
+
+    /** Judged stickers a kept face may leave blank, with a matching calibration only (Story 10.21). */
+    const val MAX_KEPT_BLANKS = 1
+
+    /**
+     * How far (ΔE) a plain captured centre may lie from the saved centre of its colour for [match] (Story 10.21, PO
+     * 2026-11-24: another cube's or another light's calibration must fail the match). Fitted on the 10.20 tuning split only
+     * by `QuickScanGateTuningTest` (docs/evidence/10-21/tuning-and-replay.md): per colour, the 0.1 step above the largest
+     * distance of a centre to its own calibration among the tuning groups whose own calibration passes the centre read, so
+     * no such same-cube match is lost. A colour with no such centre on the tuning split (White) takes the strictest
+     * (smallest) fitted one, so an unfitted colour fails safe toward a mismatch (PO 2026-11-24; provisional, refit after
+     * Story 10.27 and the device session).
+     */
+    val MAX_CENTRE_DELTA_E: Map<Color, Double> =
+        mapOf(
+            Color.YELLOW to 18.1,
+            Color.GREEN to 40.4,
+            Color.BLUE to 31.3,
+            Color.RED to 12.3,
+            Color.ORANGE to 14.8,
+        ).let { fitted -> fitted + (Color.WHITE to fitted.values.min()) }
+
+    /**
+     * Whether [saved] may be used with faces captured under [torchLit] whose samples are [captured]; null when there is
+     * no saved calibration or it is not six valid centres. A guarded (logo) centre is not judged, but at least one plain
+     * centre must be: with none to check (no sample, or every centre guarded) it is a centre mismatch. Each plain centre
+     * must read CONFIDENT as its own colour and lie within [maxCentreDeltaE] of that colour's saved centre (null: the
+     * read alone, as before the closeness check; only the tuning fit uses it).
+     */
+    fun match(
+        saved: CalibrationCenters?,
+        torchLit: Boolean,
+        captured: List<FaceSample>,
+        maxCentreDeltaE: Map<Color, Double>? = MAX_CENTRE_DELTA_E,
+    ): CalibrationMatch? {
+        if (saved == null || !StickerClassifier.isValid(saved)) return null
+        if ((saved.torchOn == true) != torchLit) return CalibrationMatch.Mismatch(CalibrationMatch.Reason.TORCH)
+        val plain = captured.filter { it.centerPlain != false }
+        val centres =
+            plain.isNotEmpty() &&
+                plain.all { sample ->
+                    val center = sample.center
+                    val color = sample.centerColor ?: Color.home(sample.face)
+                    center != null &&
+                        center.isValid() &&
+                        StickerClassifier.read(center, saved.centers) == StickerReading(color, StickerConfidence.CONFIDENT) &&
+                        close(center, saved.centers[color], maxCentreDeltaE?.get(color))
+                }
+        return if (centres) CalibrationMatch.Match else CalibrationMatch.Mismatch(CalibrationMatch.Reason.CENTRE)
+    }
+
+    /** Whether [center] lies within [max] ΔE of the saved centre [target]; no limit when [max] is null. */
+    private fun close(
+        center: Lab,
+        target: Lab?,
+        max: Double?,
+    ): Boolean = max == null || (target != null && StickerClassifier.deltaE(center, target) <= max)
+
+    /**
+     * [match] for [face]: against the torch lit at its capture ([captureTorch], absent: off) and the centres of the
+     * [merged] samples captured under the same torch state.
+     */
+    fun matchFor(
+        face: Face,
+        merged: List<FaceSample>,
+        saved: CalibrationCenters?,
+        captureTorch: Map<Face, Boolean> = emptyMap(),
+        maxCentreDeltaE: Map<Color, Double>? = MAX_CENTRE_DELTA_E,
+    ): CalibrationMatch? {
+        val lit = captureTorch[face] == true
+        return match(saved, lit, merged.filter { (captureTorch[it.face] == true) == lit }, maxCentreDeltaE)
+    }
+
+    /**
+     * The scan's match over every [merged] face: the first mismatch, else [CalibrationMatch.Match]; null without [saved].
+     * No face at all is never a match: a centre mismatch.
+     */
+    fun matchAll(
+        merged: List<FaceSample>,
+        saved: CalibrationCenters?,
+        captureTorch: Map<Face, Boolean> = emptyMap(),
+        maxCentreDeltaE: Map<Color, Double>? = MAX_CENTRE_DELTA_E,
+    ): CalibrationMatch? {
+        if (saved == null || !StickerClassifier.isValid(saved)) return null
+        if (merged.isEmpty()) return CalibrationMatch.Mismatch(CalibrationMatch.Reason.CENTRE)
+        val matches = merged.map { matchFor(it.face, merged, saved, captureTorch, maxCentreDeltaE) }
+        return matches.firstOrNull { it is CalibrationMatch.Mismatch } ?: CalibrationMatch.Match
+    }
+
+    /** [saved] when it matches [face] ([matchFor]), else null: the face is read as with no saved calibration. */
+    private fun usable(
+        face: Face,
+        merged: List<FaceSample>,
+        saved: CalibrationCenters?,
+        captureTorch: Map<Face, Boolean>,
+    ): CalibrationCenters? = saved.takeIf { matchFor(face, merged, saved, captureTorch) == CalibrationMatch.Match }
+
+    /**
+     * One face's Quick Scan decision: its gated [readings] (all nine, null where no read is possible), whether it is
+     * [keep]t (not sent to the Guided grid), the judged positions left blank ([blanks], viewfinder order) and whether a
+     * saved calibration [matched]. [gridReason] names the first rule that sends it to the grid (null: kept), for the debug
+     * diagnostics.
+     */
+    data class FaceDecision(
+        val readings: List<StickerReading?>,
+        val keep: Boolean,
+        val blanks: Set<Int>,
+        val matched: Boolean,
+        val hardDisagreement: Boolean,
+        val gridReason: QuickScanDiagnosis.GridReason? = null,
+    )
+
+    /** [sample]'s decision among [merged] ([FaceDecision]), with the gate's per-colour [margin]. */
+    fun decide(
+        sample: FaceSample,
+        merged: List<FaceSample>,
+        saved: CalibrationCenters?,
+        captureTorch: Map<Face, Boolean> = emptyMap(),
+    ): FaceDecision = decide(sample, merged, saved, captureTorch, AGREEMENT_MARGIN)
+
+    internal fun decide(
+        sample: FaceSample,
+        merged: List<FaceSample>,
+        saved: CalibrationCenters?,
+        captureTorch: Map<Face, Boolean>,
+        margin: Map<Color, Double>,
+    ): FaceDecision {
+        val matched = usable(sample.face, merged, saved, captureTorch)
+        val reads = reads(sample, merged, matched, margin)
+        val judged = sample.stickers.indices.filter { it != FaceSample.CENTER_INDEX || sample.centerPlain != false }
+        val uncertain = judged.filter { reads.gated.getOrNull(it)?.confidence != StickerConfidence.CONFIDENT }
+        // A plain centre not CONFIDENT is never the allowed blank (review cannot blank a centre): the face goes to the grid.
+        val centreUncertain = FaceSample.CENTER_INDEX in uncertain
+        val blanks = uncertain.filterTo(linkedSetOf()) { it != FaceSample.CENTER_INDEX }
+        val hard = matched != null && judged.any { hard(reads.first.getOrNull(it), reads.second.getOrNull(it)) }
+        val unresolved = reads.self is SelfCalibration.NeedsCalibration && Color.home(sample.face) in reads.self.colors
+        val allowed = if (matched != null) MAX_KEPT_BLANKS else 0
+        // The face is kept only when no rule sends it to the grid; the first failing rule is its reason.
+        val reason =
+            when {
+                sample.quality != CaptureQuality.ACCEPTABLE || sample.stickers.size != ScanAssembler.STICKERS -> {
+                    QuickScanDiagnosis.GridReason.QUALITY
+                }
+
+                unresolved -> {
+                    QuickScanDiagnosis.GridReason.UNCALIBRATED
+                }
+
+                hard -> {
+                    QuickScanDiagnosis.GridReason.HARD_DISAGREEMENT
+                }
+
+                centreUncertain -> {
+                    QuickScanDiagnosis.GridReason.CENTRE_UNCERTAIN
+                }
+
+                blanks.size > allowed -> {
+                    QuickScanDiagnosis.GridReason.UNCERTAIN
+                }
+
+                else -> {
+                    null
+                }
+            }
+        return FaceDecision(reads.gated, reason == null, blanks, matched != null, hard, reason)
+    }
+
+    /**
+     * Debug diagnostics of [sample] among [merged] ([QuickScanDiagnosis.FaceDiagnosis]): the same reads and decision as
+     * [decide], with the centre's issue, the reference used and why, and every sticker's two reads. Nothing decides on it.
+     */
+    fun diagnose(
+        sample: FaceSample,
+        merged: List<FaceSample>,
+        saved: CalibrationCenters?,
+        captureTorch: Map<Face, Boolean> = emptyMap(),
+    ): QuickScanDiagnosis.FaceDiagnosis {
+        val decision = decide(sample, merged, saved, captureTorch)
+        val matched = usable(sample.face, merged, saved, captureTorch)
+        val reads = reads(sample, merged, matched, AGREEMENT_MARGIN)
+        val centers = firstCenters(reads.self, merged)
+        val judged = { index: Int -> judged(sample, index) }
+        val stickers =
+            sample.stickers.indices.map { index ->
+                val gated = reads.gated.getOrNull(index)
+                QuickScanDiagnosis.StickerDiagnosis(
+                    color = gated?.color,
+                    confident = gated?.confidence == StickerConfidence.CONFIDENT,
+                    judged = judged(index),
+                    firstMargin = reads.firstMargins.getOrNull(index),
+                    secondColor = reads.second.getOrNull(index)?.color,
+                    secondMargin = reads.margins.getOrNull(index),
+                )
+            }
+        val centre = stickers.getOrNull(FaceSample.CENTER_INDEX)
+        val own = sample.center
+        val issue =
+            when {
+                centre?.confident == true -> null
+                sample.centerPlain == false -> QuickScanDiagnosis.CentreIssue.GUARDED
+                own == null || !own.isValid() -> QuickScanDiagnosis.CentreIssue.INVALID
+                own.l <= FrameQuality.DARK_CELL_MAX_L -> QuickScanDiagnosis.CentreIssue.DARK
+                centre?.color == null -> QuickScanDiagnosis.CentreIssue.NO_REFERENCE
+                else -> QuickScanDiagnosis.CentreIssue.UNCERTAIN
+            }
+        val guarded = (reads.self as? SelfCalibration.Calibrated)?.guarded.orEmpty()
+        return QuickScanDiagnosis.FaceDiagnosis(
+            face = sample.face,
+            quality = sample.quality,
+            centrePlain = sample.centerPlain,
+            centre = centre,
+            centreIssue = issue,
+            reference = QuickScanDiagnosis.reference(matched != null, reads.self, centers),
+            referenceColors = centers.keys,
+            calibration = matchFor(sample.face, merged, saved, captureTorch),
+            guarded = guarded + merged.filter { it.centerPlain == false }.mapNotNull { it.centerColor },
+            unresolved = (reads.self as? SelfCalibration.NeedsCalibration)?.colors.orEmpty(),
+            stickers = stickers,
+            counted = confidentJudged(sample, merged, saved, captureTorch) ?: 0,
+            confident = stickers.count { it.judged && it.confident },
+            gridReason = decision.gridReason,
+            blanks = decision.blanks,
+        )
+    }
+
+    /** Both reads CONFIDENT and naming different colours: beyond the gate, so the face goes to the grid. */
+    private fun hard(
+        first: StickerReading?,
+        second: StickerReading?,
+    ): Boolean =
+        first?.confidence == StickerConfidence.CONFIDENT &&
+            second?.confidence == StickerConfidence.CONFIDENT &&
+            first.color != second.color
+
     /** The self-calibration the Quick Scan path reads with, null while some colors have no sample. */
     fun calibration(
         merged: List<FaceSample>,
         saved: CalibrationCenters?,
     ): CalibrationCenters? = (SelfCalibration.from(merged, saved) as? SelfCalibration.Calibrated)?.calibration
 
-    /** One gated reading per sticker of [sample] (all nine), null where no read is possible. */
+    /**
+     * One gated reading per sticker of [sample] (all nine), null where no read is possible; [captureTorch] is the torch lit
+     * at each face's capture (absent: off), which decides whether [saved] matches.
+     */
     fun read(
         sample: FaceSample,
         merged: List<FaceSample>,
         saved: CalibrationCenters?,
-    ): List<StickerReading?> {
-        val self = SelfCalibration.from(merged, saved)
-        val centers: Map<Color, Lab> =
-            when (self) {
-                is SelfCalibration.Calibrated -> self.calibration.centers
-                is SelfCalibration.NeedsCalibration -> SelfCalibration.trustedCenters(merged)
-            }
-        val first = readAll(sample.stickers, centers)
-        val (second, _) = secondRead(sample, merged, saved, centers)
-        return first.zip(second).map { (a, b) -> gate(a, b) }
-    }
-
-    /** The second read of [read] and which one it was: the saved calibration's per-face correction, else the normalized centers. */
-    private fun secondRead(
-        sample: FaceSample,
-        merged: List<FaceSample>,
-        saved: CalibrationCenters?,
-        centers: Map<Color, Lab>,
-    ): Pair<List<StickerReading?>, SecondRead> =
-        if (saved != null && StickerClassifier.isValid(saved)) {
-            readAll(corrected(sample, saved), saved.centers) to SecondRead.CALIBRATION
-        } else {
-            readAll(sample.stickers, normalized(sample, merged, centers)) to SecondRead.NORMALIZED
-        }
-
-    /** The readings the fallback decision judges: all but a guarded (not plain) center, which marks no face for the grid. */
-    fun judged(
-        sample: FaceSample,
-        merged: List<FaceSample>,
-        saved: CalibrationCenters?,
-    ): List<StickerReading?> =
-        read(sample, merged, saved).filterIndexed { index, _ -> index != FaceSample.CENTER_INDEX || sample.centerPlain != false }
+        captureTorch: Map<Face, Boolean> = emptyMap(),
+    ): List<StickerReading?> = decide(sample, merged, saved, captureTorch).readings
 
     /**
-     * Faces among [faces] that the Guided grid must read: missing, not ACCEPTABLE, whose own color has no usable center
-     * yet, or with any judged sticker not CONFIDENT after the gate.
+     * The few-confident wait's count for [sample] (Story 10.21): its CONFIDENT stickers among the judged ones (a guarded
+     * centre is not judged, as in [report] and the capture line), read exactly as [read]; null when the first read has
+     * fewer than two reference centres (device session 2026-11-24: a logo centre and a second unplain one at hold 1 with
+     * no saved calibration), so no sticker can be read and the count is unknowable rather than low.
+     */
+    fun confidentJudged(
+        sample: FaceSample,
+        merged: List<FaceSample>,
+        saved: CalibrationCenters?,
+        captureTorch: Map<Face, Boolean> = emptyMap(),
+    ): Int? {
+        val matched = usable(sample.face, merged, saved, captureTorch)
+        val centers = firstCenters(SelfCalibration.from(merged, matched), merged)
+        if (centers.size < 2 || !centers.values.all { it.isValid() }) return null
+        val readings = decide(sample, merged, saved, captureTorch).readings
+        return readings.indices.count { judged(sample, it) && readings[it]?.confidence == StickerConfidence.CONFIDENT }
+    }
+
+    /** Whether the hand-over decision judges [sample]'s sticker [index]: all but a guarded (not plain) centre. */
+    private fun judged(
+        sample: FaceSample,
+        index: Int,
+    ): Boolean = index != FaceSample.CENTER_INDEX || sample.centerPlain != false
+
+    /** The centres the first (self-calibration) read competes over: six, or the trusted ones while colours are missing. */
+    private fun firstCenters(
+        self: SelfCalibration,
+        merged: List<FaceSample>,
+    ): Map<Color, Lab> =
+        when (self) {
+            is SelfCalibration.Calibrated -> self.calibration.centers
+            is SelfCalibration.NeedsCalibration -> SelfCalibration.trustedCenters(merged)
+        }
+
+    /** Both reads of every sticker of [sample] before the gate, with the second read's margin (the tuning data, Story 10.21). */
+    internal data class StickerReads(
+        val first: StickerReading?,
+        val second: StickerReading?,
+        val firstMargin: Double?,
+        val secondMargin: Double?,
+    )
+
+    internal fun stickerReads(
+        sample: FaceSample,
+        merged: List<FaceSample>,
+        saved: CalibrationCenters?,
+        captureTorch: Map<Face, Boolean> = emptyMap(),
+    ): List<StickerReads> {
+        val reads = reads(sample, merged, usable(sample.face, merged, saved, captureTorch), STRICT_MARGIN)
+        return reads.first.indices.map {
+            StickerReads(reads.first[it], reads.second.getOrNull(it), reads.firstMargins.getOrNull(it), reads.margins.getOrNull(it))
+        }
+    }
+
+    private class Reads(
+        val self: SelfCalibration,
+        val first: List<StickerReading?>,
+        val second: List<StickerReading?>,
+        val margins: List<Double?>,
+        val firstMargins: List<Double?>,
+        val source: SecondRead,
+        val gated: List<StickerReading?>,
+    )
+
+    /** Both reads of [sample] with [saved] (already matched, or null) and the per-colour gate over [margin]. */
+    private fun reads(
+        sample: FaceSample,
+        merged: List<FaceSample>,
+        saved: CalibrationCenters?,
+        margin: Map<Color, Double>,
+    ): Reads {
+        val self = SelfCalibration.from(merged, saved)
+        val centers = firstCenters(self, merged)
+        val firstMeasured = sample.stickers.map { sticker -> nearest(sticker, centers) }
+        val first = firstMeasured.map { it?.let { (color, m) -> reading(color, m) } }
+        val calibrated = saved != null && StickerClassifier.isValid(saved)
+        val (stickers, secondCenters) =
+            if (calibrated) {
+                corrected(sample, checkNotNull(saved)) to saved.centers
+            } else {
+                sample.stickers to normalized(sample, merged, centers)
+            }
+        val measured = stickers.map { sticker -> nearest(sticker, secondCenters) }
+        val second = measured.map { it?.let { (color, m) -> reading(color, m) } }
+        val margins = measured.map { it?.second }
+        val gated = first.indices.map { gate(firstMeasured[it], measured.getOrNull(it), margin) }
+        val source = if (calibrated) SecondRead.CALIBRATION else SecondRead.NORMALIZED
+        return Reads(self, first, second, margins, firstMeasured.map { it?.second }, source, gated)
+    }
+
+    private fun reading(
+        color: Color,
+        margin: Double,
+    ) = StickerReading(
+        color,
+        if (margin >=
+            StickerClassifier.CLOSE_CALL_DELTA_E
+        ) {
+            StickerConfidence.CONFIDENT
+        } else {
+            StickerConfidence.UNCERTAIN
+        },
+    )
+
+    /** The nearest of [centers] to [sticker] with its margin; null when no read is possible. */
+    private fun nearest(
+        sticker: Lab,
+        centers: Map<Color, Lab>,
+    ): Pair<Color, Double>? =
+        if (centers.size >= 2 && sticker.isValid() && centers.values.all { it.isValid() }) {
+            StickerClassifier.nearestWithMargin(sticker, centers)
+        } else {
+            null
+        }
+
+    /**
+     * Faces among [faces] that the Guided grid must read: missing, or not kept by [decide] (not ACCEPTABLE, whose own
+     * color has no usable center yet, a hard disagreement, or more judged stickers not CONFIDENT than the rule allows).
      */
     fun needGrid(
         merged: List<FaceSample>,
         faces: List<Face>,
         saved: CalibrationCenters?,
+        captureTorch: Map<Face, Boolean> = emptyMap(),
     ): List<Face> {
-        val self = SelfCalibration.from(merged, saved)
         val byFace = merged.associateBy { it.face }
-        return faces.filter { face ->
-            val sample = byFace[face]
-            sample == null ||
-                sample.quality != CaptureQuality.ACCEPTABLE ||
-                (self is SelfCalibration.NeedsCalibration && Color.home(face) in self.colors) ||
-                judged(sample, merged, saved).any { it?.confidence != StickerConfidence.CONFIDENT }
-        }
+        return faces.filter { face -> byFace[face]?.let { decide(it, merged, saved, captureTorch).keep } != true }
     }
 
     /**
@@ -96,24 +475,22 @@ object QuickScanClassification {
         merged: List<FaceSample>,
         faces: List<Face>,
         saved: CalibrationCenters?,
+        captureTorch: Map<Face, Boolean> = emptyMap(),
     ): List<FaceReport> {
-        val self = SelfCalibration.from(merged, saved)
-        val centers: Map<Color, Lab> =
-            when (self) {
-                is SelfCalibration.Calibrated -> self.calibration.centers
-                is SelfCalibration.NeedsCalibration -> SelfCalibration.trustedCenters(merged)
-            }
-        val grid = needGrid(merged, faces, saved).toSet()
+        val grid = needGrid(merged, faces, saved, captureTorch).toSet()
         val byFace = merged.associateBy { it.face }
         return faces.map { face ->
             val sample = byFace[face] ?: return@map FaceReport(face, null, 0, 0, face in grid, null, false, 0, 0, false)
             val keep = { index: Int -> index != FaceSample.CENTER_INDEX || sample.centerPlain != false }
-            val gated = read(sample, merged, saved)
-            val first = readAll(sample.stickers, centers)
+            val matched = usable(face, merged, saved, captureTorch)
+            val reads = reads(sample, merged, matched, AGREEMENT_MARGIN)
+            val self = reads.self
+            val gated = reads.gated
+            val first = reads.first
+            val second = reads.second
+            val secondRead = reads.source
             val judged = gated.filterIndexed { index, _ -> keep(index) }
             val firstJudged = first.filterIndexed { index, _ -> keep(index) }
-            val savedValid = saved != null && StickerClassifier.isValid(saved)
-            val (second, secondRead) = secondRead(sample, merged, saved, centers)
             FaceReport(
                 face = face,
                 center = gated.getOrNull(FaceSample.CENTER_INDEX)?.color,
@@ -127,10 +504,12 @@ object QuickScanClassification {
                     judged.zip(firstJudged).count { (g, f) ->
                         f?.confidence == StickerConfidence.CONFIDENT && g?.confidence != StickerConfidence.CONFIDENT
                     },
-                correctionRejected = savedValid && corrected(sample, checkNotNull(saved)) === sample.stickers,
+                correctionRejected = matched != null && corrected(sample, matched) === sample.stickers,
                 self = first,
                 second = second,
                 secondRead = secondRead,
+                calibration = matchFor(face, merged, saved, captureTorch),
+                blanks = if (face in grid) 0 else judged.count { it?.confidence != StickerConfidence.CONFIDENT },
             )
         }
     }
@@ -139,7 +518,8 @@ object QuickScanClassification {
      * One face's [report]: color names and counts only. [quality] is null for a face not captured. Story 10.23 adds, for
      * debug logging beside the shadow sticker reader only, the per-sticker [self] (self-calibration) and [second] reads of
      * all nine stickers before the gate, and which [secondRead] it was; both are empty for a face not captured. Nothing
-     * decides on them.
+     * decides on them. Story 10.21 adds the face's [calibration] match (null: no saved calibration) and, for a kept face,
+     * the judged stickers it leaves [blanks] for review.
      */
     data class FaceReport(
         val face: Face,
@@ -155,37 +535,29 @@ object QuickScanClassification {
         val self: List<StickerReading?> = emptyList(),
         val second: List<StickerReading?> = emptyList(),
         val secondRead: SecondRead? = null,
+        val calibration: CalibrationMatch? = null,
+        val blanks: Int = 0,
     )
 
     /** Which second read the gate compared with: the saved calibration (`cal` in the logs) or the normalized centers (`norm`). */
     enum class SecondRead { CALIBRATION, NORMALIZED }
 
-    private fun gate(
-        first: StickerReading?,
-        second: StickerReading?,
+    /**
+     * The per-colour agreement gate (Story 10.21) over both reads as (nearest colour, margin): the sticker is CONFIDENT
+     * only when both name the same colour and each margin is at least that colour's [margin]; otherwise it is UNCERTAIN
+     * in the first read's colour. With every margin at [StickerClassifier.CLOSE_CALL_DELTA_E] this is the 10.19 gate.
+     */
+    internal fun gate(
+        first: Pair<Color, Double>?,
+        second: Pair<Color, Double>?,
+        margin: Map<Color, Double> = AGREEMENT_MARGIN,
     ): StickerReading? {
         first ?: return null
-        val agree =
-            second != null &&
-                first.confidence == StickerConfidence.CONFIDENT &&
-                second.confidence == StickerConfidence.CONFIDENT &&
-                first.color == second.color
-        return if (agree) first else first.copy(confidence = StickerConfidence.UNCERTAIN)
+        val (color, firstMargin) = first
+        val needed = margin.getValue(color)
+        val agree = second != null && color == second.first && firstMargin >= needed && second.second >= needed
+        return StickerReading(color, if (agree) StickerConfidence.CONFIDENT else StickerConfidence.UNCERTAIN)
     }
-
-    private fun readAll(
-        stickers: List<Lab>,
-        centers: Map<Color, Lab>,
-    ): List<StickerReading?> =
-        stickers.map { sticker ->
-            if (centers.size >= 2 && sticker.isValid() &&
-                centers.values.all { it.isValid() }
-            ) {
-                StickerClassifier.read(sticker, centers)
-            } else {
-                null
-            }
-        }
 
     /**
      * Faces to re-prompt once every face passed [needGrid] (an ambiguous or no-fit assembly), by the same gated
@@ -199,9 +571,11 @@ object QuickScanClassification {
         merged: List<FaceSample>,
         saved: CalibrationCenters?,
         kept: Set<Face> = emptySet(),
+        captureTorch: Map<Face, Boolean> = emptyMap(),
     ): List<Face> {
-        val calibration = calibration(merged, saved) ?: return emptyList()
-        val uncertain = needGrid(merged, merged.map { it.face }, saved).filter { it !in kept }
+        val usable = saved.takeIf { matchAll(merged, it, captureTorch) == CalibrationMatch.Match }
+        val calibration = calibration(merged, usable) ?: return emptyList()
+        val uncertain = needGrid(merged, merged.map { it.face }, saved, captureTorch).filter { it !in kept }
         if (uncertain.isNotEmpty()) return uncertain
         return ScanAssembler.repromptFaces(merged, calibration, repromptPosed = true).filter { it !in kept }
     }
