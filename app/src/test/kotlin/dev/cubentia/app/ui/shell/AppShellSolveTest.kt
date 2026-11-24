@@ -15,12 +15,14 @@ import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
 import androidx.lifecycle.viewModelScope
 import dev.cubentia.app.content.CatalogState
 import dev.cubentia.app.content.LessonCatalog
@@ -1088,7 +1090,7 @@ class AppShellSolveTest {
         val cube = CubeState.SOLVED.apply(move)
         show()
         startPlaybackFromTheEditor(cube, shortest)
-        click("playback:followOnMyCube")
+        rule.onNodeWithText("Physical mode", useUnmergedTree = true).performTouchInput { click() }
         rule.waitUntil(10000) { host.state.value.isPhysical }
         rule.waitForIdle()
         chip(dev.cubentia.app.ui.solve.SolutionStyle.BEGINNER).assertIsEnabled()
@@ -1117,7 +1119,7 @@ class AppShellSolveTest {
         // A *Done*, then a switch to the virtual cube: the real cube is still off the start, so the style stays locked.
         click("playback:done")
         rule.waitUntil(10000) { host.state.value.expected != cube }
-        click("playback:switchToVirtual")
+        rule.onNodeWithText("Physical mode", useUnmergedTree = true).performTouchInput { click() }
         rule.waitUntil(10000) { !host.state.value.isPhysical }
         rule.waitForIdle()
         dev.cubentia.app.ui.solve.SolutionStyle.entries

@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-23-2026 19:27'
+last_updated: '11-24-2026 09:48'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -70,6 +70,7 @@ development_status:
   3-6-step-through-a-solution-with-generated-notes: done
   3-7-solve-tab-end-to-end: done
   3-8-reference-device-pruning-table-delivery-decision-and-product: done
+  3-9-measure-and-shorten-cold-solver-preparation: backlog
   epic-3-retrospective: done
 
   epic-4: done
@@ -156,6 +157,8 @@ development_status:
   10-25-quick-scan-starts-from-whichever-corner-it-is-shown: backlog
   10-26-quick-scan-fills-a-few-unread-stickers-from-the-cube-s-rules: backlog
   10-27-clean-the-corner-fixture-labels-and-judge-pastel-stickers-ag: backlog
+  10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa: backlog
+  10-29-solution-playback-shows-the-same-quick-check-result-as-lesso: backlog
   10-22-quick-scan-captures-promptly-once-the-cube-is-in-view: done
   10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads: done
   epic-10-retrospective: optional
@@ -252,7 +255,11 @@ action_items:
     action: "Device/emulator smoke of the release build: 12 Lessons listed, content
       decodes under R8, a Stage 2 Lesson completes in Guide me, switcher fits at 411dp"
     owner: "hebelmx"
-    status: open
+    status: done
+    evidence: "docs/evidence/release-device-session/README.md Block 1.1-1.2 (2026-11-23,
+      benchmark build dfc5c3d6): Galaxy fresh install, Learn lists 7 Stages / 23 Lessons
+      (the '12 Lessons' was stale); Lenovo Stage 2 Lesson completes in Guide me and
+      survives a restart; switcher fits at 384 dp on the Galaxy"
     ref: "_bmad-output/implementation-artifacts/epic-2-retro-2026-10-30.md"
   - id: "story-1-10-deferred-delete-sceneview-spike"
     epic: 1
@@ -788,7 +795,11 @@ action_items:
       check on device whether the guided scan can emit a non-HOME orientation, then
       fix (medium, unverified; pre-existing, deferred from #178, SolveFlowViewModel.onScanOutcome)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
+    resolution: "Not reproducible, PO agreed 2026-11-23: the guided scan prompts by
+      centre + top neighbour, so every accepted scan opened White on top, Green in
+      front, and the Editor fallback opened in the home frame (docs/evidence/release-device-session/README.md
+      8.9)"
     ref: "_bmad-output/implementation-artifacts/spec-gh-178-solved-cube-already-solved.md"
   - id: "epic-12-deferred-12.14-device-render-sync-bench-talkback"
     epic: 12
@@ -1444,7 +1455,10 @@ action_items:
       the automated offline run covers only the debug build (medium, unverified; deferred
       from 12.3, tools/run-keyflow-rotation.sh, .github/scripts/run-instrumentation.sh)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
+    evidence: "docs/evidence/release-device-session/README.md Block 1.3 (2026-11-23):
+      benchmark build dfc5c3d6 on the Lenovo in airplane mode; Learn, a Lesson check,
+      Library, Enter colors, solve and playback with no network message or hang"
     ref: "_bmad-output/implementation-artifacts/spec-12-3-stability-size-and-privacy-hardening.md"
   - id: "epic-12-deferred-12.3-epic-12-context-rules"
     epic: 12
@@ -2287,3 +2301,84 @@ action_items:
     owner: "PO (hebelmx)"
     status: done
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-23-pastel-plausibility.md"
+  - id: "issue-329-deferred-glare-gets-ev-plus-hint"
+    epic: 10
+    action: "A located corner frame whose faces miss the evidence floors because of
+      glare also gets the 'too dark, try EV+' hint, which would make glare worse;
+      check FrameQuality on the located faces and drop the EV+ hint when glare is
+      the cause (low; deferred from #329, RecorderRules.kt:370)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-329-recorder-dark-faces-hint.md"
+  - id: "issue-329-deferred-no-jpeg-says-detector-missed"
+    epic: 10
+    action: "A corner capture with no encoded JPEG still shows 'Detector missed' although
+      the detector found the cube; show a separate 'no image encoded' status (low;
+      deferred from #329, FixtureRecorderScreen.kt:351)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-329-recorder-dark-faces-hint.md"
+  - id: "issue-329-deferred-evidence-floor-constant-drift"
+    epic: 10
+    action: "CORNER_FACE_MIN_EVIDENCE_CELLS = 6 copies the literal 6 in CornerReader.read;
+      expose one constant and use it in both places so they cannot drift (low; deferred
+      from #329, RecorderRules.kt:355, CornerLocator.kt:497)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-329-recorder-dark-faces-hint.md"
+  - id: "issue-324-deferred-give-up-check-lands-off-outcome"
+    epic: 11
+    action: "From the entry-level picker opened on Placement's solved outcome, giving
+      up 'Check me with a scramble instead' lands on Welcome or Learn, not back on
+      the outcome; untested (low; deferred from #324, AppShell.kt:610,621)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-324-placement-solved-offers-entry-level.md"
+  - id: "issue-324-deferred-picker-scan-loop-from-placement"
+    epic: 11
+    action: "The picker opened from Placement's solved outcome still offers 'Not sure?
+      Scan my cube', allowing a Placement -> picker -> Scan loop; hide it from this
+      entry (low; deferred from #324, SCP 2026-11-24 F13)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-324-placement-solved-offers-entry-level.md"
+  - id: "issue-324-deferred-process-death-back-from-picker"
+    epic: 11
+    action: "After process death, entryLevelFrom = placement is restored while the
+      Placement phase may come back Idle, so Back from the picker goes to Welcome
+      or Learn; clear the caller when the phase is Idle (low; deferred from #324,
+      AppShell.kt:671)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-324-placement-solved-offers-entry-level.md"
+  - id: "issue-324-deferred-device-check-solved-picker"
+    epic: 11
+    action: "Check the solved Placement outcome's 'I can already solve it' flow on
+      the Lenovo TB128XU and Galaxy S24 FE (low; deferred from #324)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-324-placement-solved-offers-entry-level.md"
+  - id: "issue-330-deferred-evindex-wiring-untested"
+    epic: 10
+    action: "No test covers the capture-to-screen wiring of evIndex into corner-N.json;
+      the null defaults on holdDiagnostics(evIndex) and CapturedFrame.evIndex would
+      hide a dropped argument; remove the default so callers must pass it (medium;
+      deferred from #330, FixtureRecorderScreen.kt:423)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-330-recorder-hold-settle-after-ev.md"
+  - id: "issue-330-deferred-evindex-without-ev-step"
+    epic: 10
+    action: "evIndex is saved without the camera EV step size, so the EV offset cannot
+      be compared across devices; add an evStep field (low; deferred from #330, LiveFixture.kt:209)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-330-recorder-hold-settle-after-ev.md"
+  - id: "issue-330-deferred-settle-null-holds-refit"
+    epic: 10
+    action: "The already-recorded 10.20 corner holds with settle null (group 3 sm-s721u1_stka_bar-warm-2,
+      group 9 sm-s721u1_stla_ceilback hold 2) need a refit decision or a re-record
+      (low; deferred from #330)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-330-recorder-hold-settle-after-ev.md"

@@ -1,5 +1,11 @@
 package dev.cubentia.app.camera.recorder
 
+import dev.cubentia.app.camera.CornerDetector
+import dev.cubentia.app.camera.CornerGuide
+import dev.cubentia.app.camera.CornerLocator
+import dev.cubentia.app.camera.CornerReader
+import dev.cubentia.app.camera.grid
+import dev.cubentia.app.camera.toCornerFrame
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.recognition.CalibrationCenters
@@ -54,6 +60,31 @@ class RecorderRulesTest {
         assertNull(done.selected)
         assertTrue(done.complete)
         assertEquals(done, done.set(Color.GREEN))
+    }
+
+    @Test fun `new face review selects the first unread sticker and palette entry advances`() {
+        val prefilled = List(9) { if (it == 4 || it == 6) null else Color.WHITE }
+        val review = TruthEntry().withPrefill(prefilled)
+        assertEquals(4, review.selected)
+
+        val edited = review.set(Color.RED)
+        assertEquals(Color.RED, edited.colors[4])
+        assertEquals(TruthSource.ENTERED, edited.sources[4])
+        assertEquals(6, edited.selected)
+        assertEquals(Color.WHITE, edited.colors[0])
+        assertEquals(TruthSource.PREFILLED, edited.sources[0])
+    }
+
+    @Test fun `fully prefilled face review needs explicit selection before applying a palette color`() {
+        val review = TruthEntry().withPrefill(List(9) { Color.WHITE })
+        assertNull(review.selected)
+        assertTrue(review.complete)
+        assertEquals(review, review.set(Color.RED))
+
+        val edited = review.select(0).set(Color.RED)
+        assertEquals(Color.RED, edited.colors[0])
+        assertEquals(TruthSource.ENTERED, edited.sources[0])
+        assertTrue(edited.complete)
     }
 
     @Test fun `prefill refreshes until the first entry, then freezes, and an equal entry still counts as entered`() {
@@ -349,6 +380,56 @@ class RecorderRulesTest {
         assertEquals(4, nextKeypointIndex(listOf("0001.json", "0001.png", "0003.json", "notes.txt")))
     }
 
+    @Test fun `restarting holds keeps keypoint-only positives and no-cube shots in the completed group`() {
+        val base = "lenovo_stla_warm"
+        val taken = setOf(base, "$base-2")
+        val restarted = CornerRecordingGroup().saved(base, CornerGroupSave.HOLD).restartHolds()
+        assertEquals(base, restarted.name)
+
+        val positive = restarted.targetName(CornerGroupSave.SUPPLEMENTAL, base) { it in taken }
+        assertEquals(base, positive)
+        val afterPositive = restarted.saved(positive, CornerGroupSave.SUPPLEMENTAL)
+        val negative = afterPositive.targetName(CornerGroupSave.SUPPLEMENTAL, base) { it in taken }
+        assertEquals(base, negative)
+        val afterNegative = afterPositive.saved(negative, CornerGroupSave.SUPPLEMENTAL)
+        assertEquals(base, afterNegative.name)
+        assertEquals("$base-3", afterNegative.targetName(CornerGroupSave.HOLD, base) { it in taken })
+    }
+
+    @Test fun `the group changes only when the next labeled hold is written`() {
+        val base = "lenovo_stla_warm"
+        val taken = setOf(base)
+        val restarted = CornerRecordingGroup().saved(base, CornerGroupSave.HOLD).restartHolds()
+        val next = restarted.targetName(CornerGroupSave.HOLD, base) { it in taken }
+        assertEquals("$base-2", next)
+
+        // Preparing a target or failing to write the hold leaves supplemental saves in the previous group.
+        assertEquals(base, restarted.name)
+        assertEquals(base, restarted.targetName(CornerGroupSave.SUPPLEMENTAL, base) { it in taken + next })
+        assertEquals("$base-3", restarted.targetName(CornerGroupSave.HOLD, base) { it in taken + next })
+
+        // Once the hold is written, a retry after a companion failure, hold 2 and supplemental saves all reuse the folder.
+        val active = restarted.saved(next, CornerGroupSave.HOLD)
+        assertEquals(next, active.name)
+        assertEquals(next, active.targetName(CornerGroupSave.HOLD, base) { it in taken + next })
+        assertEquals(next, active.targetName(CornerGroupSave.SUPPLEMENTAL, base) { it in taken + next })
+    }
+
+    @Test fun `a new condition clears the active group and can start with standalone keypoints`() {
+        val base = "lenovo_stla_warm"
+        val taken = setOf(base)
+        val newCondition = CornerRecordingGroup()
+        assertNull(newCondition.name)
+
+        // A new calibration or torch state can have the same device, cube and light in its base name.
+        val standalone = newCondition.targetName(CornerGroupSave.SUPPLEMENTAL, base) { it in taken }
+        assertEquals("$base-2", standalone)
+        val active = newCondition.saved(standalone, CornerGroupSave.SUPPLEMENTAL)
+        assertEquals(standalone, active.name)
+        assertEquals(standalone, active.targetName(CornerGroupSave.HOLD, base) { it in taken + standalone })
+        assertEquals("lenovo_stlb_cool", newCondition.targetName(CornerGroupSave.HOLD, "lenovo_stlb_cool") { it in taken })
+    }
+
     @Test fun `the group manifest marks the 10-22 pipeline, the operator's light direction and the recorder calibration`() {
         val device =
             dev.cubentia.domain.recognition
@@ -473,6 +554,47 @@ class RecorderRulesTest {
         assertNull(holdDiagnostics(emptyList(), null, null, null).topLevel)
     }
 
+    @Test fun `a capture with no metering since the reset records manual-ev and the EV index, never a null settle`() {
+        // GH-330: the tracker reset after the previous capture; an EV step does not request metering, so the capture then has none.
+        val tracker =
+            dev.cubentia.app.camera
+                .SettleTracker()
+        tracker.request(1_000)
+        tracker.reset()
+        val now = 5_000L
+        val settled = tracker.outcome(now)?.let { it != dev.cubentia.app.camera.Settle.SETTLING }
+        assertNull(settled)
+        val manual = captureSettle(settled, null, tracker.elapsed(now), tracker.futureMs(), awbLocked = false)
+        assertEquals(
+            dev.cubentia.domain.recognition
+                .CornerSettleDiagnostics(null, dev.cubentia.domain.recognition.SettleOutcome.MANUAL_EV, SETTLE_LOCK_NONE, null),
+            manual,
+        )
+        val top = face(*DoubleArray(9) { 80.0 })
+        val diagnostics = holdDiagnostics(listOf(top, top, top), null, torch = null, settle = manual, evIndex = 2)
+        assertEquals(manual, diagnostics.settle)
+        assertEquals(2, diagnostics.evIndex)
+        assertNull(holdDiagnostics(listOf(top, top, top), null, null, manual).evIndex)
+        // After hold 1 the white-balance lock stays held: a manual-ev hold then records the lock word `awb`.
+        assertEquals(manual.copy(lock = SETTLE_LOCK_AWB), captureSettle(null, null, null, null, awbLocked = true))
+        assertEquals("awb", SETTLE_LOCK_AWB)
+        // A settled metering keeps its reported settle; one that left nothing reported is still never null.
+        val reported =
+            dev.cubentia.domain.recognition
+                .CornerSettleDiagnostics(640, dev.cubentia.domain.recognition.SettleOutcome.TIMEOUT, "unsupported", 120)
+        assertEquals(reported, captureSettle(true, reported, 900, 120, awbLocked = true))
+        assertEquals(
+            dev.cubentia.domain.recognition.SettleOutcome.MANUAL_EV,
+            captureSettle(true, null, 900, 120, awbLocked = false).outcome,
+        )
+        // Still settling: the elapsed time and the future's part, with no lock held.
+        assertEquals(
+            dev.cubentia.domain.recognition
+                .CornerSettleDiagnostics(300, dev.cubentia.domain.recognition.SettleOutcome.SETTLING, "none", 80),
+            captureSettle(false, reported, 300, 80, awbLocked = true),
+        )
+    }
+
     @Test fun `the recorder torch is lit in corner mode while calibrating too, never in face mode or without a flash`() {
         assertTrue(recorderTorchOn(cornerMode = true, hasFlash = true, torchOn = true))
         assertFalse(recorderTorchOn(cornerMode = true, hasFlash = true, torchOn = false))
@@ -524,5 +646,125 @@ class RecorderRulesTest {
         assertEquals(true, holdTorch(recorded = false, applied = true))
         assertEquals(true, holdTorch(recorded = true, applied = null))
         assertEquals(false, holdTorch(recorded = false, applied = null))
+    }
+
+    private fun cornerFace(
+        lightness: Double,
+        unread: Int? = null,
+    ) = dev.cubentia.domain.recognition.FrameStats(
+        List(9) {
+            if (it == unread) {
+                null
+            } else {
+                dev.cubentia.domain.recognition
+                    .CellReading(Lab(lightness, 0.0, 0.0), true)
+            }
+        },
+        120.0,
+        0.0,
+        300.0,
+        12,
+    )
+
+    @Test fun `a corner capture with nothing located is a no-cube miss with the detector-missed text`() {
+        assertEquals(CornerMiss.NO_CUBE, cornerMiss(1, null))
+        val none =
+            dev.cubentia.app.camera
+                .CornerFrame(false, List(3) { null })
+        assertEquals(CornerMiss.NO_CUBE, cornerMiss(1, none))
+        assertEquals("Detector missed: place the 7 corners (colors are not saved).", cornerMissStatus(CornerMiss.NO_CUBE))
+    }
+
+    @Test fun `a located corner whose faces fall below the evidence floors is too dark and suggests EV+`() {
+        val located =
+            dev.cubentia.app.camera
+                .CornerFrame(false, List(3) { cornerFace(40.0) }, score = 0.7)
+        assertEquals(CornerMiss.TOO_DARK, cornerMiss(1, located))
+        val scoreOnly =
+            dev.cubentia.app.camera
+                .CornerFrame(false, List(3) { null }, score = 0.4)
+        assertEquals(CornerMiss.TOO_DARK, cornerMiss(1, scoreOnly))
+        val status = cornerMissStatus(CornerMiss.TOO_DARK)
+        assertTrue(status.contains("EV+"))
+        assertTrue(status.contains("colors are not saved"))
+        val none =
+            dev.cubentia.app.camera
+                .CornerFrame(false, List(3) { null })
+        assertTrue(cornerMiss(1, none) != cornerMiss(1, located))
+        assertTrue(cornerMissStatus(cornerMiss(1, none)!!) != cornerMissStatus(cornerMiss(1, located)!!))
+    }
+
+    @Test fun `a detected corner with one face missing or dark is too dark`() {
+        val dropped =
+            dev.cubentia.app.camera
+                .CornerFrame(true, listOf(cornerFace(80.0), null, cornerFace(80.0)), score = 0.9)
+        assertEquals(CornerMiss.TOO_DARK, cornerMiss(1, dropped))
+        val dim =
+            dev.cubentia.app.camera.CornerFrame(
+                true,
+                listOf(cornerFace(80.0), cornerFace(40.0, unread = 0), cornerFace(80.0)),
+                score = 0.9,
+            )
+        assertEquals(CornerMiss.TOO_DARK, cornerMiss(1, dim))
+    }
+
+    @Test fun `a detected corner whose faces have evidence but an unread cell is an unread-cell miss`() {
+        val unread =
+            dev.cubentia.app.camera.CornerFrame(
+                true,
+                listOf(cornerFace(80.0), cornerFace(80.0, unread = 3), cornerFace(80.0)),
+                score = 0.9,
+            )
+        assertEquals(CornerMiss.UNREAD_CELL, cornerMiss(1, unread))
+        assertEquals("A face had an unread cell: place the 7 corners (colors are not saved).", cornerMissStatus(CornerMiss.UNREAD_CELL))
+    }
+
+    @Test fun `a usable corner is no miss`() {
+        val usable =
+            dev.cubentia.app.camera
+                .CornerFrame(true, List(3) { cornerFace(80.0) }, score = 0.9)
+        assertTrue(cornerSamples(1, usable) != null)
+        assertNull(cornerMiss(1, usable))
+    }
+
+    @Test fun `a keypoint-only save after a too-dark miss adds the EV+ hint`() {
+        assertEquals(
+            "Saved positive 0003 (keypoints only). Faces were too dark for colors: tap EV+ to record them.",
+            keypointsOnlySaved(3, CornerMiss.TOO_DARK),
+        )
+        assertEquals("Saved positive 0003 (keypoints only).", keypointsOnlySaved(3, CornerMiss.NO_CUBE))
+        assertEquals("Saved positive 0003 (keypoints only).", keypointsOnlySaved(3, null))
+    }
+
+    @Test fun `an undetected zero-score frame that still carries faces is too dark`() {
+        val zeroScore =
+            dev.cubentia.app.camera
+                .CornerFrame(false, List(3) { cornerFace(40.0) }, score = 0.0)
+        assertEquals(CornerMiss.TOO_DARK, cornerMiss(1, zeroScore))
+    }
+
+    @Test fun `CornerReader output on a dull gray frame is too dark when located and no cube when not`() {
+        val image = java.awt.image.BufferedImage(240, 320, java.awt.image.BufferedImage.TYPE_INT_RGB)
+        val graphics = image.createGraphics()
+        graphics.color = java.awt.Color(100, 100, 100)
+        graphics.fillRect(0, 0, 240, 320)
+        graphics.dispose()
+        val yuv = image.toCornerFrame()
+        val guide = CornerGuide(grid(240, 320, 0), 0)
+        val located =
+            CornerReader.read(
+                yuv,
+                guide,
+                detector =
+                    CornerDetector {
+                        _,
+                        g,
+                        ->
+                        CornerLocator.Location(g.quads(g.vertices()), 0.5)
+                    },
+            )
+        assertEquals(CornerMiss.TOO_DARK, cornerMiss(1, located))
+        val missed = CornerReader.read(yuv, guide, detector = CornerDetector { _, _ -> null })
+        assertEquals(CornerMiss.NO_CUBE, cornerMiss(1, missed))
     }
 }

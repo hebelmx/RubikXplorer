@@ -151,7 +151,12 @@ data class CornerFixtureRecord(
     val diagnostics: CornerHoldDiagnostics? = null,
 )
 
-/** How the 10.22 metering before a recorder capture ended: settled, at the settle cap, or still settling at the capture. */
+/**
+ * How the 10.22 metering before a recorder capture ended: settled, at the settle cap, or still settling at the capture;
+ * or [MANUAL_EV] (GH-330) when no cube metering ran since the last reset, so the hold was exposed by the camera's own
+ * continuous AE with the operator's EV compensation ([CornerHoldDiagnostics.evIndex]). It only means no cube metering
+ * ran, not that the operator changed EV: an [CornerHoldDiagnostics.evIndex] of 0 means no compensation was applied.
+ */
 @Serializable
 enum class SettleOutcome {
     @SerialName("settled")
@@ -162,12 +167,17 @@ enum class SettleOutcome {
 
     @SerialName("settling")
     SETTLING,
+
+    @SerialName("manual-ev")
+    MANUAL_EV,
 }
 
 /**
  * The metering settle before a recorder capture (Story 10.20, the 10.22 settle signal): how long it took ([settleMs]),
  * how it ended, the exposure lock taken then ([lock]: `on`, `on+awb`, `unsupported`, or `none` for a capture taken while
- * still settling) and the metering future's part of the wait ([futureMs], null when unknown).
+ * still settling or with no metering at all, [SettleOutcome.MANUAL_EV], or `awb` for a [SettleOutcome.MANUAL_EV] capture
+ * while the hold-1 white-balance lock is still held) and the metering future's part of the wait
+ * ([futureMs], null when unknown).
  */
 @Serializable
 data class CornerSettleDiagnostics(
@@ -181,7 +191,9 @@ data class CornerSettleDiagnostics(
  * One recorded hold's diagnostics (Story 10.20), numbers only: the [SideLight] check of the three faces in hold order
  * (levels, [lightScore], [lightPassed]) in the recorder's mode, the [lightMode] word Quick Scan's diagnostics log
  * (`calibrated`, `uncalibrated`, or `torch` when the torch was lit), the uncalibrated score beside it, the torch and the
- * metering [settle]. A face not measured leaves its level and the scores null ([lightPassed] null then too).
+ * metering [settle]. A face not measured leaves its level and the scores null ([lightPassed] null then too). GH-330 adds
+ * the EV compensation index the camera was set to at the capture (the requested index) ([evIndex]; null: no exposure
+ * compensation, or older records).
  */
 @Serializable
 data class CornerHoldDiagnostics(
@@ -194,6 +206,7 @@ data class CornerHoldDiagnostics(
     val uncalibratedScore: Double?,
     val torch: Boolean?,
     val settle: CornerSettleDiagnostics? = null,
+    val evIndex: Int? = null,
 )
 
 /** One hold of a recorded group (Story 10.20): its number and the torch state at its capture (null: no flash unit). */

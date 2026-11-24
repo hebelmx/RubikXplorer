@@ -279,8 +279,9 @@ private fun ShellContent(
     var scrollToTwoLook by remember { mutableStateOf(false) }
     var twoLookLocked by rememberSaveable { mutableStateOf(false) }
 
-    // The entry-level picker's caller ("welcome" or "learn"), the Learn *Find my place* sheet, and a Placement run
-    // started from Learn (Story 14.1, UX Flow 8).
+    // The entry-level picker's caller ("welcome", "learn", or "placement" for Placement's solved outcome, GH #324,
+    // which keeps the Placement Result phase underneath so Back shows it again), the Learn *Find my place* sheet, and a
+    // Placement run started from Learn (Story 14.1, UX Flow 8).
     var entryLevelFrom by rememberSaveable { mutableStateOf<String?>(null) }
     var findMyPlace by rememberSaveable { mutableStateOf(false) }
     var placementFromLearn by rememberSaveable { mutableStateOf(false) }
@@ -620,7 +621,9 @@ private fun ShellContent(
         if (placementStale && (placementPhase != PlacementPhase.Idle || placementScanState != null)) placementFlow.reset()
     }
     val placementScan = onPlacementScan.takeIf { ready != null && flags.isEnabled(FeatureFlag.PLACEMENT) }
-    if (ready != null && placementScan != null && placementPhase != PlacementPhase.Idle && !placementStale) {
+    if (ready != null && placementScan != null && placementPhase != PlacementPhase.Idle && !placementStale &&
+        entryLevelFrom != "placement"
+    ) {
         // A re-placement from Learn (GH #252): a Course Stage the Learner already reached opens without any write.
         val course = ready.bundle.stages
         val reachedFromLearn: (Stage) -> Boolean = { stage ->
@@ -663,6 +666,10 @@ private fun ShellContent(
             saveFailed = placementAcceptance == PlacementAcceptance.Failed,
             reached = reachedFromLearn,
             onOpen = ::openReached,
+            onCanAlreadySolve = {
+                entryLevelFailed = false
+                entryLevelFrom = "placement"
+            },
         )
         return
     }
@@ -686,7 +693,13 @@ private fun ShellContent(
                 placementScan?.let { scan ->
                     {
                         entryLevelFailed = false
-                        placementFromLearn = fromLearn
+                        if (entryLevelFrom == "placement") {
+                            // Opened from Placement's solved outcome: leave the picker so the new scan's result shows;
+                            // the run keeps its own Welcome/Learn origin.
+                            entryLevelFrom = null
+                        } else {
+                            placementFromLearn = fromLearn
+                        }
                         scan()
                     }
                 },

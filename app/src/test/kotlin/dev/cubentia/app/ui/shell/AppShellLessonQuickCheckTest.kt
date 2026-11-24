@@ -3,10 +3,13 @@ package dev.cubentia.app.ui.shell
 import android.app.Application
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
 import dev.cubentia.app.content.LessonCatalog
 import dev.cubentia.app.preferences.PreferenceStore
 import dev.cubentia.app.scan.QuickCheckCapture
@@ -65,7 +68,7 @@ class AppShellLessonQuickCheckTest {
         rule.onNodeWithTag("learn:lesson:lesson-08-01").performScrollTo().performClick()
         rule.waitUntil(5_000) { host.state.value.kind == SessionKind.TWO_LOOK }
         rule.waitForIdle()
-        rule.onNodeWithTag("lesson:physicalModeSwitch").performClick()
+        rule.onNodeWithText("Physical mode", useUnmergedTree = true).performTouchInput { click() }
         rule.waitUntil(5_000) { host.state.value.syncState == SyncState.PHYSICAL_AWAITING_CONFIRM }
         rule.waitForIdle()
         // The Confirm card's Scan it is a camera control too: only CAMERA_SCAN above OFF shows it.

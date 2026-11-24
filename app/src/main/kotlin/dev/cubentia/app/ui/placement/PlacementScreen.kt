@@ -56,6 +56,7 @@ internal fun PlacementScreen(
     saveFailed: Boolean = false,
     reached: (Stage) -> Boolean = { false },
     onOpen: (Stage) -> Unit = {},
+    onCanAlreadySolve: () -> Unit = {},
 ) {
     BackHandler { if (!accepting) flow.back() }
     Surface(modifier = modifier.fillMaxSize(), color = RubikTheme.tokens.surfaceBase, contentColor = RubikTheme.tokens.inkPrimary) {
@@ -131,6 +132,7 @@ internal fun PlacementScreen(
                             accepting,
                             reached,
                             onOpen,
+                            onCanAlreadySolve,
                         )
                     }
                 }
@@ -143,7 +145,7 @@ internal fun PlacementScreen(
  * The result: reading, reason and suggestion as one polite node, then the options and the set-up line (DESIGN.md
  * *Placement result*). When the suggested Stage is already [reached] (a re-placement from Learn, GH #252), the
  * suggestion and *Start* give way to "You've already reached *Stage*." and *Open Stage*, which calls [onOpen] and
- * writes nothing.
+ * writes nothing. A solved cube also offers *I can already solve it*, which calls [onCanAlreadySolve] (GH #324).
  */
 @Composable
 private fun PlacementResult(
@@ -158,6 +160,7 @@ private fun PlacementResult(
     accepting: Boolean,
     reached: (Stage) -> Boolean,
     onOpen: (Stage) -> Unit,
+    onCanAlreadySolve: () -> Unit,
 ) {
     val copy = resultCopy(outcome, strings, cases)
     val tokens = RubikTheme.tokens
@@ -212,6 +215,10 @@ private fun PlacementResult(
                 }
                 OutlinedButton(onClick = { onAccept(stages.first(), false) }, modifier = Modifier.testTag("placement:startStage1")) {
                     Text(strings.resolve(ContentText("btn.placement.start-stage-1")))
+                }
+                // A solved cube says nothing about skill (GH #324): offer the entry-level picker; it writes nothing itself.
+                OutlinedButton(onClick = onCanAlreadySolve, modifier = Modifier.testTag("placement:canAlreadySolve")) {
+                    Text(strings.resolve(ContentText("btn.placement.can-already-solve")))
                 }
             }
 

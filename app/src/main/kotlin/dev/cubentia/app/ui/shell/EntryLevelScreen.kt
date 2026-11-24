@@ -45,7 +45,8 @@ import dev.cubentia.domain.text.Text as ContentText
 
 /**
  * The entry-level picker "Where do you want to start?" (FR-4, UX-DR22, UX-DR25, UX Flow 8): a full-screen task flow
- * reached from Welcome's *I can already solve it* or Learn's *Find my place* → *Choose my level*. Three levels are
+ * reached from Welcome's *I can already solve it*, Learn's *Find my place* → *Choose my level*, or Placement's solved
+ * outcome → *I can already solve it* (GH #324; Back returns to that outcome). Three levels are
  * recorded by [onChoose] (disabled while [saving]); [onCheck] opens the whole-Course skip-ahead check (Story 7.7);
  * [onScan], present only while `PLACEMENT` is above OFF (AD-18), runs the Placement flow. Copy never depends on the
  * Learner's progress. Back, from the top bar or the system, calls [onBack] and writes nothing.

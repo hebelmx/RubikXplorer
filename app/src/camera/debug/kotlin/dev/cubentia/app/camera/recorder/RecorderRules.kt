@@ -159,7 +159,7 @@ internal fun prefill(
 internal data class TruthEntry(
     val colors: List<Color?> = List(STICKERS) { null },
     val sources: List<TruthSource?> = List(STICKERS) { null },
-    val selected: Int? = 0,
+    val selected: Int? = null,
 ) {
     val complete: Boolean get() = colors.all { it != null }
     val anyEntered: Boolean get() = sources.any { it == TruthSource.ENTERED }
@@ -351,6 +351,63 @@ internal fun cornerSamples(
     }
 }
 
+/** Sticker-evidence cells a corner face needs to count as read: the same count `CornerReader.read` uses. */
+internal const val CORNER_FACE_MIN_EVIDENCE_CELLS = 6
+
+/** Why a corner capture has no color samples (GH-329): nothing located, faces too dark for colors, or an unread cell. */
+internal enum class CornerMiss { NO_CUBE, TOO_DARK, UNREAD_CELL }
+
+/**
+ * Why [cornerSamples] has no samples for [reading], or null when it has. "Located" is read from the frame only:
+ * `CornerReader` sets a zero score and three null faces exactly when the detector located nothing. A located frame is
+ * too dark when it was not detected, or a face is missing or below the sticker-evidence floors.
+ */
+internal fun cornerMiss(
+    hold: Int,
+    reading: dev.cubentia.app.camera.CornerFrame?,
+): CornerMiss? {
+    if (reading == null) return CornerMiss.NO_CUBE
+    if (cornerSamples(hold, reading) != null) return null
+    val located = reading.detected || reading.score > 0.0 || reading.faces.any { it != null }
+    if (!located) return CornerMiss.NO_CUBE
+    if (!reading.detected) return CornerMiss.TOO_DARK
+    val dark =
+        reading.faces.any { face ->
+            face == null ||
+                face.cells.count {
+                    it != null &&
+                        dev.cubentia.domain.recognition.FrameQuality
+                            .isStickerEvidence(it)
+                } < CORNER_FACE_MIN_EVIDENCE_CELLS
+        }
+    return if (dark) CornerMiss.TOO_DARK else CornerMiss.UNREAD_CELL
+}
+
+/** The capture status for a corner capture without colors. */
+internal fun cornerMissStatus(miss: CornerMiss): String =
+    when (miss) {
+        CornerMiss.NO_CUBE -> {
+            "Detector missed: place the 7 corners (colors are not saved)."
+        }
+
+        CornerMiss.TOO_DARK -> {
+            "Faces too dark for colors: tap EV+, then Retake and capture again, " +
+                "or place the 7 corners (colors are not saved)."
+        }
+
+        CornerMiss.UNREAD_CELL -> {
+            "A face had an unread cell: place the 7 corners (colors are not saved)."
+        }
+    }
+
+/** The status after a keypoint-only positive is saved as fixture [index], with an EV+ hint when the faces were too dark. */
+internal fun keypointsOnlySaved(
+    index: Int,
+    miss: CornerMiss?,
+): String =
+    "Saved positive %04d (keypoints only).".format(index) +
+        (if (miss == CornerMiss.TOO_DARK) " Faces were too dark for colors: tap EV+ to record them." else "")
+
 /*
  * Story 10.19 corner-mode rules: keypoint labels on the model-input crop, never-overwrite group folders, the manifest.
  */
@@ -461,6 +518,30 @@ internal fun freshGroupName(
     return "$base-$index"
 }
 
+internal enum class CornerGroupSave { SUPPLEMENTAL, HOLD }
+
+/** The current folder stays active for supplemental captures until the next session's first hold is written. */
+internal data class CornerRecordingGroup(
+    val name: String? = null,
+    private val restartPending: Boolean = false,
+) {
+    fun restartHolds(): CornerRecordingGroup = copy(restartPending = true)
+
+    fun targetName(
+        save: CornerGroupSave,
+        base: String,
+        taken: (String) -> Boolean,
+    ): String {
+        val reusable = name.takeUnless { restartPending && save == CornerGroupSave.HOLD }
+        return reusable ?: freshGroupName(base) { it == name || taken(it) }
+    }
+
+    fun saved(
+        name: String,
+        save: CornerGroupSave,
+    ): CornerRecordingGroup = copy(name = name, restartPending = restartPending && save == CornerGroupSave.SUPPLEMENTAL)
+}
+
 /** The next keypoint fixture number in a group's `keypoints/` folder, after every `NNNN.json` already there. */
 internal fun nextKeypointIndex(existing: List<String>): Int =
     (
@@ -518,13 +599,15 @@ internal fun withHold(
  * One saved hold's diagnostics (Story 10.20): the [dev.cubentia.domain.recognition.SideLight] check of the three faces
  * in hold order against the recorder [calibration] (uncalibrated without a valid one), the uncalibrated score beside it,
  * and the light mode word by `ScanDiagnostics`' rule (`torch` when the torch was lit, else the check's mode), plus the
- * torch and metering [settle]. A face not measured leaves its level and the score null, and then nothing passed or failed.
+ * torch and metering [settle] and the EV compensation index at the capture ([evIndex], GH-330). A face not measured
+ * leaves its level and the score null, and then nothing passed or failed.
  */
 internal fun holdDiagnostics(
     faces: List<dev.cubentia.domain.recognition.FrameStats?>,
     calibration: CalibrationCenters?,
     torch: Boolean?,
     settle: dev.cubentia.domain.recognition.CornerSettleDiagnostics?,
+    evIndex: Int? = null,
 ): dev.cubentia.domain.recognition.CornerHoldDiagnostics {
     val three = List(3) { faces.getOrNull(it) }
     val verdict =
@@ -543,8 +626,55 @@ internal fun holdDiagnostics(
         uncalibratedScore = uncalibrated.score,
         torch = torch,
         settle = settle,
+        evIndex = evIndex,
     )
 }
+
+/** The settle lock word when no lock is held: a capture while the metering still settles, or with no metering at all. */
+internal const val SETTLE_LOCK_NONE = "none"
+
+/**
+ * The settle a corner capture records (GH-330), never null: the reported metering's when it [settled] (or hit the cap),
+ * `settling` with the elapsed [settlingMs] and [futureMs] while it still settles, and `manual-ev` when no metering ran
+ * since the last reset ([settled] null: after a capture or a camera rebind) or a settled metering left nothing reported.
+ * A `manual-ev` settle's lock word is `awb` while the hold-1 white balance stays locked ([awbLocked]), else `none`.
+ */
+internal fun captureSettle(
+    settled: Boolean?,
+    last: dev.cubentia.domain.recognition.CornerSettleDiagnostics?,
+    settlingMs: Long?,
+    futureMs: Long?,
+    awbLocked: Boolean,
+): dev.cubentia.domain.recognition.CornerSettleDiagnostics =
+    when (settled) {
+        true -> {
+            last ?: manualEvSettle(awbLocked)
+        }
+
+        false -> {
+            dev.cubentia.domain.recognition.CornerSettleDiagnostics(
+                settlingMs,
+                dev.cubentia.domain.recognition.SettleOutcome.SETTLING,
+                SETTLE_LOCK_NONE,
+                futureMs,
+            )
+        }
+
+        null -> {
+            manualEvSettle(awbLocked)
+        }
+    }
+
+/** The settle lock word of a `manual-ev` capture while the hold-1 white-balance lock is still held. */
+internal const val SETTLE_LOCK_AWB = "awb"
+
+private fun manualEvSettle(awbLocked: Boolean) =
+    dev.cubentia.domain.recognition.CornerSettleDiagnostics(
+        settleMs = null,
+        outcome = dev.cubentia.domain.recognition.SettleOutcome.MANUAL_EV,
+        lock = if (awbLocked) SETTLE_LOCK_AWB else SETTLE_LOCK_NONE,
+        futureMs = null,
+    )
 
 /** The `lightMode` word of `ScanDiagnostics.cornerFrameLine`: `torch` when the torch is lit, else the check's mode. */
 internal fun lightMode(
