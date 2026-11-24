@@ -34,6 +34,7 @@ def render_real_frame(
     observed_faces_count: int = 0,
     fps: float = 0.0,
     recording: bool = False,
+    exp_label: str = "",
 ) -> np.ndarray:
     """Render 1120x480 side-by-side view: left = live frame + sticker dots + fitted quads, right = growing net."""
     h, w = frame_bgr.shape[:2]
@@ -59,12 +60,13 @@ def render_real_frame(
     cv2.rectangle(left, (0, 0), (640, 32), (20, 20, 24), -1)
     rec_tag = " [REC]" if recording else ""
     fps_tag = f" | {fps:.0f}fps" if fps > 0 else ""
+    exp_tag = f" | {exp_label}" if exp_label else ""
     cv2.putText(
         left,
-        f"{title} | f{frame_idx:04d} | pts={len(centers)} q={len(snap.tracked_quads)}{fps_tag}{rec_tag}",
+        f"{title} | f{frame_idx:04d} | pts={len(centers)} q={len(snap.tracked_quads)}{fps_tag}{exp_tag}{rec_tag}",
         (10, 22),
         cv2.FONT_HERSHEY_SIMPLEX,
-        0.50,
+        0.46,
         (90, 90, 255) if recording else (230, 230, 230),
         1,
         cv2.LINE_AA,
@@ -96,11 +98,11 @@ def render_real_frame(
     lines = [
         f"Sides mapped: {observed_faces_count}/6 | Committed: {snap.committed_count}/54 | Anchor: {'YES' if snap.global_anchored else 'WAIT'}",
         f"Conflicts: {len(snap.conflicted_slots)} | Pending regrip: {snap.pending_fragment_faces} | Twist: {'YES (press R)' if snap.twist_detected else 'none'}",
-        "Keys: [R] Reset  [V] Record raw+HUD MP4  [Q/Esc] Quit",
+        "Keys: [R] Reset [V] Rec [-/+] Exp [A] AutoExp [Q] Quit",
     ]
     for k, txt in enumerate(lines):
         col = (150, 185, 220) if k == 2 else (215, 220, 230)
-        cv2.putText(right, txt, (14, 392 + k * 26), cv2.FONT_HERSHEY_SIMPLEX, 0.46, col, 1, cv2.LINE_AA)
+        cv2.putText(right, txt, (14, 392 + k * 26), cv2.FONT_HERSHEY_SIMPLEX, 0.44, col, 1, cv2.LINE_AA)
     return np.concatenate([left, right], axis=1)
 
 
@@ -185,6 +187,30 @@ def main() -> int:
     last_state_log = None
     prev_t = time.perf_counter()
     fps_ema = 0.0
+    is_webcam = args.video is None
+    manual_exp: Optional[float] = None
+    exp_label = "Exp:Auto" if (is_webcam and args.show) else ""
+
+    def _adjust_exposure(delta_dir: int) -> str:
+        nonlocal manual_exp
+        # Linux V4L2: 1 = manual mode, 3 = aperture priority auto
+        cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
+        cur = manual_exp if manual_exp is not None else float(cap.get(cv2.CAP_PROP_EXPOSURE))
+        if cur <= 0:
+            # Log-EV webcam range (e.g. -13 .. -1)
+            nxt = float(np.clip(cur + delta_dir, -13.0, -1.0))
+        else:
+            # Linear UVC exposure-time range (e.g. 3 .. 2500)
+            factor = 1.35 if delta_dir > 0 else (1.0 / 1.35)
+            nxt = float(np.clip(round(cur * factor), 3.0, 2500.0))
+            if nxt == cur:
+                nxt = float(np.clip(cur + delta_dir * 5.0, 3.0, 2500.0))
+        cap.set(cv2.CAP_PROP_EXPOSURE, nxt)
+        actual = float(cap.get(cv2.CAP_PROP_EXPOSURE))
+        manual_exp = actual if np.isfinite(actual) else nxt
+        lbl = f"Exp:{manual_exp:.0f}"
+        print(f"[f{proc_idx:04d}] --- EXPOSURE -> {lbl} (req={nxt:.0f}) ---", flush=True)
+        return lbl
 
     crop_box = None
     if args.crop:
@@ -230,6 +256,7 @@ def main() -> int:
             observed_faces_count=obs_faces,
             fps=fps_ema if args.show else 0.0,
             recording=(raw_writer is not None),
+            exp_label=exp_label,
         )
         if writer is not None:
             writer.write(vis)
@@ -257,6 +284,15 @@ def main() -> int:
                 mapper = ContinuousCubeMapper()
                 last_state_log = None
                 print(f"[f{proc_idx:04d}] --- SCAN RESET ---", flush=True)
+            if is_webcam and key in (ord("-"), ord("_"), ord("[")):
+                exp_label = _adjust_exposure(-1)
+            if is_webcam and key in (ord("="), ord("+"), ord("]")):
+                exp_label = _adjust_exposure(+1)
+            if is_webcam and key in (ord("a"), ord("A")):
+                cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 3)
+                manual_exp = None
+                exp_label = "Exp:Auto"
+                print(f"[f{proc_idx:04d}] --- EXPOSURE -> Auto ---", flush=True)
             if key in (ord("v"), ord("V")):
                 if raw_writer is None:
                     ts = time.strftime("%Y%m%d-%H%M%S")

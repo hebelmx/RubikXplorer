@@ -43,9 +43,9 @@ def _is_valid_face_quad(quad: np.ndarray, d_med: float) -> bool:
     if np.max(lens) / max(1e-6, np.min(lens)) > 3.2:
         return False
     # Opposite edges must be reasonably parallel and comparable in length (perspective cube face)
-    if max(lens[0], lens[2]) / max(1e-6, min(lens[0], lens[2])) > 2.1:
+    if max(lens[0], lens[2]) / max(1e-6, min(lens[0], lens[2])) > 1.55:
         return False
-    if max(lens[1], lens[3]) / max(1e-6, min(lens[1], lens[3])) > 2.1:
+    if max(lens[1], lens[3]) / max(1e-6, min(lens[1], lens[3])) > 1.55:
         return False
     for k in range(4):
         u = -edges[(k - 1) % 4] / max(1e-6, lens[(k - 1) % 4])
@@ -217,7 +217,7 @@ def _fit_one_face(
                             continue
                         mean_err = float(np.mean([e for _, _, e in f_matches]))
                         max_err = max(e for _, _, e in f_matches)
-                        if mean_err > 0.16 * d_loc:
+                        if mean_err > 0.12 * d_loc:
                             continue
                         inlier_orig = tuple(sorted(avail_idx[pi] for _, pi, _ in f_matches))
                         # On a rigid 3D cube, every additional visible face MUST share a 2D edge with an already-extracted face;
