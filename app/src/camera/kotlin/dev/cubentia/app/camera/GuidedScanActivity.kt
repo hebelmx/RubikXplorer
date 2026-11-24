@@ -199,13 +199,17 @@ class GuidedScanActivity : ComponentActivity() {
                     }
                 },
                 onKeep = {
-                    (phase as? GuidedScanPhase.Calibration)?.let {
-                        phase =
-                            it.copy(
-                                session = it.session.keep(),
-                                saveFailed = false,
-                            )
-                    }
+                    // Story 10.21: never while the torch wanted is not yet the torch applied (the button is disabled too).
+                    (phase as? GuidedScanPhase.Calibration)
+                        ?.takeIf {
+                            GuidedScanFlow.keepAllowed(it, scan.hasFlash, scan.torchOn, frameSource.torchApplied())
+                        }?.let {
+                            phase =
+                                it.copy(
+                                    session = it.session.keep(),
+                                    saveFailed = false,
+                                )
+                        }
                 },
                 onRetake = {
                     (phase as? GuidedScanPhase.Calibration)?.let {
@@ -370,6 +374,7 @@ class GuidedScanActivity : ComponentActivity() {
                             cornerThumbnail = scan.cornerThumbnail,
                             confirmDiscard = scan.confirmDiscard,
                             cornerTorch = GuidedScanFlow.torchControl(phase, scan.hasFlash, scan.torchOn),
+                            keepEnabled = GuidedScanFlow.keepAllowed(phase, scan.hasFlash, scan.torchOn, scan.torchApplied),
                         ) {
                             AndroidView(
                                 factory = { context ->
@@ -579,6 +584,9 @@ class GuidedScanActivity : ComponentActivity() {
             // Story 10.21: the flash unit is known once a camera is bound, so the calibration phase can show the torch.
             val flash = frameSource.hasFlashUnit()
             if (flash != null && flash != scan.hasFlash) ContextCompat.getMainExecutor(this).execute { scan.hasFlash = flash }
+            // Story 10.21: the torch the camera applied, so Keep waits for a pending torch change.
+            val applied = frameSource.torchApplied()
+            if (applied != scan.torchApplied) ContextCompat.getMainExecutor(this).execute { scan.torchApplied = applied }
             val color = calibrating.session.current
             if (scan.calibrationMeterColor != color) {
                 scan.calibrationMeterColor = color
@@ -906,6 +914,9 @@ internal class GuidedScanViewModel : ViewModel() {
 
     /** Whether the bound camera has a flash unit; null until a camera reports it. */
     var hasFlash by mutableStateOf<Boolean?>(null)
+
+    /** Story 10.21: the torch state the camera last applied, as the calibration phase's analyzer saw it; null before any. */
+    var torchApplied by mutableStateOf<Boolean?>(null)
 
     @Volatile var caseCorners: Int? = null
 

@@ -250,6 +250,8 @@ internal fun GuidedScanScreen(
      * shows no control (no flash unit).
      */
     cornerTorch: Boolean? = null,
+    /** Story 10.21: whether the calibration phase's *Keep* is enabled (false while a torch change is pending). */
+    keepEnabled: Boolean = true,
     viewfinder: @Composable () -> Unit = {},
 ) {
     if (confirmDiscard) DiscardDialog(strings, actions)
@@ -318,7 +320,7 @@ internal fun GuidedScanScreen(
                         cornerTorch?.let { on ->
                             TorchControl(on, strings, actions.onToggleTorch, enabled = !GuidedScanFlow.torchLocked(phase))
                         }
-                    CalibrationViewfinder(phase, strings, actions, offerEnterColors, viewfinder, torch)
+                    CalibrationViewfinder(phase, strings, actions, offerEnterColors, viewfinder, torch, keepEnabled)
                 }
 
                 is GuidedScanPhase.Review -> {
@@ -1031,6 +1033,7 @@ private fun CalibrationViewfinder(
     offerEnterColors: Boolean,
     preview: @Composable () -> Unit,
     torch: TorchControl? = null,
+    keepEnabled: Boolean = true,
 ) {
     val session = phase.session
     val color = session.current
@@ -1077,6 +1080,7 @@ private fun CalibrationViewfinder(
                         Button(
                             actions.onKeep,
                             Modifier.testTag("calibration:keep"),
+                            enabled = keepEnabled,
                         ) { Text(strings.resolve(ContentText("btn.calibration.keep"))) }
                         OutlinedButton(
                             actions.onRetake,

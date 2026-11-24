@@ -13,7 +13,7 @@ import kotlin.math.floor
 
 /**
  * Story 10.21's tuning helper: fits the per-colour agreement gate ([QuickScanClassification.AGREEMENT_MARGIN]), the
- * confident-count wait ([QuickScanController.MIN_CONFIDENT]) and the light check's hold and clear cuts ([SideLight]) on
+ * calibration match's centre closeness ([QuickScanClassification.MAX_CENTRE_DELTA_E]), the confident-count wait ([QuickScanController.MIN_CONFIDENT]) and the light check's hold and clear cuts ([SideLight]) on
  * the 10.20 **tuning split only**, and asserts the committed constants are the fitted ones. Only the folders the group
  * index names `tuning` are ever decoded here: held-out groups are never read by fitting code. The fit is written to
  * `build/reports/quick-scan/tuning-10-21.md` (docs/evidence/10-21/tuning-and-replay.md quotes it).
@@ -143,6 +143,52 @@ class QuickScanGateTuningTest {
             }
         }
 
+    /** Each plain captured centre's colour and ΔE to [saved]'s centre of that colour, as [QuickScanClassification.match] judges it. */
+    private fun centreDistances(
+        group: Group,
+        saved: CalibrationCenters,
+    ): List<Pair<Color, Double>> =
+        group.samples
+            .filter { it.centerPlain != false && (group.captureTorch[it.face] == true) == (saved.torchOn == true) }
+            .mapNotNull { sample ->
+                val color = sample.centerColor ?: Color.home(sample.face)
+                sample.center?.let { color to StickerClassifier.deltaE(it, saved.centers.getValue(color)) }
+            }
+
+    /**
+     * The centre closeness fit (PO 2026-11-24): over the tuning groups whose own (torch-tagged) calibration passes the
+     * centre read alone, per colour the 0.1 step above the largest ΔE of a captured centre to its own calibration, so no
+     * such same-cube match is lost; a colour with no such centre takes the largest fitted value.
+     */
+    private fun fitCentreDeltaE(groups: List<Group>): Map<Color, Double> {
+        val fitted =
+            groups
+                .filter { QuickScanClassification.matchAll(it.samples, it.tagged, it.captureTorch, null) == CalibrationMatch.Match }
+                .flatMap { centreDistances(it, it.tagged) }
+                .groupBy({ it.first }, { it.second })
+                .mapValues { (_, distances) -> stepAbove(distances.max()) }
+        val fallback = fitted.values.max()
+        return Color.entries.associateWith { fitted[it] ?: fallback }
+    }
+
+    /** How many of every tuning group's own and other calibrations match, by the centre read alone ([closeness] null) or with it. */
+    private fun matchCounts(
+        groups: List<Group>,
+        closeness: Map<Color, Double>?,
+    ): Pair<String, String> {
+        val own =
+            groups.count {
+                QuickScanClassification.matchAll(it.samples, it.tagged, it.captureTorch, closeness) ==
+                    CalibrationMatch.Match
+            }
+        val others = groups.flatMap { group -> calibrations(group, groups).drop(2).map { group to it.second } }
+        val other =
+            others.count { (group, saved) ->
+                QuickScanClassification.matchAll(group.samples, saved, group.captureTorch, closeness) == CalibrationMatch.Match
+            }
+        return "$own/${groups.size}" to "$other/${others.size}"
+    }
+
     /** Each hold's CONFIDENT stickers of its 27 under the scan-time (own, torch-tagged) calibration, read with the holds before it. */
     private fun confidentCounts(
         group: Group,
@@ -256,6 +302,7 @@ class QuickScanGateTuningTest {
         // The gate is fitted on the plain tuning groups: a pastel cube (group index `pastel`) is Story 10.27's, judged
         // against its own calibrated colours; tuning every cube's gate on it would make Red never CONFIDENT (see below).
         val plain = groups.filter { !it.pastel }
+        val centreDeltaE = fitCentreDeltaE(groups)
         val margins = fitMargins(plain)
         val wait = fitWait(plain, margins)
         val uncalibratedMax = frontMax(groups, calibrated = false)
@@ -283,6 +330,22 @@ class QuickScanGateTuningTest {
                                 )} / ${format(worst.reads.secondMargin ?: 0.0)}",
                         )
                     }
+                appendLine(
+                    "- centre closeness ΔE (fit, every tuning group's own calibration): ${centreDeltaE.entries.joinToString {
+                        "${it.key}=${it.value}"
+                    }}",
+                )
+                groups.forEach { group ->
+                    val distances = centreDistances(group, group.tagged).joinToString { "${it.first}=${format(it.second)}" }
+                    val read = QuickScanClassification.matchAll(group.samples, group.tagged, group.captureTorch, null)?.label
+                    appendLine("  - ${group.name} own calibration (centre read alone: $read): $distances")
+                }
+                val (ownBefore, otherBefore) = matchCounts(groups, null)
+                val (ownAfter, otherAfter) = matchCounts(groups, centreDeltaE)
+                appendLine(
+                    "  - tuning matches, centre read alone -> with closeness: own $ownBefore -> $ownAfter, " +
+                        "other calibrations of the device $otherBefore -> $otherAfter",
+                )
                 appendLine("- confident-count wait N (fit): $wait (largest N <= $MAX_WAIT_N every tuning hold reaches)")
                 groups.forEach { appendLine("  - ${it.name}: ${confidentCounts(it, margins).joinToString(" / ")} of 27") }
                 appendLine(
@@ -320,6 +383,7 @@ class QuickScanGateTuningTest {
         TUNING_REPORT.parentFile.mkdirs()
         TUNING_REPORT.writeText(text)
         Color.entries.forEach { color ->
+            assertEquals(centreDeltaE.getValue(color), QuickScanClassification.MAX_CENTRE_DELTA_E.getValue(color), 1e-9, "$color centre ΔE")
             assertEquals(margins.getValue(color), QuickScanClassification.AGREEMENT_MARGIN.getValue(color), 1e-9, "$color margin")
         }
         assertEquals(wait, QuickScanController.MIN_CONFIDENT)

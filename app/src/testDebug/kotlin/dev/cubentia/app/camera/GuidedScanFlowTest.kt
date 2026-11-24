@@ -991,6 +991,18 @@ class GuidedScanFlowTest {
         assertFalse(GuidedScanFlow.torchLocked(GuidedScanPhase.Viewfinder()))
     }
 
+    @Test fun `a swatch is kept only once the camera applied the torch the calibration wants`() {
+        val offered =
+            GuidedScanPhase.Calibration().let { it.copy(session = it.session.offer(CellReading(Lab(55.0, -60.0, 40.0), true))) }
+        assertTrue(GuidedScanFlow.keepAllowed(offered, hasFlash = true, torchOn = true, applied = true))
+        assertFalse("enableTorch(true) pending", GuidedScanFlow.keepAllowed(offered, hasFlash = true, torchOn = true, applied = false))
+        assertFalse("nothing applied yet", GuidedScanFlow.keepAllowed(offered, hasFlash = true, torchOn = true, applied = null))
+        assertFalse("enableTorch(false) pending", GuidedScanFlow.keepAllowed(offered, hasFlash = true, torchOn = false, applied = true))
+        assertTrue(GuidedScanFlow.keepAllowed(offered, hasFlash = true, torchOn = false, applied = false))
+        assertTrue("no flash: the torch is off", GuidedScanFlow.keepAllowed(offered, hasFlash = false, torchOn = true, applied = null))
+        assertTrue(GuidedScanFlow.keepAllowed(GuidedScanPhase.Viewfinder(), hasFlash = true, torchOn = true, applied = false))
+    }
+
     @Test fun `a calibration opens with the corner view's torch choice from its offer and on otherwise`() {
         assertFalse(GuidedScanFlow.calibrationTorch(fromQuickScan = true, current = false))
         assertTrue(GuidedScanFlow.calibrationTorch(fromQuickScan = true, current = true))

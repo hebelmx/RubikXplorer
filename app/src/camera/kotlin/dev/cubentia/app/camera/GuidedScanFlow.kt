@@ -260,6 +260,19 @@ internal object GuidedScanFlow {
     fun torchLocked(phase: GuidedScanPhase): Boolean = phase is GuidedScanPhase.Calibration && phase.session.kept.isNotEmpty()
 
     /**
+     * Story 10.21: whether the calibration phase's *Keep* may keep the shown swatch: not while the torch it wants
+     * ([torchLit] of [phase], [hasFlash], [torchOn]) differs from the one the camera last [applied] (an `enableTorch` still
+     * pending or failed), so no swatch is kept, and the toggle locked, under a torch tag that does not match its light.
+     * Always true outside the calibration phase.
+     */
+    fun keepAllowed(
+        phase: GuidedScanPhase,
+        hasFlash: Boolean?,
+        torchOn: Boolean,
+        applied: Boolean?,
+    ): Boolean = phase !is GuidedScanPhase.Calibration || torchLit(phase, hasFlash, torchOn) == (applied == true)
+
+    /**
      * Story 10.21: the torch choice a calibration opens with: the corner view's own choice [current] when opened from its
      * *Calibrate colors* offer ([fromQuickScan]; one shared choice, so a change there carries back), else on (Settings or
      * the review).

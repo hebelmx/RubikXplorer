@@ -651,7 +651,8 @@ class QuickScanControllerTest {
 
         // Calibrated mode: the fail runs as long, but calibration is never offered.
         val calibrated = lightScan()
-        val calibratedDark = darkSides(hold(1))
+        // Dark enough to fail the calibrated check, the side centres still within the centre closeness of the calibration.
+        val calibratedDark = darkSides(hold(1), brightness = 0.73)
         calibrated.onFrame(true, calibratedDark, 0, settled = false)
         for (now in 100L..offerAt + 2000 step 100) calibrated.shake(calibratedDark, now)
         assertTrue(calibrated.lightHeld)
@@ -1719,7 +1720,8 @@ class QuickScanControllerTest {
 
     @Test
     fun `a torch asked for but not lit runs the light check and matches only torch-off calibrations`() {
-        val dark = darkSides(hold(1))
+        // Dark enough to fail the calibrated check, the side centres still within the centre closeness of the calibration.
+        val dark = darkSides(hold(1), brightness = 0.73)
         val scan = QuickScanController(saved.copy(torchOn = true))
         scan.syncTorch(requested = true, applied = false, nowMs = 0)
         assertTrue(scan.torchOn)

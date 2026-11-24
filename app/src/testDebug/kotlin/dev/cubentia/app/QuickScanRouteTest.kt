@@ -693,6 +693,9 @@ class QuickScanRouteTest {
             settle(model)
             assertEquals(true, model.torchOn)
             assertEquals(true, camera.torchCalls.lastOrNull())
+            // Keep waits for the torch the camera applied, which the next calibration frame reports.
+            camera.feed(ScanFrame(stats(Color.WHITE), 0))
+            settle(model)
             // A kept swatch locks it.
             rule.runOnIdle {
                 val phase = model.phase as GuidedScanPhase.Calibration

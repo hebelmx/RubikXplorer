@@ -146,4 +146,22 @@ class ColorCalibrationScreenTest {
         rule.runOnIdle { torch = null }
         rule.onNodeWithTag("quickScan:torch").assertDoesNotExist()
     }
+
+    @Test fun keepIsDisabledWhileATorchChangeIsPending() {
+        // Story 10.21: a swatch kept while enableTorch is pending would be saved under a torch tag that does not match its light.
+        var keepEnabled by mutableStateOf(false)
+        var kept = 0
+        val phase = GuidedScanPhase.Calibration().let { it.copy(session = it.session.offer(CellReading(Lab(55.0, -60.0, 40.0), true))) }
+        rule.setContent {
+            CubentiaTheme {
+                GuidedScanScreen(phase, strings, GuidedScanActions(onKeep = { kept++ }), cornerTorch = true, keepEnabled = keepEnabled)
+            }
+        }
+        rule.onNodeWithTag("calibration:keep").assertIsNotEnabled()
+        rule.onNodeWithTag("calibration:keep").performClick()
+        rule.runOnIdle { assertEquals(0, kept) }
+        rule.runOnIdle { keepEnabled = true }
+        rule.onNodeWithTag("calibration:keep").assertIsEnabled().performClick()
+        rule.runOnIdle { assertEquals(1, kept) }
+    }
 }

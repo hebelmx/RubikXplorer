@@ -496,6 +496,30 @@ class QuickScanSideFaceReplayTest {
     }
 
     @Test
+    fun `no other cube's or other light's calibration matches a held-out group`() {
+        // Story 10.21 AC1 (PO 2026-11-24): the centre closeness check fails every foreign calibration on the held-out groups.
+        val groups = groups()
+        val heldOut = heldOut(groups)
+        assumeTrue(heldOut.isNotEmpty(), "No held-out 10.22 corner groups")
+        val matched = foreignMatches(heldOut, groups, QuickScanClassification.MAX_CENTRE_DELTA_E)
+        assertTrue(matched.isEmpty(), matched.joinToString("\n"))
+    }
+
+    /** Each OTHER_CUBE and OTHER_LIGHT calibration that matches a group of [heldOut], with the centre closeness [closeness]. */
+    private fun foreignMatches(
+        heldOut: List<Group>,
+        all: List<Group>,
+        closeness: Map<Color, Double>?,
+    ): List<String> =
+        heldOut.flatMap { group ->
+            listOf(Scenario.OTHER_CUBE, Scenario.OTHER_LIGHT).flatMap { scenario ->
+                calibrations(group, all, scenario)
+                    .filter { QuickScanClassification.matchAll(group.samples, it, group.captureTorch, closeness) == CalibrationMatch.Match }
+                    .map { "${group.name} / ${scenario.title}: a foreign calibration matches" }
+            }
+        }
+
+    @Test
     fun `every held-out backlit group trips the refit light check`() {
         // Story 10.21: uncalibrated (no or mismatched calibration) and, when the group's own calibration matches its
         // captured faces, calibrated as the scan would run it.
@@ -730,10 +754,11 @@ class QuickScanSideFaceReplayTest {
         assertTrue(unsafe(enforced).isEmpty())
     }
 
-    /** The label-set commit (`git rev-parse HEAD` of the fixtures folder); `unknown` when git cannot tell. */
+    /** The label-set commit (the last commit that touched the fixtures folder); `unknown` when git cannot tell. */
     private fun labelCommit(root: File = FIXTURES): String =
         runCatching {
-            val process = ProcessBuilder("git", "-C", root.path, "rev-parse", "HEAD").redirectErrorStream(true).start()
+            val process =
+                ProcessBuilder("git", "-C", root.path, "log", "-1", "--format=%H", "--", ".").redirectErrorStream(true).start()
             val out =
                 process.inputStream
                     .bufferedReader()
@@ -855,6 +880,21 @@ class QuickScanSideFaceReplayTest {
                             "${total.correct}/${total.uncertain}/${total.wrong} | ${total.sideFacesKept}/${total.sideFaces} | " +
                             "${total.wrongKept} | ${total.redOrangeKept} |",
                     )
+                }
+            }
+            appendLine()
+            appendLine("Calibrations that match, by the centre read alone -> with the centre closeness (PO 2026-11-24):")
+            appendLine()
+            heldOut.forEach { group ->
+                Scenario.entries.drop(1).forEach { scenario ->
+                    val calibrations = calibrations(group, groups, scenario)
+
+                    fun count(closeness: Map<Color, Double>?) =
+                        calibrations.count {
+                            QuickScanClassification.matchAll(group.samples, it, group.captureTorch, closeness) == CalibrationMatch.Match
+                        }
+                    val after = count(QuickScanClassification.MAX_CENTRE_DELTA_E)
+                    appendLine("- ${group.name} / ${scenario.title}: ${count(null)}/${calibrations.size} -> $after/${calibrations.size}")
                 }
             }
             appendLine()

@@ -7,7 +7,9 @@ import dev.cubentia.domain.cube.Face
  * Whether a saved calibration may be used for a Quick Scan face (Story 10.21, AD-9): only when its torch tag equals the
  * torch actually lit at the face's capture (a legacy row with no tag counts as torch-off) and every plain captured centre
  * (captured under that torch) reads CONFIDENT as its own colour against it. Otherwise Quick Scan self-calibrates as
- * when no calibration exists. [label] is the debug word (`match`, `mismatch torch`, `mismatch centre`).
+ * when no calibration exists. Each such centre must also lie within [QuickScanClassification.MAX_CENTRE_DELTA_E] of the
+ * saved centre of its colour (PO 2026-11-24), so another cube's or another light's calibration fails as a centre
+ * mismatch. [label] is the debug word (`match`, `mismatch torch`, `mismatch centre`).
  */
 sealed interface CalibrationMatch {
     val label: String
@@ -86,14 +88,34 @@ object QuickScanClassification {
     const val MAX_KEPT_BLANKS = 1
 
     /**
+     * How far (ΔE) a plain captured centre may lie from the saved centre of its colour for [match] (Story 10.21, PO
+     * 2026-11-24: another cube's or another light's calibration must fail the match). Fitted on the 10.20 tuning split only
+     * by `QuickScanGateTuningTest` (docs/evidence/10-21/tuning-and-replay.md): per colour, the 0.1 step above the largest
+     * distance of a centre to its own calibration among the tuning groups whose own calibration passes the centre read, so
+     * no such same-cube match is lost. A colour with no such centre on the tuning split (White) takes the largest fitted one.
+     */
+    val MAX_CENTRE_DELTA_E: Map<Color, Double> =
+        mapOf(
+            Color.WHITE to 40.4,
+            Color.YELLOW to 18.1,
+            Color.GREEN to 40.4,
+            Color.BLUE to 31.3,
+            Color.RED to 12.3,
+            Color.ORANGE to 14.8,
+        )
+
+    /**
      * Whether [saved] may be used with faces captured under [torchLit] whose samples are [captured]; null when there is
      * no saved calibration or it is not six valid centres. A guarded (logo) centre is not judged, but at least one plain
-     * centre must be: with none to check (no sample, or every centre guarded) it is a centre mismatch.
+     * centre must be: with none to check (no sample, or every centre guarded) it is a centre mismatch. Each plain centre
+     * must read CONFIDENT as its own colour and lie within [maxCentreDeltaE] of that colour's saved centre (null: the
+     * read alone, as before the closeness check; only the tuning fit uses it).
      */
     fun match(
         saved: CalibrationCenters?,
         torchLit: Boolean,
         captured: List<FaceSample>,
+        maxCentreDeltaE: Map<Color, Double>? = MAX_CENTRE_DELTA_E,
     ): CalibrationMatch? {
         if (saved == null || !StickerClassifier.isValid(saved)) return null
         if ((saved.torchOn == true) != torchLit) return CalibrationMatch.Mismatch(CalibrationMatch.Reason.TORCH)
@@ -102,13 +124,21 @@ object QuickScanClassification {
             plain.isNotEmpty() &&
                 plain.all { sample ->
                     val center = sample.center
+                    val color = sample.centerColor ?: Color.home(sample.face)
                     center != null &&
                         center.isValid() &&
-                        StickerClassifier.read(center, saved.centers) ==
-                        StickerReading(sample.centerColor ?: Color.home(sample.face), StickerConfidence.CONFIDENT)
+                        StickerClassifier.read(center, saved.centers) == StickerReading(color, StickerConfidence.CONFIDENT) &&
+                        close(center, saved.centers[color], maxCentreDeltaE?.get(color))
                 }
         return if (centres) CalibrationMatch.Match else CalibrationMatch.Mismatch(CalibrationMatch.Reason.CENTRE)
     }
+
+    /** Whether [center] lies within [max] ΔE of the saved centre [target]; no limit when [max] is null. */
+    private fun close(
+        center: Lab,
+        target: Lab?,
+        max: Double?,
+    ): Boolean = max == null || (target != null && StickerClassifier.deltaE(center, target) <= max)
 
     /**
      * [match] for [face]: against the torch lit at its capture ([captureTorch], absent: off) and the centres of the
@@ -119,9 +149,10 @@ object QuickScanClassification {
         merged: List<FaceSample>,
         saved: CalibrationCenters?,
         captureTorch: Map<Face, Boolean> = emptyMap(),
+        maxCentreDeltaE: Map<Color, Double>? = MAX_CENTRE_DELTA_E,
     ): CalibrationMatch? {
         val lit = captureTorch[face] == true
-        return match(saved, lit, merged.filter { (captureTorch[it.face] == true) == lit })
+        return match(saved, lit, merged.filter { (captureTorch[it.face] == true) == lit }, maxCentreDeltaE)
     }
 
     /**
@@ -132,10 +163,11 @@ object QuickScanClassification {
         merged: List<FaceSample>,
         saved: CalibrationCenters?,
         captureTorch: Map<Face, Boolean> = emptyMap(),
+        maxCentreDeltaE: Map<Color, Double>? = MAX_CENTRE_DELTA_E,
     ): CalibrationMatch? {
         if (saved == null || !StickerClassifier.isValid(saved)) return null
         if (merged.isEmpty()) return CalibrationMatch.Mismatch(CalibrationMatch.Reason.CENTRE)
-        val matches = merged.map { matchFor(it.face, merged, saved, captureTorch) }
+        val matches = merged.map { matchFor(it.face, merged, saved, captureTorch, maxCentreDeltaE) }
         return matches.firstOrNull { it is CalibrationMatch.Mismatch } ?: CalibrationMatch.Match
     }
 
