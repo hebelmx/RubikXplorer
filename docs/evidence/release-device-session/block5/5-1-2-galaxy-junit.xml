@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuites tests="5" failures="0" errors="0" skipped="0" time="0.000" timestamp="2026-11-23T16:19:36" hostname="localhost">
+  <testsuite name="dev.cubentia.app.render.Cube3DRenderSyncTest" tests="4" failures="0" errors="0" skipped="0" time="187.658" timestamp="2026-11-23T16:19:36" hostname="localhost">
+    <properties>
+      <property name="device" value="192.168.0.131_41067" />
+    </properties>
+    <testcase name="solutionPlayback3DDrainsForwardBackRestartAndSpeedChanges" classname="dev.cubentia.app.render.Cube3DRenderSyncTest" time="2.149" />
+    <testcase name="physicalSwitchKeepsTheStepControlsAndQuickCheckEvidence" classname="dev.cubentia.app.render.Cube3DRenderSyncTest" time="1.392" />
+    <testcase name="tenThousandRandomStepsKeepTheCubeEqualToTheVirtualState" classname="dev.cubentia.app.render.Cube3DRenderSyncTest" time="183.005" />
+    <testcase name="switchingEitherWayDuringATurnSnapsToTheCommittedStep" classname="dev.cubentia.app.render.Cube3DRenderSyncTest" time="1.112" />
+  </testsuite>
+  <testsuite name="dev.cubentia.app.session.EndToEndSyncVerificationTest" tests="1" failures="0" errors="0" skipped="0" time="2.939" timestamp="2026-11-23T16:19:36" hostname="localhost">
+    <properties>
+      <property name="device" value="192.168.0.131_41067" />
+    </properties>
+    <testcase name="endToEndSyncVerificationAcrossModesAndLifecycle" classname="dev.cubentia.app.session.EndToEndSyncVerificationTest" time="2.939" />
+  </testsuite>
+</testsuites>

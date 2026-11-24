@@ -1,0 +1,45 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuites tests="5" failures="2" errors="0" skipped="0" time="0.000" timestamp="2026-11-23T15:46:27" hostname="localhost">
+  <testsuite name="dev.cubentia.app.render.Cube3DRenderSyncTest" tests="4" failures="2" errors="0" skipped="0" time="362.189" timestamp="2026-11-23T15:46:27" hostname="localhost">
+    <properties>
+      <property name="device" value="HA1S28MM" />
+    </properties>
+    <testcase name="solutionPlayback3DDrainsForwardBackRestartAndSpeedChanges" classname="dev.cubentia.app.render.Cube3DRenderSyncTest" time="42.023" />
+    <testcase name="physicalSwitchKeepsTheStepControlsAndQuickCheckEvidence" classname="dev.cubentia.app.render.Cube3DRenderSyncTest" time="12.410">
+      <failure>java.lang.IllegalStateException: No compose hierarchies found in the app. Possible reasons include: (1) the Activity that calls setContent did not launch; (2) setContent was not called; (3) setContent was called before the ComposeTestRule ran. If setContent is called by the Activity, make sure the Activity is launched after the ComposeTestRule runs
+	at androidx.compose.ui.test.TestOwnerKt.getAllSemanticsNodes(TestOwner.kt:117)
+	at androidx.compose.ui.test.SemanticsNodeInteraction.fetchSemanticsNodes$ui_test(SemanticsNodeInteraction.kt:64)
+	at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow(SemanticsNodeInteraction.kt:157)
+	at androidx.compose.ui.test.SemanticsNodeInteraction.fetchOneOrThrow$default(SemanticsNodeInteraction.kt:150)
+	at androidx.compose.ui.test.SemanticsNodeInteraction.assertExists(SemanticsNodeInteraction.kt:125)
+	at androidx.compose.ui.test.SemanticsNodeInteraction.assertExists$default(SemanticsNodeInteraction.kt:124)
+	at dev.cubentia.app.render.Cube3DRenderSyncTest.physicalSwitchKeepsTheStepControlsAndQuickCheckEvidence(Cube3DRenderSyncTest.kt:256)
+</failure>
+    </testcase>
+    <testcase name="tenThousandRandomStepsKeepTheCubeEqualToTheVirtualState" classname="dev.cubentia.app.render.Cube3DRenderSyncTest" time="305.380">
+      <failure>org.junit.runners.model.TestTimedOutException: test timed out after 300000 milliseconds
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:218)
+	at java.util.concurrent.FutureTask.awaitDone(FutureTask.java:511)
+	at java.util.concurrent.FutureTask.get(FutureTask.java:192)
+	at androidx.test.espresso.Espresso.onIdle(Espresso.java:349)
+	at androidx.test.espresso.Espresso.onIdle(Espresso.java:378)
+	at androidx.compose.ui.test.EspressoLink_androidKt.runEspressoOnIdle(EspressoLink.android.kt:88)
+	at androidx.compose.ui.test.EspressoLink.runUntilIdle(EspressoLink.android.kt:82)
+	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment.waitForNextChoreographerFrame(ComposeUiTest.android.kt:736)
+	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment.waitForIdle(ComposeUiTest.android.kt:719)
+	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment.access$waitForIdle(ComposeUiTest.android.kt:481)
+	at androidx.compose.ui.test.AndroidComposeUiTestEnvironment$AndroidComposeUiTestImpl.waitForIdle(ComposeUiTest.android.kt:859)
+	at androidx.compose.ui.test.junit4.AndroidComposeTestRule.waitForIdle(AndroidComposeTestRule.android.kt:495)
+	at dev.cubentia.app.render.Cube3DRenderSyncTest.drain(Cube3DRenderSyncTest.kt:65)
+	at dev.cubentia.app.render.Cube3DRenderSyncTest.tenThousandRandomStepsKeepTheCubeEqualToTheVirtualState(Cube3DRenderSyncTest.kt:140)
+</failure>
+    </testcase>
+    <testcase name="switchingEitherWayDuringATurnSnapsToTheCommittedStep" classname="dev.cubentia.app.render.Cube3DRenderSyncTest" time="2.376" />
+  </testsuite>
+  <testsuite name="dev.cubentia.app.session.EndToEndSyncVerificationTest" tests="1" failures="0" errors="0" skipped="0" time="5.102" timestamp="2026-11-23T15:46:27" hostname="localhost">
+    <properties>
+      <property name="device" value="HA1S28MM" />
+    </properties>
+    <testcase name="endToEndSyncVerificationAcrossModesAndLifecycle" classname="dev.cubentia.app.session.EndToEndSyncVerificationTest" time="5.102" />
+  </testsuite>
+</testsuites>

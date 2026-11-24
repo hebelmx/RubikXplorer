@@ -1,0 +1,19 @@
+{
+    "kind": "corner-keypoints",
+    "frame": "0004.png",
+    "label": "negative",
+    "keypoints": null,
+    "detectorKeypoints": null,
+    "device": {
+        "model": "Lenovo TB128XU",
+        "manufacturer": "LENOVO",
+        "osRelease": "13",
+        "osBuild": "TB128XU_S101018_250611_ROW",
+        "sdkInt": 33
+    },
+    "cube": "stlb",
+    "light": "bar-warm",
+    "lightDirection": "front",
+    "capturedAt": "2026-11-23T15:33:44.052374Z",
+    "torch": null
+}

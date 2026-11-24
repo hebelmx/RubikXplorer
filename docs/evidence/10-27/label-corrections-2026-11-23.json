@@ -1,0 +1,168 @@
+{
+  "kind": "label-corrections",
+  "date": "2026-11-23",
+  "reviewer": "PO (hebelmx)",
+  "method": "tools/label-audit review pages (sticker, face, full-cube), counts 9 of each in all 23 corner groups",
+  "corrections": [
+    {
+      "group": "lenovo-tb128xu_stla_cool",
+      "hold": "corner-1",
+      "face": 2,
+      "index": 6,
+      "from": "ORANGE",
+      "to": "RED"
+    },
+    {
+      "group": "sm-s721u1_stla_bar-warm-2",
+      "hold": "corner-2",
+      "face": 0,
+      "index": 1,
+      "from": "RED",
+      "to": "ORANGE"
+    },
+    {
+      "group": "lenovo-tb128xu_stla_cool",
+      "hold": "corner-1",
+      "face": 1,
+      "index": 7,
+      "from": "WHITE",
+      "to": "BLUE"
+    },
+    {
+      "group": "lenovo-tb128xu_stla_cool",
+      "hold": "corner-1",
+      "face": 1,
+      "index": 8,
+      "from": "WHITE",
+      "to": "BLUE"
+    },
+    {
+      "group": "sm-s721u1_stka_bar-cool",
+      "hold": "corner-1",
+      "face": 2,
+      "index": 2,
+      "from": "WHITE",
+      "to": "BLUE"
+    },
+    {
+      "group": "sm-s721u1_stka_bar-cool",
+      "hold": "corner-1",
+      "face": 2,
+      "index": 6,
+      "from": "WHITE",
+      "to": "BLUE"
+    },
+    {
+      "group": "sm-s721u1_stla_bar-warm-2",
+      "hold": "corner-1",
+      "face": 1,
+      "index": 1,
+      "from": "ORANGE",
+      "to": "RED"
+    },
+    {
+      "group": "sm-s721u1_stla_bar-warm",
+      "hold": "corner-2",
+      "face": 1,
+      "index": 0,
+      "from": "YELLOW",
+      "to": "WHITE"
+    },
+    {
+      "group": "sm-s721u1_stla_bar-warm",
+      "hold": "corner-2",
+      "face": 1,
+      "index": 6,
+      "from": "ORANGE",
+      "to": "RED"
+    },
+    {
+      "group": "sm-s721u1_stla_bar-warm-2",
+      "hold": "corner-2",
+      "face": 1,
+      "index": 2,
+      "from": "WHITE",
+      "to": "BLUE"
+    },
+    {
+      "group": "sm-s721u1_stla_bar-warm-2",
+      "hold": "corner-2",
+      "face": 1,
+      "index": 7,
+      "from": "WHITE",
+      "to": "BLUE"
+    },
+    {
+      "group": "sm-s721u1_stla_bar-warm",
+      "hold": "corner-1",
+      "face": 1,
+      "index": 8,
+      "from": "WHITE",
+      "to": "BLUE"
+    },
+    {
+      "group": "lenovo-tb128xu_stka_cool",
+      "hold": "corner-1",
+      "face": 1,
+      "index": 8,
+      "from": "WHITE",
+      "to": "BLUE"
+    },
+    {
+      "group": "sm-s721u1_stka_bar-warm-2",
+      "hold": "corner-1",
+      "face": 2,
+      "index": 2,
+      "from": "WHITE",
+      "to": "BLUE"
+    },
+    {
+      "group": "sm-s721u1_stka_bar-warm-2",
+      "hold": "corner-1",
+      "face": 2,
+      "index": 6,
+      "from": "WHITE",
+      "to": "BLUE"
+    },
+    {
+      "group": "lenovo-tb128xu_stka_warm",
+      "hold": "corner-1",
+      "face": 2,
+      "index": 2,
+      "from": "RED",
+      "to": "ORANGE"
+    },
+    {
+      "group": "sm-s721u1_stla_bar-cool",
+      "hold": "corner-1",
+      "face": 1,
+      "index": 8,
+      "from": "GREEN",
+      "to": "BLUE"
+    },
+    {
+      "group": "lenovo-tb128xu_stka_cool-front",
+      "hold": "corner-1",
+      "face": 2,
+      "index": 7,
+      "from": "ORANGE",
+      "to": "YELLOW"
+    },
+    {
+      "group": "lenovo-tb128xu_stla_ceilback",
+      "hold": "corner-1",
+      "face": 1,
+      "index": 3,
+      "from": "WHITE",
+      "to": "BLUE"
+    },
+    {
+      "group": "sm-s721u1_stka_bar-warm-2",
+      "hold": "corner-1",
+      "face": 1,
+      "index": 5,
+      "from": "WHITE",
+      "to": "BLUE"
+    }
+  ]
+}

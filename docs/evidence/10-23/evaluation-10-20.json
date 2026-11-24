@@ -1,0 +1,7155 @@
+{
+  "bar": "none; routed to the PO",
+  "cells": {
+    "ALL held-out": {
+      "agreementGated": {
+        "bothConfidentDiffer": 6,
+        "bothConfidentSame": 189,
+        "kotlinRightWhereModelUncertain": 17,
+        "modelRightWhereKotlinUncertain": 98,
+        "neitherConfident": 24,
+        "onlyKotlinConfident": 19,
+        "onlyModelConfident": 104
+      },
+      "agreementSecond": {
+        "bothConfidentDiffer": 18,
+        "bothConfidentSame": 222,
+        "kotlinRightWhereModelUncertain": 20,
+        "modelRightWhereKotlinUncertain": 58,
+        "neitherConfident": 13,
+        "onlyKotlinConfident": 30,
+        "onlyModelConfident": 59
+      },
+      "agreementSelf": {
+        "bothConfidentDiffer": 20,
+        "bothConfidentSame": 231,
+        "kotlinRightWhereModelUncertain": 28,
+        "modelRightWhereKotlinUncertain": 42,
+        "neitherConfident": 10,
+        "onlyKotlinConfident": 33,
+        "onlyModelConfident": 48
+      },
+      "faces": 38,
+      "gated": {
+        "confidentlyWrong": 6,
+        "correct": 208,
+        "redOrange": {
+          "all": 26,
+          "confident": 0
+        },
+        "stickers": 342,
+        "uncertain": 128,
+        "whiteYellow": {
+          "all": 1,
+          "confident": 0
+        }
+      },
+      "groups": [
+        "corner/lenovo-tb128xu_stla_bar-cool",
+        "corner/lenovo-tb128xu_stla_bar-warm",
+        "corner/lenovo-tb128xu_stla_ceilback",
+        "corner/sm-s721u1_stka_bar-cool-3",
+        "corner/sm-s721u1_stka_bar-warm-2",
+        "corner/sm-s721u1_stla_bar-cool",
+        "corner/sm-s721u1_stla_bar-warm",
+        "corner/sm-s721u1_stla_ceilback"
+      ],
+      "kotlinFaces": 38,
+      "model": {
+        "confidentlyWrong": 8,
+        "correct": 291,
+        "redOrange": {
+          "all": 1,
+          "confident": 1
+        },
+        "stickers": 342,
+        "uncertain": 43,
+        "whiteYellow": {
+          "all": 1,
+          "confident": 0
+        }
+      },
+      "second": {
+        "confidentlyWrong": 23,
+        "correct": 247,
+        "redOrange": {
+          "all": 13,
+          "confident": 0
+        },
+        "stickers": 342,
+        "uncertain": 72,
+        "whiteYellow": {
+          "all": 1,
+          "confident": 1
+        }
+      },
+      "self": {
+        "confidentlyWrong": 23,
+        "correct": 261,
+        "redOrange": {
+          "all": 26,
+          "confident": 13
+        },
+        "stickers": 342,
+        "uncertain": 58,
+        "whiteYellow": {
+          "all": 1,
+          "confident": 0
+        }
+      }
+    },
+    "Galaxy S24 FE / stka / bar-cool-3": {
+      "agreementGated": {
+        "bothConfidentDiffer": 1,
+        "bothConfidentSame": 21,
+        "kotlinRightWhereModelUncertain": 3,
+        "modelRightWhereKotlinUncertain": 12,
+        "neitherConfident": 7,
+        "onlyKotlinConfident": 3,
+        "onlyModelConfident": 13
+      },
+      "agreementSecond": {
+        "bothConfidentDiffer": 1,
+        "bothConfidentSame": 27,
+        "kotlinRightWhereModelUncertain": 4,
+        "modelRightWhereKotlinUncertain": 7,
+        "neitherConfident": 5,
+        "onlyKotlinConfident": 5,
+        "onlyModelConfident": 7
+      },
+      "agreementSelf": {
+        "bothConfidentDiffer": 4,
+        "bothConfidentSame": 28,
+        "kotlinRightWhereModelUncertain": 7,
+        "modelRightWhereKotlinUncertain": 2,
+        "neitherConfident": 2,
+        "onlyKotlinConfident": 8,
+        "onlyModelConfident": 3
+      },
+      "faces": 5,
+      "gated": {
+        "confidentlyWrong": 1,
+        "correct": 24,
+        "redOrange": {
+          "all": 5,
+          "confident": 0
+        },
+        "stickers": 45,
+        "uncertain": 20,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      },
+      "groups": [
+        "corner/sm-s721u1_stka_bar-cool-3"
+      ],
+      "kotlinFaces": 5,
+      "model": {
+        "confidentlyWrong": 1,
+        "correct": 34,
+        "redOrange": {
+          "all": 0,
+          "confident": 0
+        },
+        "stickers": 45,
+        "uncertain": 10,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      },
+      "second": {
+        "confidentlyWrong": 3,
+        "correct": 30,
+        "redOrange": {
+          "all": 2,
+          "confident": 0
+        },
+        "stickers": 45,
+        "uncertain": 12,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      },
+      "self": {
+        "confidentlyWrong": 5,
+        "correct": 35,
+        "redOrange": {
+          "all": 5,
+          "confident": 4
+        },
+        "stickers": 45,
+        "uncertain": 5,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      }
+    },
+    "Galaxy S24 FE / stka / bar-warm-2": {
+      "agreementGated": {
+        "bothConfidentDiffer": 1,
+        "bothConfidentSame": 30,
+        "kotlinRightWhereModelUncertain": 6,
+        "modelRightWhereKotlinUncertain": 10,
+        "neitherConfident": 2,
+        "onlyKotlinConfident": 7,
+        "onlyModelConfident": 14
+      },
+      "agreementSecond": {
+        "bothConfidentDiffer": 4,
+        "bothConfidentSame": 31,
+        "kotlinRightWhereModelUncertain": 6,
+        "modelRightWhereKotlinUncertain": 9,
+        "neitherConfident": 0,
+        "onlyKotlinConfident": 9,
+        "onlyModelConfident": 10
+      },
+      "agreementSelf": {
+        "bothConfidentDiffer": 4,
+        "bothConfidentSame": 34,
+        "kotlinRightWhereModelUncertain": 8,
+        "modelRightWhereKotlinUncertain": 3,
+        "neitherConfident": 0,
+        "onlyKotlinConfident": 9,
+        "onlyModelConfident": 7
+      },
+      "faces": 6,
+      "gated": {
+        "confidentlyWrong": 1,
+        "correct": 37,
+        "redOrange": {
+          "all": 3,
+          "confident": 0
+        },
+        "stickers": 54,
+        "uncertain": 16,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      },
+      "groups": [
+        "corner/sm-s721u1_stka_bar-warm-2"
+      ],
+      "kotlinFaces": 6,
+      "model": {
+        "confidentlyWrong": 5,
+        "correct": 40,
+        "redOrange": {
+          "all": 0,
+          "confident": 0
+        },
+        "stickers": 54,
+        "uncertain": 9,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      },
+      "second": {
+        "confidentlyWrong": 3,
+        "correct": 41,
+        "redOrange": {
+          "all": 0,
+          "confident": 0
+        },
+        "stickers": 54,
+        "uncertain": 10,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      },
+      "self": {
+        "confidentlyWrong": 4,
+        "correct": 43,
+        "redOrange": {
+          "all": 3,
+          "confident": 1
+        },
+        "stickers": 54,
+        "uncertain": 7,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      }
+    },
+    "Galaxy S24 FE / stla / bar-cool": {
+      "agreementGated": {
+        "bothConfidentDiffer": 0,
+        "bothConfidentSame": 25,
+        "kotlinRightWhereModelUncertain": 4,
+        "modelRightWhereKotlinUncertain": 12,
+        "neitherConfident": 3,
+        "onlyKotlinConfident": 5,
+        "onlyModelConfident": 12
+      },
+      "agreementSecond": {
+        "bothConfidentDiffer": 0,
+        "bothConfidentSame": 30,
+        "kotlinRightWhereModelUncertain": 4,
+        "modelRightWhereKotlinUncertain": 7,
+        "neitherConfident": 3,
+        "onlyKotlinConfident": 5,
+        "onlyModelConfident": 7
+      },
+      "agreementSelf": {
+        "bothConfidentDiffer": 1,
+        "bothConfidentSame": 30,
+        "kotlinRightWhereModelUncertain": 6,
+        "modelRightWhereKotlinUncertain": 6,
+        "neitherConfident": 0,
+        "onlyKotlinConfident": 8,
+        "onlyModelConfident": 6
+      },
+      "faces": 5,
+      "gated": {
+        "confidentlyWrong": 1,
+        "correct": 29,
+        "redOrange": {
+          "all": 5,
+          "confident": 0
+        },
+        "stickers": 45,
+        "uncertain": 15,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      },
+      "groups": [
+        "corner/sm-s721u1_stla_bar-cool"
+      ],
+      "kotlinFaces": 5,
+      "model": {
+        "confidentlyWrong": 0,
+        "correct": 37,
+        "redOrange": {
+          "all": 0,
+          "confident": 0
+        },
+        "stickers": 45,
+        "uncertain": 8,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      },
+      "second": {
+        "confidentlyWrong": 1,
+        "correct": 34,
+        "redOrange": {
+          "all": 3,
+          "confident": 0
+        },
+        "stickers": 45,
+        "uncertain": 10,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      },
+      "self": {
+        "confidentlyWrong": 3,
+        "correct": 36,
+        "redOrange": {
+          "all": 5,
+          "confident": 2
+        },
+        "stickers": 45,
+        "uncertain": 6,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      }
+    },
+    "Galaxy S24 FE / stla / bar-warm": {
+      "agreementGated": {
+        "bothConfidentDiffer": 2,
+        "bothConfidentSame": 15,
+        "kotlinRightWhereModelUncertain": 0,
+        "modelRightWhereKotlinUncertain": 9,
+        "neitherConfident": 1,
+        "onlyKotlinConfident": 0,
+        "onlyModelConfident": 9
+      },
+      "agreementSecond": {
+        "bothConfidentDiffer": 4,
+        "bothConfidentSame": 18,
+        "kotlinRightWhereModelUncertain": 0,
+        "modelRightWhereKotlinUncertain": 4,
+        "neitherConfident": 1,
+        "onlyKotlinConfident": 0,
+        "onlyModelConfident": 4
+      },
+      "agreementSelf": {
+        "bothConfidentDiffer": 4,
+        "bothConfidentSame": 17,
+        "kotlinRightWhereModelUncertain": 0,
+        "modelRightWhereKotlinUncertain": 5,
+        "neitherConfident": 1,
+        "onlyKotlinConfident": 0,
+        "onlyModelConfident": 5
+      },
+      "faces": 3,
+      "gated": {
+        "confidentlyWrong": 1,
+        "correct": 16,
+        "redOrange": {
+          "all": 2,
+          "confident": 0
+        },
+        "stickers": 27,
+        "uncertain": 10,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      },
+      "groups": [
+        "corner/sm-s721u1_stla_bar-warm"
+      ],
+      "kotlinFaces": 3,
+      "model": {
+        "confidentlyWrong": 1,
+        "correct": 25,
+        "redOrange": {
+          "all": 1,
+          "confident": 1
+        },
+        "stickers": 27,
+        "uncertain": 1,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      },
+      "second": {
+        "confidentlyWrong": 3,
+        "correct": 19,
+        "redOrange": {
+          "all": 0,
+          "confident": 0
+        },
+        "stickers": 27,
+        "uncertain": 5,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      },
+      "self": {
+        "confidentlyWrong": 3,
+        "correct": 18,
+        "redOrange": {
+          "all": 2,
+          "confident": 2
+        },
+        "stickers": 27,
+        "uncertain": 6,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      }
+    },
+    "Galaxy S24 FE / stla / ceilback": {
+      "agreementGated": {
+        "bothConfidentDiffer": 1,
+        "bothConfidentSame": 21,
+        "kotlinRightWhereModelUncertain": 2,
+        "modelRightWhereKotlinUncertain": 20,
+        "neitherConfident": 10,
+        "onlyKotlinConfident": 2,
+        "onlyModelConfident": 20
+      },
+      "agreementSecond": {
+        "bothConfidentDiffer": 3,
+        "bothConfidentSame": 29,
+        "kotlinRightWhereModelUncertain": 3,
+        "modelRightWhereKotlinUncertain": 10,
+        "neitherConfident": 4,
+        "onlyKotlinConfident": 8,
+        "onlyModelConfident": 10
+      },
+      "agreementSelf": {
+        "bothConfidentDiffer": 2,
+        "bothConfidentSame": 31,
+        "kotlinRightWhereModelUncertain": 5,
+        "modelRightWhereKotlinUncertain": 9,
+        "neitherConfident": 7,
+        "onlyKotlinConfident": 5,
+        "onlyModelConfident": 9
+      },
+      "faces": 6,
+      "gated": {
+        "confidentlyWrong": 1,
+        "correct": 23,
+        "redOrange": {
+          "all": 3,
+          "confident": 0
+        },
+        "stickers": 54,
+        "uncertain": 30,
+        "whiteYellow": {
+          "all": 1,
+          "confident": 0
+        }
+      },
+      "groups": [
+        "corner/sm-s721u1_stla_ceilback"
+      ],
+      "kotlinFaces": 6,
+      "model": {
+        "confidentlyWrong": 0,
+        "correct": 42,
+        "redOrange": {
+          "all": 0,
+          "confident": 0
+        },
+        "stickers": 54,
+        "uncertain": 12,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      },
+      "second": {
+        "confidentlyWrong": 8,
+        "correct": 32,
+        "redOrange": {
+          "all": 6,
+          "confident": 0
+        },
+        "stickers": 54,
+        "uncertain": 14,
+        "whiteYellow": {
+          "all": 1,
+          "confident": 1
+        }
+      },
+      "self": {
+        "confidentlyWrong": 2,
+        "correct": 36,
+        "redOrange": {
+          "all": 3,
+          "confident": 1
+        },
+        "stickers": 54,
+        "uncertain": 16,
+        "whiteYellow": {
+          "all": 1,
+          "confident": 0
+        }
+      }
+    },
+    "Lenovo TB128XU / stla / bar-cool": {
+      "agreementGated": {
+        "bothConfidentDiffer": 0,
+        "bothConfidentSame": 35,
+        "kotlinRightWhereModelUncertain": 0,
+        "modelRightWhereKotlinUncertain": 1,
+        "neitherConfident": 0,
+        "onlyKotlinConfident": 0,
+        "onlyModelConfident": 1
+      },
+      "agreementSecond": {
+        "bothConfidentDiffer": 0,
+        "bothConfidentSame": 35,
+        "kotlinRightWhereModelUncertain": 0,
+        "modelRightWhereKotlinUncertain": 1,
+        "neitherConfident": 0,
+        "onlyKotlinConfident": 0,
+        "onlyModelConfident": 1
+      },
+      "agreementSelf": {
+        "bothConfidentDiffer": 0,
+        "bothConfidentSame": 36,
+        "kotlinRightWhereModelUncertain": 0,
+        "modelRightWhereKotlinUncertain": 0,
+        "neitherConfident": 0,
+        "onlyKotlinConfident": 0,
+        "onlyModelConfident": 0
+      },
+      "faces": 4,
+      "gated": {
+        "confidentlyWrong": 0,
+        "correct": 35,
+        "redOrange": {
+          "all": 0,
+          "confident": 0
+        },
+        "stickers": 36,
+        "uncertain": 1,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      },
+      "groups": [
+        "corner/lenovo-tb128xu_stla_bar-cool"
+      ],
+      "kotlinFaces": 4,
+      "model": {
+        "confidentlyWrong": 0,
+        "correct": 36,
+        "redOrange": {
+          "all": 0,
+          "confident": 0
+        },
+        "stickers": 36,
+        "uncertain": 0,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      },
+      "second": {
+        "confidentlyWrong": 0,
+        "correct": 35,
+        "redOrange": {
+          "all": 0,
+          "confident": 0
+        },
+        "stickers": 36,
+        "uncertain": 1,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      },
+      "self": {
+        "confidentlyWrong": 0,
+        "correct": 36,
+        "redOrange": {
+          "all": 0,
+          "confident": 0
+        },
+        "stickers": 36,
+        "uncertain": 0,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      }
+    },
+    "Lenovo TB128XU / stla / bar-warm": {
+      "agreementGated": {
+        "bothConfidentDiffer": 0,
+        "bothConfidentSame": 20,
+        "kotlinRightWhereModelUncertain": 0,
+        "modelRightWhereKotlinUncertain": 7,
+        "neitherConfident": 0,
+        "onlyKotlinConfident": 0,
+        "onlyModelConfident": 7
+      },
+      "agreementSecond": {
+        "bothConfidentDiffer": 2,
+        "bothConfidentSame": 21,
+        "kotlinRightWhereModelUncertain": 0,
+        "modelRightWhereKotlinUncertain": 4,
+        "neitherConfident": 0,
+        "onlyKotlinConfident": 0,
+        "onlyModelConfident": 4
+      },
+      "agreementSelf": {
+        "bothConfidentDiffer": 3,
+        "bothConfidentSame": 23,
+        "kotlinRightWhereModelUncertain": 0,
+        "modelRightWhereKotlinUncertain": 1,
+        "neitherConfident": 0,
+        "onlyKotlinConfident": 0,
+        "onlyModelConfident": 1
+      },
+      "faces": 3,
+      "gated": {
+        "confidentlyWrong": 0,
+        "correct": 20,
+        "redOrange": {
+          "all": 4,
+          "confident": 0
+        },
+        "stickers": 27,
+        "uncertain": 7,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      },
+      "groups": [
+        "corner/lenovo-tb128xu_stla_bar-warm"
+      ],
+      "kotlinFaces": 3,
+      "model": {
+        "confidentlyWrong": 0,
+        "correct": 27,
+        "redOrange": {
+          "all": 0,
+          "confident": 0
+        },
+        "stickers": 27,
+        "uncertain": 0,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      },
+      "second": {
+        "confidentlyWrong": 2,
+        "correct": 21,
+        "redOrange": {
+          "all": 1,
+          "confident": 0
+        },
+        "stickers": 27,
+        "uncertain": 4,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      },
+      "self": {
+        "confidentlyWrong": 3,
+        "correct": 23,
+        "redOrange": {
+          "all": 4,
+          "confident": 3
+        },
+        "stickers": 27,
+        "uncertain": 1,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      }
+    },
+    "Lenovo TB128XU / stla / ceilback": {
+      "agreementGated": {
+        "bothConfidentDiffer": 1,
+        "bothConfidentSame": 22,
+        "kotlinRightWhereModelUncertain": 2,
+        "modelRightWhereKotlinUncertain": 27,
+        "neitherConfident": 1,
+        "onlyKotlinConfident": 2,
+        "onlyModelConfident": 28
+      },
+      "agreementSecond": {
+        "bothConfidentDiffer": 4,
+        "bothConfidentSame": 31,
+        "kotlinRightWhereModelUncertain": 3,
+        "modelRightWhereKotlinUncertain": 16,
+        "neitherConfident": 0,
+        "onlyKotlinConfident": 3,
+        "onlyModelConfident": 16
+      },
+      "agreementSelf": {
+        "bothConfidentDiffer": 2,
+        "bothConfidentSame": 32,
+        "kotlinRightWhereModelUncertain": 2,
+        "modelRightWhereKotlinUncertain": 16,
+        "neitherConfident": 0,
+        "onlyKotlinConfident": 3,
+        "onlyModelConfident": 17
+      },
+      "faces": 6,
+      "gated": {
+        "confidentlyWrong": 1,
+        "correct": 24,
+        "redOrange": {
+          "all": 4,
+          "confident": 0
+        },
+        "stickers": 54,
+        "uncertain": 29,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      },
+      "groups": [
+        "corner/lenovo-tb128xu_stla_ceilback"
+      ],
+      "kotlinFaces": 6,
+      "model": {
+        "confidentlyWrong": 1,
+        "correct": 50,
+        "redOrange": {
+          "all": 0,
+          "confident": 0
+        },
+        "stickers": 54,
+        "uncertain": 3,
+        "whiteYellow": {
+          "all": 1,
+          "confident": 0
+        }
+      },
+      "second": {
+        "confidentlyWrong": 3,
+        "correct": 35,
+        "redOrange": {
+          "all": 1,
+          "confident": 0
+        },
+        "stickers": 54,
+        "uncertain": 16,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      },
+      "self": {
+        "confidentlyWrong": 3,
+        "correct": 34,
+        "redOrange": {
+          "all": 4,
+          "confident": 0
+        },
+        "stickers": 54,
+        "uncertain": 17,
+        "whiteYellow": {
+          "all": 0,
+          "confident": 0
+        }
+      }
+    }
+  },
+  "faceReads": [
+    {
+      "gated": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "item": "corner/lenovo-tb128xu_stla_bar-cool/corner-1/F",
+      "model": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "GREEN",
+        "ORANGE",
+        "BLUE",
+        "BLUE",
+        "GREEN",
+        "GREEN",
+        "GREEN",
+        "RED",
+        "BLUE"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "item": "corner/lenovo-tb128xu_stla_bar-cool/corner-1/R",
+      "model": [
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "ORANGE",
+        "GREEN",
+        "YELLOW",
+        "RED",
+        "RED",
+        "WHITE",
+        "RED",
+        "YELLOW",
+        "WHITE"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "item": "corner/lenovo-tb128xu_stla_bar-cool/corner-1/U",
+      "model": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "BLUE",
+        "WHITE",
+        "ORANGE",
+        "RED",
+        "WHITE",
+        "YELLOW",
+        "YELLOW",
+        "BLUE",
+        "WHITE"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "item": "corner/lenovo-tb128xu_stla_bar-cool/corner-2/B",
+      "model": [
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "RED",
+        "ORANGE",
+        "RED",
+        "GREEN",
+        "BLUE",
+        "ORANGE",
+        "YELLOW",
+        "BLUE",
+        "GREEN"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "item": "corner/lenovo-tb128xu_stla_bar-warm/corner-1/F",
+      "model": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "GREEN",
+        "ORANGE",
+        "BLUE",
+        "BLUE",
+        "GREEN",
+        "GREEN",
+        "GREEN",
+        "RED",
+        "BLUE"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "item": "corner/lenovo-tb128xu_stla_bar-warm/corner-1/U",
+      "model": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "BLUE",
+        "WHITE",
+        "ORANGE",
+        "RED",
+        "WHITE",
+        "YELLOW",
+        "YELLOW",
+        "BLUE",
+        "WHITE"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "item": "corner/lenovo-tb128xu_stla_bar-warm/corner-2/B",
+      "model": [
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "RED",
+        "ORANGE",
+        "RED",
+        "GREEN",
+        "BLUE",
+        "ORANGE",
+        "YELLOW",
+        "BLUE",
+        "GREEN"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "item": "corner/lenovo-tb128xu_stla_ceilback/corner-1/F",
+      "model": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "truth": [
+        "GREEN",
+        "ORANGE",
+        "BLUE",
+        "BLUE",
+        "GREEN",
+        "GREEN",
+        "GREEN",
+        "RED",
+        "BLUE"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "item": "corner/lenovo-tb128xu_stla_ceilback/corner-1/R",
+      "model": [
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "second": [
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "ORANGE",
+        "GREEN",
+        "YELLOW",
+        "RED",
+        "RED",
+        "WHITE",
+        "RED",
+        "YELLOW",
+        "WHITE"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "item": "corner/lenovo-tb128xu_stla_ceilback/corner-1/U",
+      "model": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "BLUE",
+        "WHITE",
+        "ORANGE",
+        "RED",
+        "WHITE",
+        "YELLOW",
+        "YELLOW",
+        "BLUE",
+        "WHITE"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "item": "corner/lenovo-tb128xu_stla_ceilback/corner-2/B",
+      "model": [
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "RED",
+        "ORANGE",
+        "RED",
+        "GREEN",
+        "BLUE",
+        "ORANGE",
+        "YELLOW",
+        "BLUE",
+        "GREEN"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "item": "corner/lenovo-tb128xu_stla_ceilback/corner-2/D",
+      "model": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "self": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "WHITE",
+        "RED",
+        "GREEN",
+        "WHITE",
+        "YELLOW",
+        "GREEN",
+        "ORANGE",
+        "ORANGE",
+        "YELLOW"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "item": "corner/lenovo-tb128xu_stla_ceilback/corner-2/L",
+      "model": [
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "truth": [
+        "WHITE",
+        "YELLOW",
+        "BLUE",
+        "YELLOW",
+        "ORANGE",
+        "WHITE",
+        "RED",
+        "BLUE",
+        "ORANGE"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "item": "corner/sm-s721u1_stka_bar-cool-3/corner-1/F",
+      "model": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "second": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "BLUE",
+        "GREEN",
+        "GREEN",
+        "RED",
+        "GREEN",
+        "BLUE",
+        "RED",
+        "WHITE",
+        "ORANGE"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "item": "corner/sm-s721u1_stka_bar-cool-3/corner-1/R",
+      "model": [
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "second": [
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "self": [
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "RED",
+        "YELLOW",
+        "BLUE",
+        "WHITE",
+        "RED",
+        "ORANGE",
+        "BLUE",
+        "ORANGE",
+        "GREEN"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "item": "corner/sm-s721u1_stka_bar-cool-3/corner-1/U",
+      "model": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "GREEN",
+        "BLUE",
+        "ORANGE",
+        "GREEN",
+        "WHITE",
+        "GREEN",
+        "WHITE",
+        "WHITE",
+        "WHITE"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "item": "corner/sm-s721u1_stka_bar-cool-3/corner-2/D",
+      "model": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "WHITE",
+        "WHITE",
+        "ORANGE",
+        "RED",
+        "YELLOW",
+        "RED",
+        "YELLOW",
+        "YELLOW",
+        "BLUE"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "item": "corner/sm-s721u1_stka_bar-cool-3/corner-2/L",
+      "model": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "self": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "GREEN",
+        "BLUE",
+        "RED",
+        "YELLOW",
+        "ORANGE",
+        "YELLOW",
+        "RED",
+        "ORANGE",
+        "ORANGE"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "item": "corner/sm-s721u1_stka_bar-warm-2/corner-1/F",
+      "model": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "truth": [
+        "BLUE",
+        "GREEN",
+        "GREEN",
+        "RED",
+        "GREEN",
+        "BLUE",
+        "RED",
+        "WHITE",
+        "ORANGE"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "item": "corner/sm-s721u1_stka_bar-warm-2/corner-1/R",
+      "model": [
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "second": [
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "RED",
+        "YELLOW",
+        "BLUE",
+        "WHITE",
+        "RED",
+        "ORANGE",
+        "BLUE",
+        "ORANGE",
+        "GREEN"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "item": "corner/sm-s721u1_stka_bar-warm-2/corner-1/U",
+      "model": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "GREEN",
+        "BLUE",
+        "ORANGE",
+        "GREEN",
+        "WHITE",
+        "GREEN",
+        "WHITE",
+        "WHITE",
+        "WHITE"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "item": "corner/sm-s721u1_stka_bar-warm-2/corner-2/B",
+      "model": [
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "truth": [
+        "YELLOW",
+        "GREEN",
+        "YELLOW",
+        "ORANGE",
+        "BLUE",
+        "BLUE",
+        "WHITE",
+        "RED",
+        "YELLOW"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "item": "corner/sm-s721u1_stka_bar-warm-2/corner-2/D",
+      "model": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "WHITE",
+        "WHITE",
+        "ORANGE",
+        "RED",
+        "YELLOW",
+        "RED",
+        "YELLOW",
+        "YELLOW",
+        "BLUE"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "item": "corner/sm-s721u1_stka_bar-warm-2/corner-2/L",
+      "model": [
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "GREEN",
+        "BLUE",
+        "RED",
+        "YELLOW",
+        "ORANGE",
+        "YELLOW",
+        "RED",
+        "ORANGE",
+        "ORANGE"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "item": "corner/sm-s721u1_stla_bar-cool/corner-1/R",
+      "model": [
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "second": [
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "ORANGE",
+        "GREEN",
+        "YELLOW",
+        "RED",
+        "RED",
+        "WHITE",
+        "RED",
+        "YELLOW",
+        "WHITE"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "item": "corner/sm-s721u1_stla_bar-cool/corner-1/U",
+      "model": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "BLUE",
+        "WHITE",
+        "ORANGE",
+        "RED",
+        "WHITE",
+        "YELLOW",
+        "YELLOW",
+        "BLUE",
+        "WHITE"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "item": "corner/sm-s721u1_stla_bar-cool/corner-2/B",
+      "model": [
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "truth": [
+        "RED",
+        "ORANGE",
+        "RED",
+        "GREEN",
+        "BLUE",
+        "ORANGE",
+        "YELLOW",
+        "BLUE",
+        "GREEN"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "item": "corner/sm-s721u1_stla_bar-cool/corner-2/D",
+      "model": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "WHITE",
+        "RED",
+        "GREEN",
+        "WHITE",
+        "YELLOW",
+        "GREEN",
+        "ORANGE",
+        "ORANGE",
+        "YELLOW"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "item": "corner/sm-s721u1_stla_bar-cool/corner-2/L",
+      "model": [
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "second": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "WHITE",
+        "YELLOW",
+        "BLUE",
+        "YELLOW",
+        "ORANGE",
+        "WHITE",
+        "RED",
+        "BLUE",
+        "ORANGE"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "item": "corner/sm-s721u1_stla_bar-warm/corner-1/F",
+      "model": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "GREEN",
+        "ORANGE",
+        "BLUE",
+        "BLUE",
+        "GREEN",
+        "GREEN",
+        "GREEN",
+        "RED",
+        "BLUE"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "item": "corner/sm-s721u1_stla_bar-warm/corner-1/U",
+      "model": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "BLUE",
+        "WHITE",
+        "ORANGE",
+        "RED",
+        "WHITE",
+        "YELLOW",
+        "YELLOW",
+        "BLUE",
+        "WHITE"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "item": "corner/sm-s721u1_stla_bar-warm/corner-2/B",
+      "model": [
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "RED",
+        "ORANGE",
+        "RED",
+        "GREEN",
+        "BLUE",
+        "ORANGE",
+        "YELLOW",
+        "BLUE",
+        "GREEN"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "item": "corner/sm-s721u1_stla_ceilback/corner-1/F",
+      "model": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "GREEN",
+        "ORANGE",
+        "BLUE",
+        "BLUE",
+        "GREEN",
+        "GREEN",
+        "GREEN",
+        "RED",
+        "BLUE"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "item": "corner/sm-s721u1_stla_ceilback/corner-1/R",
+      "model": [
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "second": [
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "ORANGE",
+        "GREEN",
+        "YELLOW",
+        "RED",
+        "RED",
+        "WHITE",
+        "RED",
+        "YELLOW",
+        "WHITE"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "item": "corner/sm-s721u1_stla_ceilback/corner-1/U",
+      "model": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "BLUE",
+        "WHITE",
+        "ORANGE",
+        "RED",
+        "WHITE",
+        "YELLOW",
+        "YELLOW",
+        "BLUE",
+        "WHITE"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "item": "corner/sm-s721u1_stla_ceilback/corner-2/B",
+      "model": [
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "self": [
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "RED",
+        "ORANGE",
+        "RED",
+        "GREEN",
+        "BLUE",
+        "ORANGE",
+        "YELLOW",
+        "BLUE",
+        "GREEN"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "item": "corner/sm-s721u1_stla_ceilback/corner-2/D",
+      "model": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "self": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "WHITE",
+        "RED",
+        "GREEN",
+        "WHITE",
+        "YELLOW",
+        "GREEN",
+        "ORANGE",
+        "ORANGE",
+        "YELLOW"
+      ]
+    },
+    {
+      "gated": [
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "item": "corner/sm-s721u1_stla_ceilback/corner-2/L",
+      "model": [
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "second": [
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "YELLOW",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "RED",
+          "confidence": "UNCERTAIN"
+        }
+      ],
+      "self": [
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "GREEN",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "WHITE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "BLUE",
+          "confidence": "UNCERTAIN"
+        },
+        {
+          "color": "ORANGE",
+          "confidence": "CONFIDENT"
+        }
+      ],
+      "truth": [
+        "WHITE",
+        "YELLOW",
+        "BLUE",
+        "YELLOW",
+        "ORANGE",
+        "WHITE",
+        "RED",
+        "BLUE",
+        "ORANGE"
+      ]
+    }
+  ],
+  "faces": 38,
+  "groups": [
+    "corner/lenovo-tb128xu_stla_bar-cool",
+    "corner/lenovo-tb128xu_stla_bar-warm",
+    "corner/lenovo-tb128xu_stla_ceilback",
+    "corner/sm-s721u1_stka_bar-cool-3",
+    "corner/sm-s721u1_stka_bar-warm-2",
+    "corner/sm-s721u1_stla_bar-cool",
+    "corner/sm-s721u1_stla_bar-warm",
+    "corner/sm-s721u1_stla_ceilback"
+  ],
+  "kotlinFaces": 38,
+  "learningCurve": [],
+  "model": {
+    "bytes": 107848,
+    "quant": "fp16",
+    "seed": 20261123,
+    "sha256": "a6da207a1de63ca41aefedf14a3f024fa89963a039a0506bb1a597960ff35746",
+    "tau": 0.99,
+    "tauCeiling": true
+  },
+  "name": "evaluation-10-20",
+  "schemaVersion": 1
+}
