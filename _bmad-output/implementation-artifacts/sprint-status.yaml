@@ -2357,3 +2357,28 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-324-placement-solved-offers-entry-level.md"
+  - id: "issue-330-deferred-evindex-wiring-untested"
+    epic: 10
+    action: "No test covers the capture-to-screen wiring of evIndex into corner-N.json; the null
+      defaults on holdDiagnostics(evIndex) and CapturedFrame.evIndex would hide a dropped
+      argument; remove the default so callers must pass it (medium; deferred from #330,
+      FixtureRecorderScreen.kt:423)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-330-recorder-hold-settle-after-ev.md"
+  - id: "issue-330-deferred-evindex-without-ev-step"
+    epic: 10
+    action: "evIndex is saved without the camera EV step size, so the EV offset cannot be
+      compared across devices; add an evStep field (low; deferred from #330,
+      LiveFixture.kt:209)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-330-recorder-hold-settle-after-ev.md"
+  - id: "issue-330-deferred-settle-null-holds-refit"
+    epic: 10
+    action: "The already-recorded 10.20 corner holds with settle null (group 3
+      sm-s721u1_stka_bar-warm-2, group 9 sm-s721u1_stla_ceilback hold 2) need a refit
+      decision or a re-record (low; deferred from #330)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-330-recorder-hold-settle-after-ev.md"

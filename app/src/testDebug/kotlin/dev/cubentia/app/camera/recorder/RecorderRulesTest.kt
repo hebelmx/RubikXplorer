@@ -554,6 +554,47 @@ class RecorderRulesTest {
         assertNull(holdDiagnostics(emptyList(), null, null, null).topLevel)
     }
 
+    @Test fun `a capture with no metering since the reset records manual-ev and the EV index, never a null settle`() {
+        // GH-330: the tracker reset after the previous capture; an EV step does not request metering, so the capture then has none.
+        val tracker =
+            dev.cubentia.app.camera
+                .SettleTracker()
+        tracker.request(1_000)
+        tracker.reset()
+        val now = 5_000L
+        val settled = tracker.outcome(now)?.let { it != dev.cubentia.app.camera.Settle.SETTLING }
+        assertNull(settled)
+        val manual = captureSettle(settled, null, tracker.elapsed(now), tracker.futureMs(), awbLocked = false)
+        assertEquals(
+            dev.cubentia.domain.recognition
+                .CornerSettleDiagnostics(null, dev.cubentia.domain.recognition.SettleOutcome.MANUAL_EV, SETTLE_LOCK_NONE, null),
+            manual,
+        )
+        val top = face(*DoubleArray(9) { 80.0 })
+        val diagnostics = holdDiagnostics(listOf(top, top, top), null, torch = null, settle = manual, evIndex = 2)
+        assertEquals(manual, diagnostics.settle)
+        assertEquals(2, diagnostics.evIndex)
+        assertNull(holdDiagnostics(listOf(top, top, top), null, null, manual).evIndex)
+        // After hold 1 the white-balance lock stays held: a manual-ev hold then records the lock word `awb`.
+        assertEquals(manual.copy(lock = SETTLE_LOCK_AWB), captureSettle(null, null, null, null, awbLocked = true))
+        assertEquals("awb", SETTLE_LOCK_AWB)
+        // A settled metering keeps its reported settle; one that left nothing reported is still never null.
+        val reported =
+            dev.cubentia.domain.recognition
+                .CornerSettleDiagnostics(640, dev.cubentia.domain.recognition.SettleOutcome.TIMEOUT, "unsupported", 120)
+        assertEquals(reported, captureSettle(true, reported, 900, 120, awbLocked = true))
+        assertEquals(
+            dev.cubentia.domain.recognition.SettleOutcome.MANUAL_EV,
+            captureSettle(true, null, 900, 120, awbLocked = false).outcome,
+        )
+        // Still settling: the elapsed time and the future's part, with no lock held.
+        assertEquals(
+            dev.cubentia.domain.recognition
+                .CornerSettleDiagnostics(300, dev.cubentia.domain.recognition.SettleOutcome.SETTLING, "none", 80),
+            captureSettle(false, reported, 300, 80, awbLocked = true),
+        )
+    }
+
     @Test fun `the recorder torch is lit in corner mode while calibrating too, never in face mode or without a flash`() {
         assertTrue(recorderTorchOn(cornerMode = true, hasFlash = true, torchOn = true))
         assertFalse(recorderTorchOn(cornerMode = true, hasFlash = true, torchOn = false))

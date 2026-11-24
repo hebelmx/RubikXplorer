@@ -304,6 +304,19 @@ class LiveFixtureTest {
                 diagnostics = diagnostics.copy(settle = CornerSettleDiagnostics(1500, SettleOutcome.TIMEOUT, "unsupported")),
             )
         assertEquals(timeout, CornerFixtureJson.decode(CornerFixtureJson.encode(timeout)))
+        // GH-330: a hold with no metering records manual-ev and the EV index in use; both round-trip.
+        val manualEv =
+            hold.copy(
+                diagnostics =
+                    diagnostics.copy(settle = CornerSettleDiagnostics(null, SettleOutcome.MANUAL_EV, "none"), evIndex = 2),
+            )
+        val manualJson = CornerFixtureJson.encode(manualEv)
+        assertTrue("\"outcome\": \"manual-ev\"" in manualJson && "\"evIndex\": 2" in manualJson, manualJson)
+        assertEquals(manualEv, CornerFixtureJson.decode(manualJson))
+        // A record written before GH-330 has no evIndex and decodes with none.
+        val withoutEv = holdJson.replace(Regex(",\\s*\"evIndex\": null"), "")
+        assertTrue("evIndex" !in withoutEv, withoutEv)
+        assertEquals(hold, CornerFixtureJson.decode(withoutEv))
         // A schema-4 record without diagnostics (Story 10.19) still decodes, with none.
         val withoutDiagnostics = holdJson.substringBefore(",\n    \"diagnostics\"") + "\n}"
         assertEquals(hold.copy(diagnostics = null), CornerFixtureJson.decode(withoutDiagnostics))
