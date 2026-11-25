@@ -22,7 +22,7 @@ import org.junit.runner.RunWith
 
 /**
  * Story 12.2 AC3 (NFR-13, AD-17): every v1.0 Key Flow (EXPERIENCE.md Flows 1, 2, 3, 6, 7, 8 and 9
- * step 4; camera steps are v1.1) driven through the UI of the real [MainActivity] from a cleared
+ * step 4; the flag-gated camera steps are not covered here) driven through the UI of the real [MainActivity] from a cleared
  * install, rotating portrait → landscape → portrait at each surface. At every surface the session
  * and the visible cube and step must be unchanged and the layout must follow the window class.
  *

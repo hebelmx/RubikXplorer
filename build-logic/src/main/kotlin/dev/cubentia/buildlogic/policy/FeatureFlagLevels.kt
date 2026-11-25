@@ -38,7 +38,7 @@ object FeatureFlagLevels {
 
     val levels: Set<String> = setOf("OFF", "BETA", "GA")
 
-    /** Story 7.8 pilot: the shipped teaching features ship in release; every camera flag stays OFF (v1.1). */
+    /** Story 7.8 pilot: the shipped teaching features ship in release; camera flags stay OFF here until Story 10.11 raises them for a release. */
     private val releaseGa: Set<String> = setOf("ADAPTIVE_ASSISTANCE")
 
     /** Issue #137 (PO decision): *Test me* ships in release as BETA, shown with its beta note. */
