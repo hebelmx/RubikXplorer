@@ -308,10 +308,12 @@ class KeyFlowRotationTest {
             finish()
         }
 
-    /** Welcome → *I can already solve it* → solve the dealt Scramble with the Move keys → Learn. */
+    /** Welcome → *I can already solve it* → *Check me with a scramble instead* (14.1) → solve the dealt Scramble with the Move keys → Learn. */
     private fun KeyFlowHarness.passCourseSkipCheck() {
         awaitTag("welcome")
         click("welcome:canSolve")
+        awaitTag("entryLevel")
+        click("entryLevel:check")
         await("skip-ahead check") { host.state.value.kind == SessionKind.PRACTICE }
         awaitTag("lesson:panel")
         surface("skipCheck")
@@ -319,15 +321,14 @@ class KeyFlowRotationTest {
         awaitTag("shell")
     }
 
-    /** Solve → *Enter colors* → paint the stickers of an R U scramble → Accept → Solution playback. */
+    /** Solve → *Enter colors* → paint every non-center sticker of an R U scramble (a face counts once complete, #352) → Accept → Solution playback. */
     private fun enterColorsAndAccept(harness: KeyFlowHarness) =
         with(harness) {
             click("solve:enterColors")
             awaitTag("editor:accept")
             surface("editor")
             val target = CubeState.SOLVED.apply(listOf(FaceTurn(Face.R, Turn.CLOCKWISE), FaceTurn(Face.U, Turn.CLOCKWISE))).toFacelets()
-            val start = CubeState.SOLVED.toFacelets()
-            target.colors.indices.filter { target.colors[it] != start.colors[it] }.forEach { index ->
+            target.colors.indices.filter { it % 9 != 4 }.forEach { index ->
                 if (exists("editor:face:0") && !exists("sticker:$index")) click("editor:face:${index / 9}")
                 click("sticker:$index")
                 click("swatch:${target.colors[index].name}")

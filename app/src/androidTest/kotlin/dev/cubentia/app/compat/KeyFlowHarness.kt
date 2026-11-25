@@ -464,7 +464,8 @@ class KeyFlowHarness(
             checks += "library:${columns}columns"
         }
         if (exists("reviewNet") && exists("editor:accept")) {
-            val onePerFace = exists("editor:face:0")
+            // Face tabs show in both layouts since #253; only the full net holds stickers of two faces at once.
+            val onePerFace = !(exists("sticker:0") && exists("sticker:45"))
             if (widthClass == WindowWidthClass.COMPACT) {
                 assertTrue("$where: compact editor edits one face at a time", onePerFace)
             } else {
