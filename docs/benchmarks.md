@@ -112,7 +112,7 @@ prints the share as "100.0%" because it rounds to one decimal; the count is 10,1
 and p95 are below the device's (53.795 / 338.075 ms) because host speed varied between the pairing
 run and the rerun. The direct device run also had **1 timeout** (3,000.9 ms) in 10,101 cases.
 
-**Zero-failure criterion: PO-accepted waiver (2026-11-10), deferred to v1.1 as #105.** The device
+**Zero-failure criterion: PO-accepted waiver (2026-11-10), tracked as #105; #105 closed 2026-11-25, see the #105 section.** The device
 timeout and the calibrated failure are accepted for v1.0. #105 also covers recalibrating k against a
 release-equivalent (non-debuggable) device build. k stays at 16.94 here; it was not recalibrated, and
 no solver performance work was done in Story 3.8. Story 12.2 still owns final physical corpus
@@ -323,7 +323,7 @@ The app's own ~8 s per-process preparation (#104) is a separate path and was not
 0 failures. Median 17.012 ms, p95 101.730 ms, peak 28.9 MiB. On this build the release-equivalent
 device run is about 3.2× faster than the debuggable Story 3.8 run (median 53.795 → 17.012 ms, p95
 338.075 → 101.730 ms), so the debug-derived k = 16.94 is conservative, as Story 3.8 expected. The
-recalibration of k against this build stays with #105, and the accepted waivers (#104 preparation,
+recalibration of k against this build was done by #105 (closed 2026-11-25, see the #105 section), and the accepted waivers (#104 preparation,
 #105 zero-failure and recalibration) are unchanged; this run had no failure to waive.
 
 ## Story 12.2: compatibility and rotation (NFR-13, AD-17), Key Flow suite
@@ -335,7 +335,7 @@ tools/run-keyflow-rotation.sh <serial> [label] [method ...]   # results in docs/
 
 `KeyFlowRotationTest` (`app/src/androidTest/.../compat/`) runs in-process on the real `MainActivity`
 (debug build; this is a layout and state check, not a performance measurement). One method per v1.0
-Key Flow of EXPERIENCE.md; the camera steps (Flows 4, 5, 9 steps 1–3) are v1.1. Each method starts
+Key Flow of EXPERIENCE.md; the camera steps (Flows 4, 5, 9 steps 1–3) run from 0.11.0 (action item retire-v1-1-camera-flow-passes). Each method starts
 from a cleared install (`pm clear` by the script) and drives the flow through the UI; preconditions
 are reached through the UI too (Flow 2 passes the skip-ahead check first, Flow 7 completes Stage 1).
 Skip checks and practice Scrambles are solved by tapping the Move keys of a Solution computed
@@ -699,13 +699,13 @@ Decisions by the product owner (SCP 2026-11-12), which replace the questions thi
   afterwards) is an accepted method on this device. A rotation path that works with default settings is
   the #119 harness change above; it passed 7/7 on this device on 2026-11-19.
 - **#104:** about 10.5 s release-equivalent preparation per process stays accepted for v1.0 and is
-  tracked in #104 (v1.1). The preparing copy was reworded so it promises no duration (#123).
+  tracked in #104 (Story 3.9, v1.0 scope, not a tag gate). The preparing copy was reworded so it promises no duration (#123).
 
 ### Known limitations on the minimum device (#119)
 
 | # | Limitation | Measured | Disposition |
 | --- | --- | --- | --- |
-| 2 | Per-process solver preparation is long | 12.6 s debug (median, n = 5); ≤ 10.5 s release-equivalent (coarse) | **Accepted for v1.0; speed-up tracked in #104 (v1.1).** The copy no longer promises "a few seconds": `msg.solve.preparing` now reads "Preparing the solver." (`core/domain/src/main/resources/content/strings/en.json`, #262; earlier wording #123). A second solve in the same process goes straight to playback. |
+| 2 | Per-process solver preparation is long | 12.6 s debug (median, n = 5); ≤ 10.5 s release-equivalent (coarse) | **Accepted for v1.0; speed-up tracked in #104 (Story 3.9, v1.0 scope, not a tag gate).** The copy no longer promises "a few seconds": `msg.solve.preparing` now reads "Preparing the solver." (`core/domain/src/main/resources/content/strings/en.json`, #262; earlier wording #123). A second solve in the same process goes straight to playback. |
 | 3 | First-time table generation is long | G = 14.35 s | **Accepted.** Generation runs only on the fallback path (bundled tables are selected, Story 3.8 rule G ≤ 5 s), once per install. The first-use copy ("This can take a little while.") promises no duration. |
 | 4 | View Rotation drops a few frames | 5 of 1,990 intervals > 33.3 ms (max 40.2 ms); median 59.69 FPS; p90 19.66 ms | **Accepted.** Within NFR-2 (≥ 30 FPS) and the AD-4 p90 ≤ 33.3 ms gate. None seen on the Samsung devices. |
 | 5 | Face-turn input latency is higher than on the Samsung devices | p90 53.39 ms, max 57.52 ms | **Accepted.** Within NFR-1 (≤ 100 ms). |
@@ -748,5 +748,5 @@ reproduce on a release-equivalent build. This closes #105.
   [issue #106](https://github.com/hebelmx/RubikXplorer/issues/106).
 - The release-equivalent recalibration of k (#105) is done; see the 2026-11-25 section above. The
   per-process preparation (about 8 s on the Tab S7 FE, 12.6 s debug / ≤ 10.5 s release-equivalent on the
-  minimum Lenovo): v1.1, #104. Story 12.2 measured both as they are and did not tune them.
-- Camera, scan and Quick Check flows (Key Flows 4, 5 and 9 steps 1–3): v1.1.
+  minimum Lenovo): #104 (Story 3.9, v1.0 scope, not a tag gate). Story 12.2 measured both as they are and did not tune them.
+- Camera, scan and Quick Check flows (Key Flows 4, 5 and 9 steps 1–3): from 0.11.0 (action item retire-v1-1-camera-flow-passes).

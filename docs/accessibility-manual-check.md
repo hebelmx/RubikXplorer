@@ -18,7 +18,7 @@ Gesture check (Story 12.1 follow-up, SCP 2026-11-10 session-end deferrals): on t
 - **Flow 8, skip ahead:** Welcome → I can already solve it; complete the untimed scramble. Check Skipped labels and Faster last layer unlock. Repeat giving up and return to Stage 1 without a penalty.
 - **Flow 9, step 4 only, resets:** Settings → Reset progress; read what is erased and that live practice ends. Test cancel and confirm; verify Continue clears, then cold start. Check preference reset separately.
 
-Flows 4–5 and Flow 9 steps 1–3 require v1.1 camera functionality and are outside this v1.0 pass.
+Flows 4–5 and Flow 9 steps 1–3 need the camera features; they are checked on the first release that raises `CAMERA_SCAN` (0.11.0; action item retire-v1-1-camera-flow-passes).
 
 **Result (2026-11-13):** the product owner reported the AC3 TalkBack and Switch Access device pass as complete, and Story 12.1 is closed on that report. The per-flow table below has not been filled in yet; the product owner may add the details.
 

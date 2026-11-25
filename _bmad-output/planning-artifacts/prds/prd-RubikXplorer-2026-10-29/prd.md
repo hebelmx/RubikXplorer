@@ -64,8 +64,8 @@ These principles break ties wherever the FRs leave a choice to UX, curriculum au
     3. In *First-layer corners* she turns the wrong way without realizing it and reports "my cube doesn't match."
     4. The tutor doesn't guess. It says it can't tell what happened yet and offers a **Quick Check**.
     5. The scan shows that her cross was disturbed. Now with Certainty *verified*, the tutor explains this and offers *Undo* or **Guided recovery**.
-  - *v1.0 (no camera):* at step 4 the tutor goes straight to "Which turn did you make?" (FR-9, rung 2). The Quick Check rung (steps 4–5) arrives in v1.1.
-  - **Climax:** sessions later, the final Stage ends with her physical cube solved. The app confirms it and offers **Independent practice** on a new Scramble. *v1.0: she confirms with* Yes, it's solved*; v1.1 adds the Quick Check.*
+  - *While `CAMERA_SCAN` is OFF:* at step 4 the tutor goes straight to "Which turn did you make?" (FR-9, rung 2). The Quick Check rung (steps 4–5) arrives when its flag is raised (Story 10.11).
+  - **Climax:** sessions later, the final Stage ends with her physical cube solved. The app confirms it and offers **Independent practice** on a new Scramble. *While `CAMERA_SCAN` is OFF: she confirms with* Yes, it's solved*; the Quick Check is added when its flag is raised.*
   - **Resolution:** her progress is saved. The home screen shows her next step: practice without hints, then *Faster last layer*.
   - **Edge cases:**
     - If she has no camera permission, the tutor instead asks which turn she made, or which face looks wrong.
@@ -90,9 +90,9 @@ These principles break ties wherever the FRs leave a choice to UX, curriculum au
   - **Climax:** **Solution Playback** walks her through each Move with a short note. She steps forward and back as she turns her cube.
   - **Resolution:** her cube is solved. The app offers, without insisting, "Want to learn how to do this yourself?"
   - **Edge case:** glare stops Quick Scan from reading the bottom face, so the app asks her to scan only that face with the **Guided 6-face Scan**. Without a camera she types the colors into the **Manual Cube Editor** instead.
-  - *v1.0 (no camera):* she enters the colors in the Manual Cube Editor (steps 1–2 become manual entry); Quick Scan arrives in v1.1.
+  - *While `CAMERA_SCAN` is OFF:* she enters the colors in the Manual Cube Editor (steps 1–2 become manual entry); Quick Scan arrives when its flag is raised (Story 10.11).
 
-- **UJ-4. Marco picks up where his cube is, not where the course starts.** *(v1.1)*
+- **UJ-4. Marco picks up where his cube is, not where the course starts.** *(v1.0, flag-gated)*
   - **Persona + context:** Marco, 12, half-learned from a video. He can make the white cross and a few corners, then gets lost.
   - **Path:**
     1. On first launch he chooses *Start from my cube* and does a Guided 6-face Scan.
@@ -101,7 +101,7 @@ These principles break ties wherever the FRs leave a choice to UX, curriculum au
   - **Climax:** in Physical-cube Mode he turns the wrong way, and a Quick Check shows he did `R` instead of `R'`. That is the only Move consistent with what the scan saw, so the tutor reports it as *verified* and shows the fix.
   - **Resolution:** he completes the layer. Stages 1–2 stay open to revisit but are not forced on him, and his progress is saved.
 
-- **UJ-5. Diego asks "which OLL is this?"** *(v1.1)*
+- **UJ-5. Diego asks "which OLL is this?"** *(v1.0, flag-gated)*
   - **Persona + context:** Diego (UJ-2) is practicing on a friend's Scramble and doesn't recognize the top-layer pattern.
   - **Path:** he solves the first two layers, opens *Recognize case*, and photographs the cube from one top corner, then from the opposite one.
   - **Climax:** the app reports "OLL 45 · T-shape". He taps it, and the app opens that Algorithm in the Algorithm Library and plays its Demonstration.
@@ -109,9 +109,11 @@ These principles break ties wherever the FRs leave a choice to UX, curriculum au
 
 - **UJ-6. Laura, a hiring manager, evaluates the developer in five minutes.**
   - **Persona + context:** Laura screens Android candidates. She has the Play Store link and, once it is public, the repository.
-  - **Path:** she installs the app, turns the cube, opens an OLL Algorithm in the library, scrubs through its animation, and tries a scan (v1.1).
+  - **Path:** she installs the app, turns the cube, opens an OLL Algorithm in the library, scrubs through its animation, and tries a scan (v1.0, flag-gated).
   - **Climax:** it is smooth, correct and accessible, with no crash, no sign-up and no ads.
   - **Resolution:** she opens the repo. Its README shows screenshots, an architecture overview and green CI, and the code has a pure-Kotlin domain core with meaningful tests (§7). She shortlists the candidate.
+
+*(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope.)*
 
 ## 3. Glossary
 
@@ -594,15 +596,17 @@ Targets are validated on a defined set of **reference devices**. [ASSUMPTION: th
 | NFR-2 | Rendering | ≥ 30 FPS during face turns and View Rotation on the minimum reference device; 60 FPS target on mid-range. |
 | NFR-3 | Solver performance | 95% of a representative corpus of random legal states (not only easy Scrambles) solved within 3 s on the minimum reference device. Median, p95, memory use and failure rate are reported. *(SCP 2026-11-12: "minimum" made explicit)* |
 | NFR-4 | Correctness | **Zero state mismatches** between engine, rendering and Expected State across the randomized Move, undo and interruption suite. Cube-engine invariants pass as property-based tests: inverse restores the state, M⁴ = identity, a random sequence followed by its inverse = identity, illegal states are rejected. The cube engine has the strongest test coverage of any component. |
-| NFR-5 | Offline | A fresh install with no network can complete the Course, use the Algorithm Library, and enter a cube and solve it (and scan it, from v1.1). v1.0 declares no runtime permissions. From v1.1, the camera is the only one, and a release declares it only when a camera feature's flag is above OFF. [ASSUMPTION: no network permission is declared.] |
+| NFR-5 | Offline | A fresh install with no network can complete the Course, use the Algorithm Library, and enter a cube and solve it (and scan it, when a camera flag is raised). A release with every camera flag OFF (0.9.x–0.10.x) declares no runtime permissions; a release that raises a camera feature's flag above OFF declares the camera, and only the camera. [ASSUMPTION: no network permission is declared.] |
 | NFR-6 | Persistence | The latest Checkpoint survives forced process death. |
 | NFR-7 | Accessibility | Content labels on every control, WCAG AA contrast, scalable text, and a non-gesture alternative for every essential action. **Color-blind display** (optional letters or patterns on stickers) means the cube can be used without telling colors apart. [ASSUMPTION: color-blind display is P0.] |
 | NFR-8 | Privacy | No account and no personal information collected. No analytics SDK and no ads. All data stays in app-private storage and never leaves the device. The Play Store data-safety form declares "no data collected." |
 | NFR-9 | Stability | ≥ 99.5% crash-free sessions; ANR rate below the Play Store's bad-behavior threshold (Android vitals). |
 | NFR-10 | Localizability | All Learner-facing text lives outside code, in resources and Lesson data, so adding a language needs no code change. English only at launch. |
-| NFR-11 | App size | [ASSUMPTION: install size < 30 MB, including Solver tables (and, from v1.1, any recognition model); checked when OQ-4 and OQ-7 are decided.] *Note: measured at each release that raises a camera flag (Story 10.11).* |
+| NFR-11 | App size | [ASSUMPTION: install size < 30 MB, including Solver tables (and any recognition model a camera feature ships); checked when OQ-4 and OQ-7 are decided.] *Note: measured at each release that raises a camera flag (Story 10.11).* |
 | NFR-12 | Code quality (portfolio) | The cube domain, Solver adapter, tutor rules and recognition classification are pure Kotlin with no Android dependencies, and have ≥ 80% line coverage. Static analysis and formatting are enforced in CI, and every merge to main builds, tests and lints green. |
 | NFR-13 | Compatibility | [ASSUMPTION: minSdk Android 10 (API 29).] Phones and tablets, portrait and landscape. targetSdk meets current Play Store policy. |
+
+*(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope.)*
 
 ## 6. Non-Goals and MVP Scope
 
@@ -627,12 +631,12 @@ Targets are validated on a defined set of **reference devices**. [ASSUMPTION: th
 - English, every NFR in §5, and a Play Store release.
 
 **Out of scope for MVP:**
-- **v1.1 (in progress, flag-gated): Camera Cube Recognition** (FR-21 – FR-28):
+- **v1.0, flag-gated: Camera Cube Recognition** (FR-21 – FR-28):
   - capture: Guided 6-face Scan and Quick Scan;
   - validation and correction, plus Color Calibration;
   - uses: scan to solve, Quick Check, Placement and Case recognition.
 
-  Deferred by PO decision on 2026-11-08 (`sprint-change-proposal-2026-11-08-vision-deferral`); restored to the plan on 2026-11-14 as v1.1, flag-gated (Epics 10–11; `sprint-change-proposal-2026-11-14-v1-1-camera`). The AD-18 flags stay OFF in v1.0. **Superseded by SCP 2026-11-20:** FR-21–FR-27 move into v1.0; Story 10.11 raises `CAMERA_SCAN`, `QUICK_SCAN` and `PLACEMENT` (BETA or GA from the test-matrix evidence) for the v1.0 release, so v1.0 declares the `CAMERA` permission. FR-30 (method-aware solutions) is also v1.0.
+  Deferred by PO decision on 2026-11-08 (`sprint-change-proposal-2026-11-08-vision-deferral`); restored to the plan on 2026-11-14 as v1.1, flag-gated (Epics 10–11; `sprint-change-proposal-2026-11-14-v1-1-camera`). The AD-18 flags stay OFF in v1.0. **Superseded by SCP 2026-11-20:** FR-21–FR-27 move into v1.0; Story 10.11 raises `CAMERA_SCAN`, `QUICK_SCAN` and `PLACEMENT` (BETA or GA from the test-matrix evidence) for the v1.0 release, so v1.0 declares the `CAMERA` permission. FR-30 (method-aware solutions) is also v1.0. *(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope.)*
 - **P1:**
   - recognition and execution drills (FR-29);
   - alternative Algorithms per Case;
@@ -690,7 +694,7 @@ Targets are validated on a defined set of **reference devices**. [ASSUMPTION: th
   - say what each taught Move or sequence is for;
   - resume a Lesson after closing the app;
   - attempt a fresh Scramble with reduced help;
-  - enter a cube and solve it with the local Solver (scanning arrives in v1.1);
+  - enter a cube and solve it with the local Solver (and scan it, where a release raises `CAMERA_SCAN`);
   - learn 2-look LL, and browse and watch all 78 Algorithms.
 - **Release gates** (all are required for production):
   1. Cube-engine invariants and Algorithm Library verification pass in CI.
@@ -698,7 +702,7 @@ Targets are validated on a defined set of **reference devices**. [ASSUMPTION: th
   3. The end-to-end suite shows no silent desync between virtual and physical state. Undo, pause, restart and resume all preserve a valid state.
   4. A pilot group of beginners completes the Course. It confirms that Move instructions make sense without prior knowledge of Notation and that Learners recover from deliberate mistakes. Task completion, hint use and points of confusion are recorded, and every severity-1 and severity-2 usability issue is fixed.
   5. Offline behavior, state recovery and accessibility are verified.
-  6. *(v1.1)* Every scan flow has a working manual fallback, and no unvalidated Scan Result is ever used. Camera features ship as GA if they meet their §4.8 targets on the test matrix, otherwise as "beta" (the spike-failure decision, §6.2). **For any release in which every camera flag is OFF, this gate is N/A** (the 0.9.x–0.10.x pilot builds: the manifest declares no CAMERA permission). For each raised feature, it is checked by Story 10.11 with Story 10.8's evidence, or the PO's recorded evidence where 10.8 has none, and re-run on the v1.0.0 tag by Story 12.5. *(SCP 2026-11-24 camera-release-timeline: v1.0 raises at least `CAMERA_SCAN` (and whatever Story 10.11 raises), so gate 6 applies to v1.0.)*
+  6. *(any release that raises a camera flag)* Every scan flow has a working manual fallback, and no unvalidated Scan Result is ever used. Camera features ship as GA if they meet their §4.8 targets on the test matrix, otherwise as "beta" (the spike-failure decision, §6.2). **For any release in which every camera flag is OFF, this gate is N/A** (the 0.9.x–0.10.x pilot builds: the manifest declares no CAMERA permission). For each raised feature, it is checked by Story 10.11 with Story 10.8's evidence, or the PO's recorded evidence where 10.8 has none, and re-run on the v1.0.0 tag by Story 12.5. *(SCP 2026-11-24 camera-release-timeline: v1.0 raises at least `CAMERA_SCAN` (and whatever Story 10.11 raises), so gate 6 applies to v1.0.)* *(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope.)*
 
 ## 8. Success Metrics
 
@@ -765,6 +769,7 @@ Recorded in `.memlog.md`:
 - 2026-11-20: Quick Scan 3D corner detection escalates from pure-Kotlin heuristics to a tiny 7-keypoint LiteRT model (activating the pre-approved AD-9 / OQ-7 fallback after Lenovo TB128XU `6cd18ab1` device evidence); Guided 6-face Scan stays pure Kotlin, OpenCV stays rejected, LiteRT is gated on corner-model flags above `OFF` within NFR-11 (< 30 MB) (PO, SCP 2026-11-20 quick-scan-litert-escalation, #195, #196).
 - 2026-11-22: LiteRT is allowed for per-face sticker color classification in Quick Scan, lifting "LiteRT stays in corner detection only". Story 10.23 adds a shadow reader in debug builds with a runtime toggle; it changes no scan result and adds no bytes to release. The first model trains on existing fixtures and earlier capture evidence, extra real captures where coverage is thin, and synthetic data, with whole capture groups held out (PO, SCP 2026-11-22 quick-scan-sticker-reader).
 - 2026-11-24: Quick Scan replaces the parked 2-corner pipeline with continuous facelet scanning using Cubentia's clean-room LiteRT v2 INT8 sticker-center model (`sticker_centers_v2_int8.tflite`, 369.4 KB, 2 XNNPACK threads, in `app/src/camera/continuous/` gated on `QUICK_SCAN`) and pure-JVM `FaceLatticeFitter` + `ContinuousFaceletMapper` in `:core:domain`. Story 10.23's debug shadow sticker reader is retired; `CASE_RECOGNITION` keeps `app/src/camera/corner/` gated solely on `CASE_RECOGNITION` (OFF in 0.11.0/v1.0.0); Lenovo TB128XU stays the gating minimum (`33.74 ms` R8 ~30 FPS, S7 FE `16.46 ms`, S24 FE `8.81 ms`; `:app:checkCameraSize` `28.00 MB`) (PO, SCP 2026-11-24 continuous-quick-scan, Stories 10.30–10.33).
+- 2026-11-25: v1.1 is retired; every item is v1.0 scope (SCP 2026-11-25 retire-v1-1).
 
 ## 11. Assumptions Index
 
