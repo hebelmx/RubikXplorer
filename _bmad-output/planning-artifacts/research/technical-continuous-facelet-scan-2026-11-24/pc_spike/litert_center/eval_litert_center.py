@@ -36,47 +36,74 @@ from synth_heatmap_data import EXCLUDED_LIVE, HM_SIZE, HM_STRIDE, IMG_SIZE, load
 
 
 class LiteRtCenterDetector:
-    """Zero-OpenCV LiteRT sticker-center heatmap detector with 3x3 local-max peak extraction."""
+    """Zero-OpenCV LiteRT sticker-center heatmap detector with 3x3 local-max peak extraction.
+
+    Auto-adapts to any square input resolution (e.g. 192x192 v1 or 256x256 v2) and FP16/INT8 I/O.
+    """
 
     def __init__(self, model_path: Path, num_threads: int = 4) -> None:
         self.interpreter = _LiteRtInterpreter(model_path=str(model_path), num_threads=num_threads)
         self.interpreter.allocate_tensors()
-        self.inp_idx = self.interpreter.get_input_details()[0]["index"]
-        self.out_idx = self.interpreter.get_output_details()[0]["index"]
+        in_det = self.interpreter.get_input_details()[0]
+        out_det = self.interpreter.get_output_details()[0]
+        self.inp_idx = in_det["index"]
+        self.out_idx = out_det["index"]
+        self.inp_dtype = in_det["dtype"]
+        self.inp_quant = in_det.get("quantization", (0.0, 0))
+        self.out_dtype = out_det["dtype"]
+        self.out_quant = out_det.get("quantization", (0.0, 0))
+        self.img_size = int(in_det["shape"][1])
+        self.hm_size = int(out_det["shape"][1])
+        self.hm_stride = float(self.img_size) / float(self.hm_size)
 
     def detect_rgb(
         self, img_rgb_u8: np.ndarray, threshold: float = 0.35, max_peaks: int = 36
     ) -> Tuple[List[Tuple[float, float, float]], float]:
-        """Letterbox any RGB uint8 image to IMG_SIZE×IMG_SIZE (192×192), run LiteRT, and return [(x, y, score), ...] in original pixels."""
+        """Letterbox any RGB uint8 image to model input size, run LiteRT, and return [(x, y, score), ...] in original pixels."""
         h, w = img_rgb_u8.shape[:2]
-        scale = min(IMG_SIZE / w, IMG_SIZE / h)
+        img_sz = self.img_size
+        hm_sz = self.hm_size
+        scale = min(img_sz / w, img_sz / h)
         nw, nh = int(round(w * scale)), int(round(h * scale))
-        left, top = (IMG_SIZE - nw) // 2, (IMG_SIZE - nh) // 2
+        left, top = (img_sz - nw) // 2, (img_sz - nh) // 2
         resized = np.asarray(Image.fromarray(img_rgb_u8).resize((nw, nh), Image.BILINEAR), dtype=np.uint8)
-        canvas = np.zeros((IMG_SIZE, IMG_SIZE, 3), dtype=np.uint8)
+        canvas = np.zeros((img_sz, img_sz, 3), dtype=np.uint8)
         canvas[top : top + nh, left : left + nw] = resized
-        inp = (canvas.astype(np.float32) / 255.0)[None]
+
+        if self.inp_dtype == np.float32:
+            inp = (canvas.astype(np.float32) / 255.0)[None]
+        elif self.inp_dtype == np.uint8:
+            inp = canvas[None]
+        else:
+            q_scale, q_zp = self.inp_quant
+            inp = np.clip(np.rint((canvas.astype(np.float32) / 255.0) / max(q_scale, 1e-8) + q_zp), -128, 127).astype(self.inp_dtype)[None]
 
         t0 = time.perf_counter()
         self.interpreter.set_tensor(self.inp_idx, inp)
         self.interpreter.invoke()
-        out = self.interpreter.get_tensor(self.out_idx)[0]  # (HM_SIZE, HM_SIZE, 3) = (48, 48, 3)
+        raw_out = self.interpreter.get_tensor(self.out_idx)[0]
         dt_ms = (time.perf_counter() - t0) * 1000.0
+
+        if self.out_dtype == np.float32:
+            out = raw_out
+        else:
+            q_scale, q_zp = self.out_quant
+            out = (raw_out.astype(np.float32) - float(q_zp)) * float(q_scale)
 
         hm = out[:, :, 0]
         # 3x3 local maximum suppression (pure NumPy, matches 5-line Kotlin loop!)
         padded = np.pad(hm, 1, mode="constant", constant_values=-1.0)
         local_max = np.maximum.reduce(
             [
-                padded[0:HM_SIZE, 0:HM_SIZE],
-                padded[0:HM_SIZE, 1 : HM_SIZE + 1],
-                padded[0:HM_SIZE, 2 : HM_SIZE + 2],
-                padded[1 : HM_SIZE + 1, 0:HM_SIZE],
-                padded[1 : HM_SIZE + 1, 1 : HM_SIZE + 1],
-                padded[1 : HM_SIZE + 1, 2 : HM_SIZE + 2],
-                padded[2 : HM_SIZE + 2, 0:HM_SIZE],
-                padded[2 : HM_SIZE + 2, 1 : HM_SIZE + 1],
-                padded[2 : HM_SIZE + 2, 2 : HM_SIZE + 2],
+                padded[0:hm_sz, 0:hm_sz],
+                padded[0:hm_sz, 1 : hm_sz + 1],
+                padded[0:hm_sz, 2 : hm_sz + 2],
+                padded[1 : hm_sz + 1, 0:hm_sz],
+                padded[1 : hm_sz + 1, 1 : hm_sz + 1],
+                padded[1 : hm_sz + 1, 2 : hm_sz + 2],
+                padded[2 : hm_sz + 2, 0:hm_sz],
+                padded[2 : hm_sz + 2, 1 : hm_sz + 1],
+                padded[2 : hm_sz + 2, 2 : hm_sz + 2],
             ]
         )
         ys, xs = np.where((hm >= threshold) & (hm >= local_max - 1e-6))
@@ -89,10 +116,10 @@ class LiteRtCenterDetector:
             gy, gx = int(ys[idx]), int(xs[idx])
             dx = float(out[gy, gx, 1])
             dy = float(out[gy, gx, 2])
-            px_256 = (gx + 0.5 + dx) * HM_STRIDE
-            py_256 = (gy + 0.5 + dy) * HM_STRIDE
-            ox = (px_256 - left) / scale
-            oy = (py_256 - top) / scale
+            px_in = (gx + 0.5 + dx) * self.hm_stride
+            py_in = (gy + 0.5 + dy) * self.hm_stride
+            ox = (px_in - left) / scale
+            oy = (py_in - top) / scale
             if 0.0 <= ox < w and 0.0 <= oy < h:
                 peaks.append((float(ox), float(oy), float(scores[idx])))
         return peaks, dt_ms

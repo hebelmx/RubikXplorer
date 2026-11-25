@@ -245,7 +245,7 @@ def main() -> int:
         dt = max(1e-4, now - prev_t)
         prev_t = now
         fps_ema = (1.0 / dt) if fps_ema == 0.0 else (0.85 * fps_ema + 0.15 / dt)
-        obs_faces = len(mapper.master.observed_faces) if mapper.master is not None else 0
+        obs_faces = len(mapper.master.confirmed_faces()) if mapper.master is not None else 0
 
         vis = render_real_frame(
             frame,

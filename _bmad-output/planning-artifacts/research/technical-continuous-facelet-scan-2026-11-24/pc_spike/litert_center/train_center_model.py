@@ -1,8 +1,8 @@
 """Train and export Cubentia's clean-room LiteRT sticker-center heatmap detector (`sticker_centers.tflite`).
 
-Architecture: Compact MobileNetV2 inverted-residual FPN (192x192x3 RGB -> 48x48x3 [hm_prob, dx, dy]).
+Architecture: Compact MobileNetV2 inverted-residual FPN (256x256x3 RGB -> 64x64x3 [hm_prob, dx, dy]).
 Uses pure LiteRT built-in ops (Conv2D, DepthwiseConv2D, ResizeNearestNeighbor, Add, ReLU, Sigmoid) and
-exports FP16 (~512 KB), fitting cleanly inside Cubentia's existing `litert:2.3.2` runtime.
+exports FP16 (~512 KB) + optional calibrated INT8 (~280 KB), fitting cleanly inside Cubentia's existing `litert:2.3.2` runtime.
 
 Run with the repo's CUDA TensorFlow venv:
     /mnt/e/Dynamic/IndFun/RubikXplorer/tools/corner-model/.venv/bin/python train_center_model.py \
@@ -144,7 +144,9 @@ def main() -> int:
     parser.add_argument("--epochs", type=int, default=18)
     parser.add_argument("--batch", type=int, default=64)
     parser.add_argument("--seed", type=int, default=20261124)
-    parser.add_argument("--out", type=Path, default=Path("/tmp/sticker_centers.tflite"))
+    parser.add_argument("--bg-dir", type=Path, default=None, help="Optional dir of cube-free tuning room backgrounds")
+    parser.add_argument("--out", type=Path, default=Path("/tmp/sticker_centers_v2.tflite"))
+    parser.add_argument("--out-int8", type=Path, default=None, help="Optional calibrated INT8 LiteRT export path")
     args = parser.parse_args()
 
     tf.keras.utils.set_random_seed(args.seed)
@@ -152,9 +154,9 @@ def main() -> int:
         keras.mixed_precision.set_global_policy("mixed_float16")
 
     t0 = time.perf_counter()
-    print(f"Generating {args.train_n} train + {args.val_n} val synthetic 1-3 face samples (seed={args.seed})...")
-    x_train, y_train = generate_dataset(args.train_n, seed=args.seed, chunks=12)
-    x_val, y_val = generate_dataset(args.val_n, seed=args.seed + 999999, chunks=4)
+    print(f"Generating {args.train_n} train + {args.val_n} val synthetic 1-3 face samples ({IMG_SIZE}x{IMG_SIZE} -> {HM_SIZE}x{HM_SIZE}, seed={args.seed}, bg_dir={args.bg_dir})...")
+    x_train, y_train = generate_dataset(args.train_n, seed=args.seed, chunks=12, bg_dir=args.bg_dir)
+    x_val, y_val = generate_dataset(args.val_n, seed=args.seed + 999999, chunks=4, bg_dir=args.bg_dir)
     print(f"Dataset generated in {time.perf_counter() - t0:.1f}s")
 
     def prep(img_u8, tgt_f16):
@@ -204,7 +206,27 @@ def main() -> int:
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_bytes(tflite_bytes)
     sha = hashlib.sha256(tflite_bytes).hexdigest()
-    print(f"Exported {args.out} ({len(tflite_bytes):,} bytes = {len(tflite_bytes)/1024:.1f} KB, SHA-256={sha})")
+    print(f"Exported FP16 {args.out} ({len(tflite_bytes):,} bytes = {len(tflite_bytes)/1024:.1f} KB, SHA-256={sha})")
+
+    if args.out_int8 is not None:
+        cal_n = min(256, len(x_val))
+
+        def rep_dataset():
+            for i in range(cal_n):
+                yield [(x_val[i].astype(np.float32) / 255.0)[None]]
+
+        c_int8 = tf.lite.TFLiteConverter.from_keras_model(export_model)
+        c_int8.optimizations = [tf.lite.Optimize.DEFAULT]
+        c_int8.representative_dataset = rep_dataset
+        c_int8.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
+        # Keep float32 output for smooth sub-cell offset precision while running all convs in INT8!
+        c_int8.inference_input_type = tf.uint8
+        c_int8.inference_output_type = tf.float32
+        int8_bytes = c_int8.convert()
+        args.out_int8.parent.mkdir(parents=True, exist_ok=True)
+        args.out_int8.write_bytes(int8_bytes)
+        sha8 = hashlib.sha256(int8_bytes).hexdigest()
+        print(f"Exported INT8 {args.out_int8} ({len(int8_bytes):,} bytes = {len(int8_bytes)/1024:.1f} KB, SHA-256={sha8})")
     return 0
 
 

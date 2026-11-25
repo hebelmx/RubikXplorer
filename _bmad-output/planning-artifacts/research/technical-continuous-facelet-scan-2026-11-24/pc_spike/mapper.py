@@ -342,6 +342,7 @@ class CubeFragment:
         self.observed_faces: set[str] = set()
         self.tracked: Dict[str, TrackedFace] = {}
         self.log_awb: np.ndarray = np.zeros(3, dtype=np.float64)  # running chromaticity drift estimate
+        self.twist_streak: Dict[str, int] = {f: 0 for f in FACES}
         self.frame_count: int = 0
 
     def face_robust_lab(self, face: str, cell_idx: int, top_k_frac: float = 0.45) -> Optional[Tuple[np.ndarray, float, int]]:
@@ -375,6 +376,15 @@ class CubeFragment:
         clean_q_sum = float(sum(o.quality for o in clean))
         return est, clean_q_sum, len(clean)
 
+    def confirmed_faces(self, min_n: int = 2, min_q: float = 0.40) -> set[str]:
+        """Return faces backed by >= `min_n` observations and >= `min_q` center quality (filters 1-frame ghosts)."""
+        out: set[str] = set()
+        for f in self.observed_faces:
+            r = self.face_robust_lab(f, 4)
+            if r is not None and r[2] >= min_n and r[1] >= min_q:
+                out.add(f)
+        return out
+
 
 @dataclass
 class MapperSnapshot:
@@ -405,8 +415,8 @@ class ContinuousCubeMapper:
         self.conflicted_slots: set[Tuple[str, int]] = set()
         self.twist_detected: bool = False
         self.twist_frame: Optional[int] = None
-        self._twist_streak: Dict[str, int] = {f: 0 for f in FACES}
         self.empty_streak: int = 0
+        self._pending_miss_streak: int = 0
         self.last_cue: str = "Show the cube to the camera"
         self.reappearance_events: List[Tuple[int, bool, str]] = []  # (frame, merged_ok, detail)
 
@@ -479,12 +489,31 @@ class ContinuousCubeMapper:
 
     def _attach_by_shared_edge(
         self,
+        frag: CubeFragment,
+        image_bgr: np.ndarray,
         detections: Sequence[DetectedQuad],
         assigned: Dict[int, Tuple[str, np.ndarray]],
         unmatched: List[int],
     ) -> Tuple[Dict[int, Tuple[str, np.ndarray]], List[int]]:
-        """Iteratively attach unmatched detections that share a 2D edge with any assigned face."""
+        """Iteratively attach unmatched detections that share a 2D edge with any assigned face.
+
+        Guards against shifted duplicate quads (identical center color to an already-assigned face)
+        and against noisy quads contradicting an already-confirmed face center in `frag`.
+        """
         remaining = list(unmatched)
+        center_cache: Dict[int, Tuple[np.ndarray, float]] = {}
+
+        def _center_of(di: int, quad: np.ndarray) -> Tuple[np.ndarray, float]:
+            if di not in center_cache:
+                rgbs, quals, _, _ = _sample_face_cells(image_bgr, quad)
+                center_cache[di] = (shading_invariant_lab(rgbs[4]), float(quals[4]))
+            return center_cache[di]
+
+        assigned_centers: List[Tuple[np.ndarray, float]] = [
+            _center_of(di, q) for di, (_, q) in assigned.items()
+        ]
+        confirmed = frag.confirmed_faces()
+
         changed = True
         while changed and remaining:
             changed = False
@@ -502,7 +531,19 @@ class ContinuousCubeMapper:
                         continue
                     rot_b = (eb_raw - eb_canon) % 4
                     qb = np.roll(det_q, -rot_b, axis=0)
+                    c_lab, c_q = _center_of(di, qb)
+                    # Reject if glare-free center matches an already-visible face on this same frame (duplicate quad)
+                    if c_q > 0.25 and any(
+                        aq > 0.25 and float(np.linalg.norm(c_lab - alab)) < 11.0 for alab, aq in assigned_centers
+                    ):
+                        continue
+                    # Reject if `fb` is already confirmed in `frag` with a sharply different center color
+                    if fb in confirmed and c_q > 0.25:
+                        hist = frag.face_robust_lab(fb, 4)
+                        if hist is not None and float(np.linalg.norm(c_lab - hist[0])) > 26.0:
+                            continue
                     assigned[di] = (fb, qb)
+                    assigned_centers.append((c_lab, c_q))
                     used_faces.add(fb)
                     remaining.remove(di)
                     changed = True
@@ -532,8 +573,8 @@ class ContinuousCubeMapper:
         for fname, (_, rgbs, quals) in sampled.items():
             if fname in frag.tracked:
                 prev = frag.tracked[fname]
-                good = (quals > 0.35) & (prev.quals > 0.35)
-                if np.sum(good) >= 4:
+                good = (quals > 0.50) & (prev.quals > 0.50)
+                if np.sum(good) >= 5:
                     lr_cur = np.log(np.clip(rgbs[good], 4.0, 255.0))
                     lr_prev = np.log(np.clip(prev.raw_rgbs[good], 4.0, 255.0))
                     diff = lr_cur - lr_prev
@@ -542,22 +583,32 @@ class ContinuousCubeMapper:
                     chroma_deltas.append(np.median(diff_chroma, axis=0))
         if chroma_deltas:
             step = np.median(np.stack(chroma_deltas, axis=0), axis=0)
-            # Clamp per-frame AWB step to realistic smooth drift (prevents a twist/glare from corrupting AWB)
-            step = np.clip(step, -0.04, 0.04)
+            # Clamp per-frame AWB step and keep log_awb zero-mean & bounded (prevents long-clip random-walk drift
+            # while still covering full 3000K <-> 6500K chromaticity shifts).
+            step = np.clip(step, -0.025, 0.025)
             frag.log_awb = frag.log_awb + step
+            frag.log_awb = frag.log_awb - float(np.mean(frag.log_awb))
+            frag.log_awb = np.clip(frag.log_awb, -0.36, 0.36)
 
         awb_scale = np.exp(-frag.log_awb)
 
         # 2. Check for nonrigid layer twist BEFORE adding potentially twisted samples!
+        # Only check on master (pending fragments with a twist simply fail SO(3) merge cleanly).
         for fname, (aligned, rgbs, quals) in sampled.items():
             rgbs_awb = np.clip(rgbs * awb_scale[None, :], 0.0, 255.0)
             labs = shading_invariant_lab(rgbs_awb)
 
             # Check if an outer row/column (>=2 non-center cells on one outer line) simultaneously disagrees
-            # sharply with prior high-q history while the center and >=4 other cells stay consistent (hallmark
-            # of a physical 90/180-deg layer twist — avoids false triggers from webcam motion/hand bumps!).
+            # sharply (de > 33) with prior high-q history while the center and >=4 other cells stay consistent
+            # (hallmark of a physical 90/180-deg layer twist — rejects webcam shading/saturation shifts!).
             center_hist = frag.face_robust_lab(fname, 4)
-            if not any_glare and center_hist is not None and center_hist[2] >= 5 and quals[4] > 0.55:
+            if (
+                frag is self.master
+                and not any_glare
+                and center_hist is not None
+                and center_hist[2] >= 5
+                and quals[4] > 0.55
+            ):
                 center_de = float(np.linalg.norm(labs[4] - center_hist[0]))
                 if center_de < 12.0:
                     flipped_cells: set[int] = set()
@@ -568,9 +619,9 @@ class ContinuousCubeMapper:
                         h = frag.face_robust_lab(fname, ci)
                         if h is not None and h[2] >= 5 and h[1] >= 2.2:
                             de_all = float(np.linalg.norm(labs[ci] - h[0]))
-                            if de_all < 13.0:
+                            if de_all < 14.0:
                                 stable_cells += 1
-                            elif de_all > 21.0:
+                            elif de_all > 33.0:
                                 # Distinguish additive specular glare (brightness jumps up while chroma drops toward white)
                                 # from a real physical layer twist (color changes hue or becomes more saturated/darker).
                                 chroma_cur = float(np.linalg.norm(labs[ci, 1:]))
@@ -587,13 +638,13 @@ class ContinuousCubeMapper:
                         and any(flipped_cells.issubset(line) for line in outer_lines)
                     )
                     if line_twist:
-                        self._twist_streak[fname] = self._twist_streak.get(fname, 0) + 1
-                        if self._twist_streak[fname] >= 5:
+                        frag.twist_streak[fname] = frag.twist_streak.get(fname, 0) + 1
+                        if frag.twist_streak[fname] >= 5:
                             self.twist_detected = True
                             if self.twist_frame is None:
                                 self.twist_frame = frame_idx
                     else:
-                        self._twist_streak[fname] = 0
+                        frag.twist_streak[fname] = 0
 
             # Record observations (if no twist triggered)
             if not self.twist_detected:
@@ -617,25 +668,28 @@ class ContinuousCubeMapper:
             return
         p = self.pending
         m = self.master
-        if len(p.observed_faces) == 0:
+        p_conf = p.confirmed_faces()
+        m_conf = m.confirmed_faces()
+        if len(p_conf) == 0:
             return
 
-        # If master was never globally anchored and only holds a tiny stale fragment (e.g. from pre-scan
-        # clutter), promote pending once pending has more observed faces so the scan never stalls forever.
-        if self.global_R is None and len(m.observed_faces) < 3 and len(p.observed_faces) > len(m.observed_faces):
+        # If master was never globally anchored and holds fewer confirmed faces than pending (<3 confirmed),
+        # promote pending so 1-frame ghosts or pre-scan clutter can never stall the scan forever.
+        if self.global_R is None and len(m_conf) < 3 and len(p_conf) > len(m_conf):
             self.master = p
             self.pending = None
+            self._pending_miss_streak = 0
             return
 
-        # Gather robust Labs per observed slot in pending and master
+        # Gather robust Labs per confirmed face slot in pending and master
         p_slots: Dict[Tuple[str, int], Tuple[np.ndarray, float]] = {}
-        for f in p.observed_faces:
+        for f in p_conf:
             for i in range(9):
                 r = p.face_robust_lab(f, i)
                 if r is not None and r[1] >= 0.35:
                     p_slots[(f, i)] = (r[0], r[1])
         m_slots: Dict[Tuple[str, int], Tuple[np.ndarray, float]] = {}
-        for f in m.observed_faces:
+        for f in m_conf:
             for i in range(9):
                 r = m.face_robust_lab(f, i)
                 if r is not None and r[1] >= 0.35:
@@ -676,17 +730,30 @@ class ContinuousCubeMapper:
         second_err = rot_scores[1][0] if len(rot_scores) > 1 else 999.0
 
         # SYMMETRY GUARD (Adversarial Finding #2):
-        # If pending has only 1 observed face and the best rotation does NOT beat the 2nd-best by a wide margin
+        # If pending has only 1 confirmed face and the best rotation does NOT beat the 2nd-best by a wide margin
         # (e.g., solved yellow face where 4 quarter-turns tie with identical error!), DO NOT MERGE YET!
         margin = second_err - best_err
-        if len(p.observed_faces) < 2 and margin < 12.0:
-            return
-        if best_err > 18.0 or margin < 6.0:
+        can_merge = not ((len(p_conf) < 2 and margin < 12.0) or best_err > 18.0 or margin < 6.0)
+        if not can_merge:
+            # If master never reached 6 faces and pending has cleanly mapped all 6 (or +2 more while master is unanchored),
+            # promote pending so a noisy early fragment can never block a clean complete scan!
+            if (len(m_conf) < 6 and len(p_conf) == 6) or (
+                self.global_R is None and len(m_conf) < 5 and len(p_conf) >= len(m_conf) + 2
+            ):
+                self.master = p
+                self.pending = None
+                self.global_R = None
+                self._pending_miss_streak = 0
+                self.reappearance_events.append(
+                    (frame_idx, True, f"promoted pending ({len(p_conf)}>{len(m_conf)} faces)")
+                )
             return
 
-        # Unique rigid alignment confirmed! Merge pending observations + active tracking into master!
+        # Unique rigid alignment confirmed! Merge confirmed + actively-tracked multi-frame faces into master
+        # (filters 1-frame phantom ghosts while preserving glared faces actively tracked across >=2 frames).
+        merge_faces = p_conf | {pf for pf in p.tracked if len(p.obs[(pf, 4)]) >= 2}
         for (pf, pi), obs_list in p.obs.items():
-            if not obs_list:
+            if not obs_list or pf not in merge_faces:
                 continue
             mf, mi = _rotate_fragment_slot(pf, pi, best_R)
             for o in obs_list:
@@ -914,7 +981,7 @@ class ContinuousCubeMapper:
                 # Seed largest quad as local "F" at rot=0, then attach neighbors by shared edge
                 order = sorted(range(len(plausible)), key=lambda i: _quad_area(plausible[i].corners), reverse=True)
                 assigned = {order[0]: ("F", plausible[order[0]].corners)}
-                assigned, _ = self._attach_by_shared_edge(plausible, assigned, order[1:])
+                assigned, _ = self._attach_by_shared_edge(self.master, image_bgr, plausible, assigned, order[1:])
                 any_glare = self._update_fragment_observations(self.master, frame_idx, image_bgr, assigned)
                 self._prev_unattached = []
             else:
@@ -924,7 +991,7 @@ class ContinuousCubeMapper:
             if self.master.tracked:
                 assigned, unmatched = self._match_to_tracked(self.master, image_bgr, plausible)
                 if assigned:
-                    assigned, _ = self._attach_by_shared_edge(plausible, assigned, unmatched)
+                    assigned, _ = self._attach_by_shared_edge(self.master, image_bgr, plausible, assigned, unmatched)
                     any_glare = self._update_fragment_observations(self.master, frame_idx, image_bgr, assigned)
                 else:
                     # Sudden jump / tracking break -> treat as regrip into pending fragment
@@ -934,20 +1001,30 @@ class ContinuousCubeMapper:
                 # We are recovering after a regrip blackout (or tracking jump): use pending fragment!
                 if self.pending is None:
                     self.pending = self._new_fragment()
+                    self._pending_miss_streak = 0
                     order = sorted(range(len(plausible)), key=lambda i: _quad_area(plausible[i].corners), reverse=True)
                     assigned = {order[0]: ("F", plausible[order[0]].corners)}
-                    assigned, _ = self._attach_by_shared_edge(plausible, assigned, order[1:])
+                    assigned, _ = self._attach_by_shared_edge(self.pending, image_bgr, plausible, assigned, order[1:])
                     any_glare = self._update_fragment_observations(self.pending, frame_idx, image_bgr, assigned)
                 else:
                     assigned, unmatched = self._match_to_tracked(self.pending, image_bgr, plausible)
                     if not assigned:
-                        # Reset pending fragment on tracking loss
-                        self.pending = self._new_fragment()
-                        order = sorted(range(len(plausible)), key=lambda i: _quad_area(plausible[i].corners), reverse=True)
-                        assigned = {order[0]: ("F", plausible[order[0]].corners)}
-                        unmatched = order[1:]
-                    assigned, _ = self._attach_by_shared_edge(plausible, assigned, unmatched)
-                    any_glare = self._update_fragment_observations(self.pending, frame_idx, image_bgr, assigned)
+                        self._pending_miss_streak += 1
+                        # Survive 1-2 blurry frames once pending has >=1 confirmed face; reset 1-frame stubs immediately
+                        max_miss = 3 if len(self.pending.confirmed_faces()) >= 1 else 1
+                        if self._pending_miss_streak >= max_miss:
+                            # Reset pending fragment after consecutive unmatched frames
+                            self.pending = self._new_fragment()
+                            self._pending_miss_streak = 0
+                            order = sorted(range(len(plausible)), key=lambda i: _quad_area(plausible[i].corners), reverse=True)
+                            assigned = {order[0]: ("F", plausible[order[0]].corners)}
+                            unmatched = order[1:]
+                            assigned, _ = self._attach_by_shared_edge(self.pending, image_bgr, plausible, assigned, unmatched)
+                            any_glare = self._update_fragment_observations(self.pending, frame_idx, image_bgr, assigned)
+                    else:
+                        self._pending_miss_streak = 0
+                        assigned, _ = self._attach_by_shared_edge(self.pending, image_bgr, plausible, assigned, unmatched)
+                        any_glare = self._update_fragment_observations(self.pending, frame_idx, image_bgr, assigned)
 
                 self._try_merge_pending(frame_idx)
 

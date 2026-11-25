@@ -29,9 +29,9 @@ sys.path.insert(0, str(REPO_ROOT / "tools/sticker-model"))
 from cube_model import FACE_BASIS, FACES, face_quad_3d, sticker_center_3d  # noqa: E402
 import sticker_common as sc  # noqa: E402
 
-IMG_SIZE = 192
+IMG_SIZE = 256
 HM_STRIDE = 4
-HM_SIZE = IMG_SIZE // HM_STRIDE  # 48
+HM_SIZE = IMG_SIZE // HM_STRIDE  # 64
 EXCLUDED_LIVE = {"sm-s721u1_stkb_studio-a"}
 
 BASE_PALETTES = [
@@ -41,7 +41,20 @@ BASE_PALETTES = [
     np.array([[234, 238, 240], [236, 228, 36], [48, 194, 84], [34, 112, 220], [218, 46, 54], [244, 128, 46]], dtype=np.float32),
     # Pastel / muted (stlb-like)
     np.array([[228, 230, 228], [226, 218, 122], [110, 194, 134], [102, 146, 212], [208, 94, 102], [228, 148, 94]], dtype=np.float32),
+    # Webcam neon/matte stickerless (crimson red + bright yellow-green + peach orange)
+    np.array([[230, 222, 228], [224, 234, 78], [40, 186, 92], [44, 108, 212], [192, 36, 68], [242, 122, 66]], dtype=np.float32),
 ]
+
+
+def load_real_backgrounds(bg_dir: Path | None) -> List[np.ndarray]:
+    """Load optional verified cube-free room backgrounds (strictly from non-held-out tuning clips)."""
+    if bg_dir is None or not bg_dir.is_dir():
+        return []
+    bgs: List[np.ndarray] = []
+    for p in sorted(bg_dir.glob("*.jpg")) + sorted(bg_dir.glob("*.png")):
+        im = Image.open(p).convert("RGB")
+        bgs.append(np.asarray(im, dtype=np.uint8))
+    return bgs
 
 
 def load_heldout_union() -> set[str]:
@@ -157,8 +170,28 @@ def _warp_face_onto_canvas(canvas: np.ndarray, tex: np.ndarray, quad_xy: np.ndar
     sub[inside] = top * (1.0 - fv) + bot * fv
 
 
-def _make_background(rng: np.random.Generator, dark_glossy: bool) -> np.ndarray:
-    """Generate realistic cluttered desk, table, fabric, or dark glossy surface background."""
+def _sample_real_bg_patch(rng: np.random.Generator, real_bgs: Sequence[np.ndarray]) -> np.ndarray:
+    """Randomly crop, resize, flip, and mild-jitter a real non-held-out room background to IMG_SIZE."""
+    src = real_bgs[int(rng.integers(0, len(real_bgs)))]
+    sh, sw = src.shape[:2]
+    # Either full letterbox-like square crop or zoomed sub-crop of shelf/desk/monitor
+    crop_frac = float(rng.uniform(0.45, 1.0))
+    ch = max(64, int(round(min(sh, sw) * crop_frac)))
+    cw = ch
+    y0 = int(rng.integers(0, max(1, sh - ch + 1)))
+    x0 = int(rng.integers(0, max(1, sw - cw + 1)))
+    patch = Image.fromarray(src[y0 : y0 + ch, x0 : x0 + cw]).resize((IMG_SIZE, IMG_SIZE), Image.BILINEAR)
+    arr = np.asarray(patch, dtype=np.float32)
+    if rng.random() < 0.5:
+        arr = np.fliplr(arr).copy()
+    gain = rng.uniform(0.65, 1.30, size=(1, 1, 3)).astype(np.float32)
+    return np.clip(arr * gain, 0.0, 255.0)
+
+
+def _make_background(rng: np.random.Generator, dark_glossy: bool, real_bgs: Sequence[np.ndarray] = ()) -> np.ndarray:
+    """Generate realistic cluttered desk, table, fabric, dark glossy surface, or real room background."""
+    if not dark_glossy and real_bgs and rng.random() < 0.30:
+        return _sample_real_bg_patch(rng, real_bgs)
     if dark_glossy:
         base = rng.uniform(8, 34, size=3).astype(np.float32)
         grad = np.linspace(0.65, 1.35, IMG_SIZE, dtype=np.float32)[:, None, None]
@@ -213,22 +246,30 @@ def _make_face_texture(
 
     tex = np.broadcast_to(body_rgb, (tex_size, tex_size, 3)).copy()
     cell = tex_size // 3
-    margin = int(rng.integers(1, 3)) if stickerless else int(rng.integers(3, 6))
+    margin = int(rng.integers(0, 3)) if stickerless else int(rng.integers(3, 6))
     im = Image.fromarray(np.clip(tex, 0, 255).astype(np.uint8))
     draw = ImageDraw.Draw(im)
-    solved_face = rng.random() < 0.14
+    pat_u = rng.random()
+    solved_face = pat_u < 0.12
+    checker_face = 0.12 <= pat_u < 0.30
     fixed_idx = int(rng.integers(0, 6))
-    rad = int(rng.integers(3, 7)) if stickerless else int(rng.integers(2, 5))
+    opp_idx = (fixed_idx + 1) if (fixed_idx % 2 == 0) else (fixed_idx - 1)
+    rad = int(rng.integers(4, 9)) if stickerless else int(rng.integers(2, 5))
 
     for r in range(3):
         for c in range(3):
-            col_i = fixed_idx if solved_face else int(rng.integers(0, 6))
+            if solved_face:
+                col_i = fixed_idx
+            elif checker_face:
+                col_i = fixed_idx if ((r + c) % 2 == 0) else opp_idx
+            else:
+                col_i = int(rng.integers(0, 6))
             rgb = np.clip(palette[col_i] + rng.normal(0, 5.5, size=3), 5, 250)
             x0, y0 = c * cell + margin, r * cell + margin
             x1, y1 = (c + 1) * cell - margin, (r + 1) * cell - margin
             draw.rounded_rectangle([x0, y0, x1, y1], radius=rad, fill=tuple(int(v) for v in rgb))
             # Optional center logo on center cell (1, 1)
-            if r == 1 and c == 1 and rng.random() < 0.25:
+            if r == 1 and c == 1 and rng.random() < 0.28:
                 cx, cy = (x0 + x1) // 2, (y0 + y1) // 2
                 lr = max(3, int(cell * rng.uniform(0.16, 0.26)))
                 lcol = tuple(int(v) for v in rng.integers(20, 120, size=3))
@@ -278,19 +319,27 @@ def _draw_hand_occlusion(rng: np.random.Generator, img_rgb: np.ndarray, cube_pts
     return np.asarray(mask_im) > 127
 
 
-def _draw_hard_negative(rng: np.random.Generator) -> np.ndarray:
-    """Generate a cube-free hard negative: cluttered desk, hands, or random colored UI/checkerboard grids."""
-    dark = rng.random() < 0.30
-    bg = _make_background(rng, dark_glossy=dark)
+def _draw_hard_negative(rng: np.random.Generator, real_bgs: Sequence[np.ndarray] = ()) -> np.ndarray:
+    """Generate a cube-free hard negative: real room/bookshelf, warm multi-finger hands, or random colored UI grids."""
+    dark = rng.random() < 0.25
+    bg = _make_background(rng, dark_glossy=dark, real_bgs=real_bgs)
     im = Image.fromarray(np.clip(bg, 0, 255).astype(np.uint8))
     draw = ImageDraw.Draw(im)
 
-    kind = int(rng.integers(0, 3))
+    kind = int(rng.integers(0, 4))
     if kind == 0:
-        # Random hand / arm without cube
-        skin = tuple(int(v) for v in np.clip(np.array([195, 148, 122]) + rng.normal(0, 25, 3), 40, 240))
-        cx, cy = int(rng.integers(40, IMG_SIZE - 40)), int(rng.integers(60, IMG_SIZE))
-        draw.ellipse([cx - 55, cy - 35, cx + 55, cy + 75], fill=skin)
+        # Warm/cool-lit open hand with 3-5 fingers (suppresses warm palm/knuckle false peaks!)
+        skin_base = np.array([212, 152, 134]) if rng.random() < 0.55 else np.array([175, 130, 108])
+        skin = np.clip(skin_base + rng.normal(0, 24, 3), 35, 248)
+        cx, cy = int(rng.integers(50, IMG_SIZE - 50)), int(rng.integers(80, IMG_SIZE))
+        pw, ph = int(rng.integers(32, 65)), int(rng.integers(35, 70))
+        draw.ellipse([cx - pw, cy - ph, cx + pw, cy + ph], fill=tuple(int(v) for v in skin))
+        for k in range(int(rng.integers(2, 5))):
+            fx = cx + int((k - 1.5) * rng.uniform(14, 24))
+            fy = cy - ph + int(rng.uniform(-35, 10))
+            fw, fh = int(rng.integers(8, 16)), int(rng.integers(22, 46))
+            fcol = tuple(int(v) for v in np.clip(skin + rng.normal(0, 12, 3), 30, 250))
+            draw.rounded_rectangle([fx - fw, fy - fh, fx + fw, fy + fh // 2], radius=fw, fill=fcol)
     elif kind == 1:
         # Random non-cube colored squares / tiles / UI strip (prevents firing on 2D UIs or posters!)
         pal = BASE_PALETTES[int(rng.integers(0, len(BASE_PALETTES)))]
@@ -300,7 +349,7 @@ def _draw_hard_negative(rng: np.random.Generator) -> np.ndarray:
             x0, y0 = int(rng.integers(10, IMG_SIZE - 50)), int(rng.integers(10, IMG_SIZE - 50))
             sz = int(rng.integers(16, 48))
             draw.rectangle([x0, y0, x0 + sz, y0 + sz], fill=c, outline=(20, 20, 20), width=2)
-    else:
+    elif kind == 2:
         # Dark glossy blurred color reflection only (no cube!)
         pal = BASE_PALETTES[int(rng.integers(0, len(BASE_PALETTES)))]
         cx, cy = int(rng.integers(60, IMG_SIZE - 60)), int(rng.integers(80, IMG_SIZE - 40))
@@ -309,26 +358,32 @@ def _draw_hard_negative(rng: np.random.Generator) -> np.ndarray:
             ox, oy = int(rng.integers(-35, 35)), int(rng.integers(-25, 25))
             draw.polygon([(cx + ox, cy + oy), (cx + ox + 22, cy + oy + 8), (cx + ox + 16, cy + oy + 28), (cx + ox - 6, cy + oy + 18)], fill=c)
         im = im.filter(ImageFilter.GaussianBlur(radius=float(rng.uniform(2.5, 5.5))))
+    else:
+        # Pure cluttered room/bookshelf/desk background with no foreground objects
+        if rng.random() < 0.4:
+            im = im.filter(ImageFilter.GaussianBlur(radius=float(rng.uniform(0.5, 1.8))))
 
     arr = np.asarray(im, dtype=np.float32)
-    arr += rng.normal(0, float(rng.uniform(1.5, 6.0)), arr.shape).astype(np.float32)
+    arr += rng.normal(0, float(rng.uniform(1.5, 6.5)), arr.shape).astype(np.float32)
     return np.clip(arr, 0, 255).astype(np.uint8)
 
 
-def _render_one_sample(rng: np.random.Generator, live_crops: Sequence[np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
+def _render_one_sample(
+    rng: np.random.Generator, live_crops: Sequence[np.ndarray], real_bgs: Sequence[np.ndarray] = ()
+) -> Tuple[np.ndarray, np.ndarray]:
     """Render one (image_u8 [256,256,3], target [64,64,3]) training example."""
     target = np.zeros((HM_SIZE, HM_SIZE, 3), dtype=np.float32)
 
-    # 22% hard negatives
-    if rng.random() < 0.22:
-        return _draw_hard_negative(rng), target
+    # 24% hard negatives (cluttered rooms, warm hands, glossy reflections, UI squares)
+    if rng.random() < 0.24:
+        return _draw_hard_negative(rng, real_bgs=real_bgs), target
 
-    dark_glossy = rng.random() < 0.22
-    canvas = _make_background(rng, dark_glossy=dark_glossy)
+    dark_glossy = rng.random() < 0.18
+    canvas = _make_background(rng, dark_glossy=dark_glossy, real_bgs=real_bgs)
 
-    # Sample pose mode: 25% 1-face frontal, 25% 2-face edge, 50% 3-face corner
+    # Sample pose mode: 28% 1-face frontal, 37% 2-face edge (handheld primary!), 35% 3-face corner
     u_mode = rng.random()
-    if u_mode < 0.25:
+    if u_mode < 0.28:
         # Near-frontal 1-face (flat_2d_face POSITIVE!)
         base_rot = int(rng.integers(0, 6))
         base_eulers = [(0, 0), (0, math.pi / 2), (0, math.pi), (0, -math.pi / 2), (math.pi / 2, 0), (-math.pi / 2, 0)]
@@ -336,10 +391,10 @@ def _render_one_sample(rng: np.random.Generator, live_crops: Sequence[np.ndarray
         rx = brx + float(rng.uniform(-0.26, 0.26))
         ry = bry + float(rng.uniform(-0.26, 0.26))
         rz = float(rng.uniform(-math.pi, math.pi))
-    elif u_mode < 0.50:
-        # 2-face edge view
-        rx = float(rng.uniform(-0.18, 0.18))
-        ry = float(rng.uniform(0.32, 1.25)) * (1.0 if rng.random() < 0.5 else -1.0)
+    elif u_mode < 0.65:
+        # 2-face edge view (includes mild-to-steep 2-face handheld turns)
+        rx = float(rng.uniform(-0.22, 0.22))
+        ry = float(rng.uniform(0.28, 1.28)) * (1.0 if rng.random() < 0.5 else -1.0)
         rz = float(rng.uniform(-math.pi, math.pi))
     else:
         # 3-face corner view (wide angles & rolls)
@@ -348,31 +403,38 @@ def _render_one_sample(rng: np.random.Generator, live_crops: Sequence[np.ndarray
         rz = float(rng.uniform(-math.pi, math.pi))
 
     R = _euler_xyz(rx, ry, rz)
-    # Free scale & off-center placement
-    f = float(rng.uniform(220.0, 340.0))
-    tz = float(rng.uniform(4.2, 8.6))
-    tx = float(rng.uniform(-1.35, 1.35)) * (tz / 6.0)
-    ty = float(rng.uniform(-1.35, 1.35)) * (tz / 6.0)
+    # Free scale & off-center placement: covers close-up (75% width) AND arm's-length webcam (~18% width)!
+    f = float(rng.uniform(250.0, 420.0))
+    tz = float(rng.uniform(4.0, 11.2))
+    tx = float(rng.uniform(-1.35, 1.35)) * (tz / 6.5)
+    ty = float(rng.uniform(-1.35, 1.35)) * (tz / 6.5)
     t = np.array([tx, ty, tz], dtype=np.float64)
     cam_world = np.array([-tx, -ty, tz], dtype=np.float64)
     cx0, cy0 = IMG_SIZE / 2.0, IMG_SIZE / 2.0
 
     # Cube appearance
     pal_idx = int(rng.integers(0, len(BASE_PALETTES)))
-    palette = BASE_PALETTES[pal_idx] * rng.uniform(0.88, 1.10, size=(1, 3)).astype(np.float32)
-    stickerless = (pal_idx >= 1) or (rng.random() < 0.45)
+    palette = BASE_PALETTES[pal_idx] * rng.uniform(0.86, 1.12, size=(1, 3)).astype(np.float32)
+    stickerless = (pal_idx >= 1) or (rng.random() < 0.50)
     body_choice = rng.random()
     body_rgb = (
         np.array([22, 22, 24], dtype=np.float32)
-        if body_choice < 0.78
-        else (np.array([225, 225, 228], dtype=np.float32) if body_choice < 0.90 else np.array([75, 78, 82], dtype=np.float32))
+        if body_choice < 0.72
+        else (np.array([225, 225, 228], dtype=np.float32) if body_choice < 0.86 else np.array([75, 78, 82], dtype=np.float32))
     )
-    use_real_crop = bool(live_crops) and (rng.random() < 0.30)
+    use_real_crop = bool(live_crops) and (rng.random() < 0.28)
 
-    # Lighting + AWB tint
+    # Wide real-world exposure + AWB tint (25% dim/low-light, 55% normal, 20% bright!)
     to_light = np.array([rng.uniform(-0.7, 0.7), rng.uniform(-0.3, 0.85), rng.uniform(0.45, 1.0)], dtype=np.float64)
     to_light /= np.linalg.norm(to_light)
-    awb = rng.uniform([0.84, 0.94, 0.82], [1.16, 1.06, 1.18]).astype(np.float32)
+    exp_u = rng.random()
+    if exp_u < 0.25:
+        exp_gain = float(rng.uniform(0.26, 0.58))  # dim / low-light stickerless regime!
+    elif exp_u < 0.80:
+        exp_gain = float(rng.uniform(0.60, 1.12))
+    else:
+        exp_gain = float(rng.uniform(1.12, 1.42))
+    awb = rng.uniform([0.78, 0.90, 0.75], [1.26, 1.08, 1.24]).astype(np.float32) * exp_gain
     glare_on = rng.random() < 0.35
 
     # Visible faces via backface culling
@@ -458,11 +520,17 @@ def _render_one_sample(rng: np.random.Generator, live_crops: Sequence[np.ndarray
         target[gy, gx, 1] = hx - (gx + 0.5)  # in [-0.5, +0.5]
         target[gy, gx, 2] = hy - (gy + 0.5)
 
-    # Camera degradations: blur, YUV 4:2:0 chroma subsampling, sensor noise
+    # Camera degradations: Gaussian/motion blur, YUV 4:2:0 chroma subsampling, sensor noise
     im = Image.fromarray(np.clip(canvas, 0, 255).astype(np.uint8))
-    if rng.random() < 0.30:
+    if rng.random() < 0.28:
         im = im.filter(ImageFilter.GaussianBlur(radius=float(rng.uniform(0.4, 1.3))))
     arr = np.asarray(im, dtype=np.float32)
+    if rng.random() < 0.16:
+        # Mild handheld turning motion blur (3-5 px horizontal or vertical)
+        k = int(rng.choice([3, 5]))
+        axis = int(rng.integers(0, 2))
+        shifted = sum(np.roll(arr, s, axis=axis) for s in range(-(k // 2), k // 2 + 1)) / float(k)
+        arr = shifted
     if rng.random() < 0.35:
         # Simulate YUV 4:2:0 chroma downsampling (2x2 box on U/V)
         y = 0.299 * arr[:, :, 0] + 0.587 * arr[:, :, 1] + 0.114 * arr[:, :, 2]
@@ -471,28 +539,32 @@ def _render_one_sample(rng: np.random.Generator, live_crops: Sequence[np.ndarray
         u2 = np.repeat(np.repeat(u.reshape(IMG_SIZE // 2, 2, IMG_SIZE // 2, 2).mean(axis=(1, 3)), 2, axis=0), 2, axis=1)
         v2 = np.repeat(np.repeat(v.reshape(IMG_SIZE // 2, 2, IMG_SIZE // 2, 2).mean(axis=(1, 3)), 2, axis=0), 2, axis=1)
         arr = np.stack([y + 1.402 * v2, y - 0.3441 * u2 - 0.7141 * v2, y + 1.772 * u2], axis=-1)
-    arr += rng.normal(0, float(rng.uniform(1.0, 5.5)), arr.shape).astype(np.float32)
+    noise_sd = float(rng.uniform(3.0, 9.0)) if exp_gain < 0.58 else float(rng.uniform(1.0, 5.5))
+    arr += rng.normal(0, noise_sd, arr.shape).astype(np.float32)
     return np.clip(arr, 0, 255).astype(np.uint8), target
 
 
-def _worker_chunk(args: Tuple[int, int, List[np.ndarray]]) -> Tuple[np.ndarray, np.ndarray]:
-    n, seed, live_crops = args
+def _worker_chunk(args: Tuple[int, int, List[np.ndarray], List[np.ndarray]]) -> Tuple[np.ndarray, np.ndarray]:
+    n, seed, live_crops, real_bgs = args
     rng = np.random.default_rng(seed)
     xs = np.empty((n, IMG_SIZE, IMG_SIZE, 3), dtype=np.uint8)
     ys = np.empty((n, HM_SIZE, HM_SIZE, 3), dtype=np.float16)
     for i in range(n):
-        img, tgt = _render_one_sample(rng, live_crops)
+        img, tgt = _render_one_sample(rng, live_crops, real_bgs)
         xs[i] = img
         ys[i] = tgt.astype(np.float16)
     return xs, ys
 
 
-def generate_dataset(n_samples: int, seed: int, chunks: int = 8) -> Tuple[np.ndarray, np.ndarray]:
+def generate_dataset(
+    n_samples: int, seed: int, chunks: int = 8, bg_dir: Path | None = None
+) -> Tuple[np.ndarray, np.ndarray]:
     """Generate `n_samples` examples deterministically in parallel across CPU cores."""
     live_crops = load_non_heldout_live_crops()
+    real_bgs = load_real_backgrounds(bg_dir)
     base = n_samples // chunks
     sizes = [base + (1 if i < n_samples % chunks else 0) for i in range(chunks)]
-    tasks = [(sz, seed + i * 10007, live_crops) for i, sz in enumerate(sizes) if sz > 0]
+    tasks = [(sz, seed + i * 10007, live_crops, real_bgs) for i, sz in enumerate(sizes) if sz > 0]
     with ProcessPoolExecutor(max_workers=min(len(tasks), 12)) as pool:
         parts = list(pool.map(_worker_chunk, tasks))
     xs = np.concatenate([p[0] for p in parts], axis=0)
