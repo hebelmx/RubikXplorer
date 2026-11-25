@@ -646,6 +646,14 @@ private fun LessonBody(
     // PRACTICE keeps Story 10.7's visibility gate, which has no after-mismatch term.
     val quickCheckOffered =
         quickCheckSuggested(session.syncState, afterMismatch = false, retryPending = quickCheckRetryPending, boundary = quickCheckBoundary)
+    val offerQuickCheckSlot = quickCheckEveryStep || quickCheckOffered
+    val quickCheckCardShown =
+        quickCheck != null && offerQuickCheckSlot && session.quickCheck != null &&
+            when (session.syncState) {
+                SyncState.PHYSICAL_PREDICTED, SyncState.PHYSICAL_VERIFIED -> true
+                SyncState.PHYSICAL_MISMATCH -> mismatchRung == 0
+                else -> false
+            }
     // #298: after a mismatch the highlight lasts until the next *Done*.
     val quickCheckSuggestion = rememberQuickCheckSuggestion(session.syncState, lesson.id)
     val panel: @Composable (Modifier) -> Unit = { panelModifier ->
@@ -745,7 +753,7 @@ private fun LessonBody(
                     }
                 },
             quickCheck =
-                if (quickCheck != null && (quickCheckEveryStep || quickCheckOffered)) {
+                if (quickCheck != null && offerQuickCheckSlot) {
                     {
                         fun request(full: Boolean) {
                             scope.launch {
@@ -768,34 +776,28 @@ private fun LessonBody(
                             onClick = { request(false) },
                             modifier = Modifier.testTag("lesson:quickCheck"),
                         )
-                        if (session.offersFullScan) {
-                            Text(strings.resolve(ContentText("msg.quick-check.likely-mismatch")))
-                            session.quickCheck?.consistent?.firstOrNull()?.let { candidate ->
-                                Text(
-                                    strings.resolve(
-                                        ContentText(
-                                            "msg.physical.mismatch.candidate",
-                                            mapOf(
-                                                "candidate" to
-                                                    Notation
-                                                        .format(candidate.moves),
-                                            ),
-                                        ),
-                                    ),
-                                )
-                            }
-                            OutlinedButton(onClick = { request(true) }, modifier = Modifier.testTag("mismatch:scanAll")) {
-                                Text(strings.resolve(ContentText("btn.physical.scan-all-faces")))
-                            }
-                        }
-                        if (session.canAdoptObserved) {
-                            OutlinedButton(
-                                onClick = { send { SessionEvent.AdoptObserved(it) } },
-                                modifier = Modifier.testTag("mismatch:adopt"),
-                            ) {
-                                Text(strings.resolve(ContentText("btn.physical.use-my-cube")))
-                            }
-                        }
+                        QuickCheckResultCard(
+                            session,
+                            strings,
+                            actions =
+                                buildList {
+                                    if (session.offersFullScan) {
+                                        add(
+                                            QuickCheckResultAction(
+                                                ContentText("btn.physical.scan-all-faces"),
+                                                "mismatch:scanAll",
+                                            ) { request(true) },
+                                        )
+                                    }
+                                    if (session.canAdoptObserved) {
+                                        add(
+                                            QuickCheckResultAction(ContentText("btn.physical.use-my-cube"), "mismatch:adopt") {
+                                                send { SessionEvent.AdoptObserved(it) }
+                                            },
+                                        )
+                                    }
+                                },
+                        )
                     }
                 } else {
                     null
@@ -899,6 +901,7 @@ private fun LessonBody(
                         renderer = renderer,
                         camera = quickCheck != null,
                         certainty = decision.certainty,
+                        quickCheckCardShown = quickCheckCardShown,
                         // A running demonstration's shown cube, so the summary agrees with Read faces and Solved.
                         summary = cubeSummary(playingState ?: session.virtual, lesson, strings),
                         emphasis = emphasis,
@@ -1238,6 +1241,7 @@ private fun LearnerStage(
     session: SessionState,
     renderer: Cube3DRenderer,
     certainty: Certainty,
+    quickCheckCardShown: Boolean,
     camera: Boolean = false,
     summary: String?,
     emphasis: NetEmphasis?,
@@ -1271,13 +1275,12 @@ private fun LearnerStage(
                         strings,
                         certainty,
                         session.syncState,
-                        verified =
-                            camera && session.syncState == SyncState.PHYSICAL_VERIFIED &&
-                                session.quickCheck?.certainty == Certainty.VERIFIED,
+                        verified = camera && session.hasVerifiedQuickCheckFrame,
                     )
-                    if (session.syncState == SyncState.PHYSICAL_MISMATCH || session.syncState == SyncState.PHYSICAL_VERIFIED ||
-                        (camera && session.quickCheck != null) || (isPhysical && session.lastDiagnosis != null)
-                    ) {
+                    val showHeaderChip =
+                        session.syncState == SyncState.PHYSICAL_MISMATCH || session.syncState == SyncState.PHYSICAL_VERIFIED ||
+                            (camera && session.quickCheck != null) || (isPhysical && session.lastDiagnosis != null)
+                    if (showHeaderChip && !quickCheckCardShown) {
                         CertaintyChip(certainty)
                     }
                     ViewRotatedBadge(renderer, strings)

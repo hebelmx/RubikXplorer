@@ -50,6 +50,8 @@ import dev.cubentia.app.ui.components.PhysicalModeSwitch
 import dev.cubentia.app.ui.freecube.ToolbarButton
 import dev.cubentia.app.ui.freecube.ViewControls
 import dev.cubentia.app.ui.lesson.QuickCheckButton
+import dev.cubentia.app.ui.lesson.QuickCheckResultAction
+import dev.cubentia.app.ui.lesson.QuickCheckResultCard
 import dev.cubentia.app.ui.lesson.QuickCheckSuggestion
 import dev.cubentia.app.ui.lesson.rememberQuickCheckSuggestion
 import dev.cubentia.app.ui.lesson.rememberReduceMotion
@@ -478,10 +480,6 @@ fun SolutionPlayback(
         val controls: @Composable () -> Unit = {
             if (state.isPhysical) {
                 if (quickCheck != null) {
-                    state.session.quickCheck?.let {
-                        dev.cubentia.app.ui.lesson
-                            .CertaintyChip(it.certainty)
-                    }
                     state.session.quickCheckRetry?.let {
                         Text(
                             strings.resolve(it),
@@ -501,12 +499,42 @@ fun SolutionPlayback(
                         onClick = { requestQuickCheck(false) },
                         modifier = Modifier.testTag("playback:quickCheck"),
                     )
-                    if (state.session.offersFullScan) {
-                        TextButton(onClick = { requestQuickCheck(true) }, modifier = Modifier.testTag("playback:scanAll")) {
-                            Text(strings.resolve(ContentText("btn.physical.scan-all-faces")))
-                        }
-                    }
-                    // A Full mismatch re-solves from the observed cube and restarts playback from it (PO 2026-11-17).
+                    QuickCheckResultCard(
+                        state.session,
+                        strings,
+                        actions =
+                            buildList {
+                                if (state.session.syncState == SyncState.PHYSICAL_MISMATCH &&
+                                    state.session.quickCheck?.matchesExpected == false
+                                ) {
+                                    add(
+                                        QuickCheckResultAction(
+                                            ContentText("msg.recovery.offer.undo"),
+                                            "playback:undo",
+                                            state.canStepBack,
+                                            state::stepBack,
+                                        ),
+                                    )
+                                }
+                                if (state.session.offersFullScan) {
+                                    add(
+                                        QuickCheckResultAction(
+                                            ContentText("btn.physical.scan-all-faces"),
+                                            "playback:scanAll",
+                                        ) { requestQuickCheck(true) },
+                                    )
+                                }
+                                if (state.session.canResolveObserved && !resolve.running) {
+                                    add(
+                                        QuickCheckResultAction(
+                                            ContentText("btn.physical.use-my-cube"),
+                                            "playback:useMyCube",
+                                            onClick = onUseMyCube,
+                                        ),
+                                    )
+                                }
+                            },
+                    )
                     if (state.session.canResolveObserved) {
                         if (resolve.running) {
                             androidx.compose.material3.LinearProgressIndicator(Modifier.testTag("playback:resolving"))
@@ -519,9 +547,6 @@ fun SolutionPlayback(
                                             "playback:resolveError",
                                         ),
                                 )
-                            }
-                            TextButton(onClick = onUseMyCube, modifier = Modifier.testTag("playback:useMyCube")) {
-                                Text(strings.resolve(ContentText("btn.physical.use-my-cube")))
                             }
                         }
                     }

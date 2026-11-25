@@ -49,9 +49,12 @@ import dev.cubentia.app.preferences.PreferenceStore
 import dev.cubentia.app.render.Cube3DRenderer
 import dev.cubentia.app.render.RenderedArrow
 import dev.cubentia.app.render.RenderedArrowKey
+import dev.cubentia.app.scan.QuickCheckCapture
 import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.session.TickingClock
 import dev.cubentia.app.ui.a11y.assertUncheckedPhysicalModeContrast
+import dev.cubentia.app.ui.lesson.assertQuickCheckResult
+import dev.cubentia.app.ui.lesson.quickCheckPartial
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.app.ui.theme.DarkTokens
 import dev.cubentia.app.ui.theme.LightTokens
@@ -1237,6 +1240,104 @@ class SolutionPlaybackTest {
                 )
             }
         }
+    }
+
+    @Test fun quickCheckResultsAtANormalPlaybackStep() = checkPlaybackResults(atEnd = false)
+
+    @Test fun quickCheckResultsAtPlaybackCompletion() = checkPlaybackResults(atEnd = true)
+
+    private fun checkPlaybackResults(atEnd: Boolean) {
+        val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
+        val host = SessionHost(TickingClock(), Dispatchers.Unconfined)
+        val events = mutableListOf<SessionEvent>()
+        val requests = mutableListOf<Boolean>()
+        var uses = 0
+        runBlocking { host.dispatch { SessionEvent.SolvePlaybackStarted(scrambled, solution, it, bundle.tutorConfig) } }
+        rule.setContent {
+            val current by host.state.collectAsState()
+            CubentiaTheme {
+                PreferenceProvider(netPreferences()) {
+                    SolvePlaybackScreen(
+                        current,
+                        strings,
+                        onClose = {},
+                        onLearn = {},
+                        onEvent = { event ->
+                            events += event
+                            runBlocking { host.dispatch { event } }
+                        },
+                        quickCheck = QuickCheckCapture {},
+                        requestQuickCheck = { full ->
+                            requests += full
+                            host.dispatch { SessionEvent.QuickCheckRequested(at = it, fullScan = full) }
+                        },
+                        onUseMyCube = { uses++ },
+                    )
+                }
+            }
+        }
+        click("followOnMyCube")
+        repeat(if (atEnd) solution.size else 1) { click("done") }
+        val expected = host.state.value.expected
+        assertEquals(atEnd, expected == CubeState.SOLVED)
+        val actual = expected.apply(r)
+
+        fun deliver(observation: PhysicalObservation) {
+            val pending = checkNotNull(host.state.value.pendingQuickCheck)
+            runBlocking { host.dispatch { SessionEvent.QuickCheckObserved(pending.effectId, pending.revision, observation, it) } }
+            rule.waitForIdle()
+        }
+
+        fun observe(observation: PhysicalObservation) {
+            click("quickCheck")
+            assertFalse(requests.last())
+            deliver(observation)
+        }
+
+        rule.onNodeWithTag("quickCheck:result").assertDoesNotExist()
+        for (unreadable in listOf(PhysicalObservation.Partial(emptyMap()), PhysicalObservation.Partial(mapOf(Face.U to emptyList())))) {
+            observe(PhysicalObservation.Full(expected))
+            rule.assertQuickCheckResult("VERIFIED", "Verified")
+            tag("undo").assertDoesNotExist()
+            tag("scanAll").assertDoesNotExist()
+            tag("useMyCube").assertDoesNotExist()
+            observe(unreadable)
+            rule.assertQuickCheckResult("EXPECTED", "Unknown", "I can't tell what changed.")
+            tag("undo").assertDoesNotExist()
+            tag("scanAll").assertDoesNotExist()
+            tag("useMyCube").assertDoesNotExist()
+        }
+        observe(quickCheckPartial(actual))
+        rule.assertQuickCheckResult("EXPECTED", "Likely", "That turn probably moved something else.")
+        rule.onNodeWithText("Candidate: R").assertExists()
+        rule.onNodeWithText("Try again").assertDoesNotExist()
+        tag("undo").assertIsEnabled()
+        tag("useMyCube").assertDoesNotExist()
+        // An unreadable result in a mismatch replaces the Likely result but keeps the mismatch offers.
+        observe(PhysicalObservation.Partial(emptyMap()))
+        rule.assertQuickCheckResult("EXPECTED", "Unknown", "I can't tell what changed.")
+        rule.onNodeWithText("Candidate: R").assertDoesNotExist()
+        tag("undo").assertIsEnabled()
+        tag("scanAll").assertExists()
+        observe(quickCheckPartial(actual))
+        rule.assertQuickCheckResult("EXPECTED", "Likely", "That turn probably moved something else.")
+        click("scanAll")
+        assertTrue(requests.last())
+        assertEquals(
+            Face.entries.toSet(),
+            host.state.value.pendingQuickCheck!!
+                .faces,
+        )
+
+        deliver(PhysicalObservation.Full(actual))
+        rule.assertQuickCheckResult("EXPECTED", "Verified")
+        rule.onNodeWithText("Try again").assertDoesNotExist()
+        tag("scanAll").assertDoesNotExist()
+        click("useMyCube")
+        assertEquals(1, uses)
+        click("undo")
+        assertTrue(events.last() is SessionEvent.Undo)
+        rule.onNodeWithTag("quickCheck:result").assertDoesNotExist()
     }
 
     @Test fun physicalPlaybackOffersQuickCheckAtEveryStepAndShowsEvidence() {
