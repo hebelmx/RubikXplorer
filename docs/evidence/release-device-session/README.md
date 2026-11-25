@@ -150,3 +150,41 @@ Driven by adb taps (agent). Screenshots: `shots/354/`.
 | 7 | #352/#353: with Up 3 of 8 set the editor still reads "6 faces left to enter: Up, …" (Up not counted, no turn, no problem lines) | PASS | `e_dialog.png` |
 
 Not covered here: the Lesson on-cube editor's Back dialog (Robolectric only), and the Galaxy's own TalkBack build (installing it on the emulator failed on a signature mismatch). F4 (#354) and F1/F3 (#352, #353) closed by PR #357.
+
+## 6.6 — #249 paint mode, with TalkBack (2026-11-24)
+
+Device / Android: Lenovo TB128XU (Android 13), with Google TalkBack switched on and off over adb
+App revision / build: debug build installed 2026-11-24 12:02 CST (includes PR #263)
+Driven by adb taps (agent); the PO listened and confirmed the speech. Checked in the Manual Cube Editor (paint mode is shared with Scan review, `PaintMode.kt`). Screenshots: `shots/249/`.
+
+| Step | Check | Result | Evidence |
+|---|---|---|---|
+| 1 | Long-press Blue → swatch shows check + outline, line "Painting blue. Tap stickers to set them. Tap blue again to stop." | PASS | `l_paint_locked.png` |
+| 2 | Three taps on the Right face → each sticker set to Blue, paint mode stays on | PASS | `l_paint_painted.png` |
+| 3 | Tap Blue again → paint mode ends, line back to "Selected: …" | PASS | `l_paint_stopped.png` |
+| 4 | TalkBack on: touch Red, double-tap-and-hold → TalkBack says "selected … painting red" (PO heard) | PASS | `l_tb_locked.png` |
+| 5 | TalkBack: touch a sticker, double-tap → painted red | PASS | `l_tb_painted.png` |
+| 6 | TalkBack: touch Red, double-tap → paint mode ends, TalkBack says "stop painting" (PO heard) | PASS | `l_tb_stopped.png` |
+
+Not covered: paint mode inside Scan review with TalkBack (same component; visual paint in Scan review was checked in session C).
+
+## 6.7 — #251 Placement explanation, cases 2 and 3 with TalkBack (2026-11-24)
+
+Device / Android: Lenovo TB128XU (Android 13), Google TalkBack
+App revision / build: debug build installed 2026-11-24 12:02 CST (includes PR #265)
+Learn → *Find my place* → *Scan my cube*, guided scan with the PO's cube; agent drove the app over adb, the PO held the cube and confirmed the speech. Cases 1, 4 and 5 were run on the Galaxy earlier (see "Placement runs" above). Screenshots: `shots/251/`.
+
+| Case | Cube | Placement said | Result | Evidence |
+|---|---|---|---|---|
+| 2 | R U2 from solved | "Your cube is two turns from solved: turn the white face a half turn, then turn the red face counter-clockwise." + *Scan again* / *Choose another Stage* (= U2 R′) | PASS | `l_case2_review.png`, `l_case2_result.png` |
+| 2 TalkBack | — | Result text read aloud (PO heard); TalkBack focus starts on Close | PASS | `l_case2_tb_focus.png` |
+| 3 | Yellow first two layers, white layer mixed (Sune with white on top) | "Your first two layers are solved, nice work. You started from yellow. Our lessons start with the white face … start with the white cross. You've already reached First cross." + *Open Stage* / *Show me the last layer anyway* / *Choose another Stage* | PASS | `l_case3_review.png`, `l_case3_result.png` |
+| 3 TalkBack | — | Headline, explanation, "already reached" line and the note read aloud (PO heard) | PASS | — |
+| 3 action | *Show me the last layer anyway* | Opens Stage 5 *Last-layer orientation* (steps say "bottom face", matching a yellow start) | PASS | `l_case3_last_layer_stage5.png` |
+
+Also seen: the scan screen is announced ("Cubentia, Face 1 of 6, place the cube inside the grid"), and Close with one face captured asks "Discard the faces you captured?" (#325) — `l_scan_discard_dialog.png`.
+
+Side effect on this device's debug data: an accidental *Choose another Stage* → Stage 3 (while a TalkBack permission dialog had focus) and the case 3 *Show me the last layer anyway* left Stages 1–4 *Skipped by placement* on the Lenovo debug install.
+Watch item: the TalkBack touch path sometimes passed an injected touch through as an activation (once on *Scan again*); the PO also reports the Lenovo occasionally drops taps (likely hardware; same as the #319 watch item).
+
+Issue disposition: #249 and #251 criteria pass on device; close both.
