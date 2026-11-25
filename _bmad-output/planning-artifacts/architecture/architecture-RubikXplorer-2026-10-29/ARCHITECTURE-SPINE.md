@@ -4,7 +4,7 @@ type: architecture-spine
 purpose: build-substrate
 altitude: feature
 paradigm: 'hexagonal (ports & adapters) + functional core / imperative shell'
-scope: 'RubikXplorer Android app MVP — whole system (FR-1..FR-28, NFR-1..NFR-13); FR-21..FR-28 in progress for v1.1 behind flags (SCP 2026-11-14); FR-29 (P1) deferred; FR-30 method-aware solutions and FR-21..FR-27 move into v1.0 (SCP 2026-11-20)'
+scope: 'RubikXplorer Android app MVP — whole system (FR-1..FR-28, NFR-1..NFR-13); FR-21..FR-28 in progress for v1.0, flag-gated (SCP 2026-11-14; v1.1 retired by SCP 2026-11-25 retire-v1-1); FR-29 (P1) deferred; FR-30 method-aware solutions and FR-21..FR-27 move into v1.0 (SCP 2026-11-20)'
 status: final
 created: '2026-10-29'
 updated: 2026-11-22
@@ -244,7 +244,7 @@ stateDiagram-v2
 ### AD-9 — Recognition: neutral samples in, validated observations out
 
 - **Binds:** FR-21–FR-28, NFR-5, NFR-8, NFR-11, NFR-12
-- **Status:** v1.1, active from Story 10.9; every camera story binds it (SCP 2026-11-14). **SCP 2026-11-20:** the scan, review, Quick Check, Quick Scan and Placement move into v1.0; Story 10.11 raises their flags for the v1.0 release, so its release build carries the camera source set and the `CAMERA` permission (AD-13 checks and `docs/privacy-facts.json` follow from the manifest).
+- **Status:** v1.0, flag-gated, active from Story 10.9; every camera story binds it (SCP 2026-11-14). **SCP 2026-11-20:** the scan, review, Quick Check, Quick Scan and Placement move into v1.0; Story 10.11 raises their flags for the v1.0 release, so its release build carries the camera source set and the `CAMERA` permission (AD-13 checks and `docs/privacy-facts.json` follow from the manifest). *(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope.)*
 - **Prevents:** pixel code spreading across features; camera types reaching the domain; unvalidated or partial scans reaching the Solver; two owners of Color Calibration.
 - **Rule:**
   - **Camera adapter:**
@@ -558,21 +558,25 @@ graph LR
 | FR-17–FR-18 2-look LL, Library (and Algorithm practice on a real cube, SCP 2026-11-20) | content, `lastlayer/`, `ui/library` | AD-3, AD-6, AD-19, AD-20 |
 | FR-30 Method-aware solutions | `MethodSolve`, `ui/playback` | AD-21, AD-6, AD-19, AD-20 |
 | FR-19–FR-20 Progress, mastery | Room logs, `tutor/Mastery` | AD-10 |
-| FR-21–FR-24 Scan capture, validation, calibration (v1.1) | `app/src/camera/`, `recognition/` | AD-9, AD-2, AD-17, AD-18 |
-| FR-25–FR-28 Scan uses (v1.1) | `SolveCube`, `ConfirmPhysical`, `PlaceFromScan`, `RecognizeCase` | AD-9, AD-5, AD-19, AD-18 |
+| FR-21–FR-24 Scan capture, validation, calibration (v1.0, flag-gated) | `app/src/camera/`, `recognition/` | AD-9, AD-2, AD-17, AD-18 |
+| FR-25–FR-28 Scan uses (v1.0, flag-gated) | `SolveCube`, `ConfirmPhysical`, `PlaceFromScan`, `RecognizeCase` | AD-9, AD-5, AD-19, AD-18 |
 | NFR-1–NFR-3, NFR-9 Performance and stability | reducer bounds, effects, vitals | AD-3, AD-8, AD-16 |
 | NFR-4, NFR-11, NFR-12 Correctness, size, quality | CI | AD-14, AD-15 |
 | NFR-5, NFR-8 Offline and privacy | manifest, CI, `docs/privacy-facts.json`, website repo | AD-13 |
 | NFR-7, NFR-13 Accessibility and layout | `appearance/`, UI | AD-17 |
 | NFR-10 Localization | content strings | AD-6 |
 
+*(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope.)*
+
 ## Deferred
 
-- **Performance on the reference devices:** Story 1.11 measured GL frame timing on both reference devices, and Story 12.2 ran the full performance and compatibility pass (`docs/benchmarks.md`). The solve corpus uses a JVM benchmark. GL frame timing uses the in-app per-frame log from the GL thread (`onDrawFrame` intervals), optionally traced for Macrobenchmark's `TraceSectionMetric`, because `FrameTimingMetric` and `FrameMetrics` do not see `GLSurfaceView` frames. It covers View Rotation as well as face turns (NFR-2). A physical-device p90 above 33.3 ms reopens the rendering choice, which stays behind `CubeRenderer` (AD-4). The minimum reference device is a budget tablet (Lenovo Tab M10 Plus 3rd Gen). Its Story 1.11 and 12.2 methods were re-run on 2026-11-12: frame-interval p90 18.35 / 19.66 ms, so the AD-4 choice holds, and the full NFR-1/2/3/13 pass is in `docs/benchmarks.md` § Additional device. Story 1.11's and 12.2's Galaxy Tab S7 FE results are dated evidence from when it was the minimum device. The 2D net (`Net2DRenderer`) NFR-2 baseline was not measured, because the Macrobenchmark target no longer draws a 2D net. The PO waived it for v1.0 on 2026-11-10, and it is deferred to v1.1 (#106).
-- **Camera Cube Recognition** (AD-9, FR-21 – FR-28) is in progress for v1.1 behind flags (`sprint-change-proposal-2026-11-14-v1-1-camera`; deferred from v1.0 by `sprint-change-proposal-2026-11-08-vision-deferral`). Release keeps every camera flag OFF until Story 10.11 raises one.
+- **Performance on the reference devices:** Story 1.11 measured GL frame timing on both reference devices, and Story 12.2 ran the full performance and compatibility pass (`docs/benchmarks.md`). The solve corpus uses a JVM benchmark. GL frame timing uses the in-app per-frame log from the GL thread (`onDrawFrame` intervals), optionally traced for Macrobenchmark's `TraceSectionMetric`, because `FrameTimingMetric` and `FrameMetrics` do not see `GLSurfaceView` frames. It covers View Rotation as well as face turns (NFR-2). A physical-device p90 above 33.3 ms reopens the rendering choice, which stays behind `CubeRenderer` (AD-4). The minimum reference device is a budget tablet (Lenovo Tab M10 Plus 3rd Gen). Its Story 1.11 and 12.2 methods were re-run on 2026-11-12: frame-interval p90 18.35 / 19.66 ms, so the AD-4 choice holds, and the full NFR-1/2/3/13 pass is in `docs/benchmarks.md` § Additional device. Story 1.11's and 12.2's Galaxy Tab S7 FE results are dated evidence from when it was the minimum device. The 2D net (`Net2DRenderer`) NFR-2 baseline was not measured, because the Macrobenchmark target no longer draws a 2D net. The PO waived it for v1.0 on 2026-11-10, and it is v1.0 scope; not a tag gate (#106).
+- **Camera Cube Recognition** (AD-9, FR-21 – FR-28) is in progress for v1.0, flag-gated (`sprint-change-proposal-2026-11-14-v1-1-camera`; deferred from v1.0 by `sprint-change-proposal-2026-11-08-vision-deferral`). Release keeps every camera flag OFF until Story 10.11 raises one.
 - **Solver internals** (coordinate encoding, the search depth limit): decided in the solver epic, within AD-8's 3 s timeout and NFR-11. Pruning-table delivery is decided by Story 3.8: bundled, with first-run generation as a fallback only if the asset is invalid (`.memlog.md:72`, `docs/pruning-tables.md`).
 - **`RecoveryPlanner` search** (bounded IDA* over `preservedPieces`): decided in the FR-12 epic, within AD-3, AD-5 and AD-8.
 - **Splitting `:app` into feature modules:** after P0.3.
 - **Tutor configuration values** (`maxDepth`, `moveSet`, hint and mastery thresholds): set as content data during curriculum authoring.
 - **FR-29 drill training (P1)** and any per-Algorithm mastery: deferred to P1, alongside alternative Algorithms per Case.
 - **Content-authoring tooling:** MVP uses hand-edited JSON validated by tests.
+
+*(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope.)*
