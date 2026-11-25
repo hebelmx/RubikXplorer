@@ -469,14 +469,22 @@ class ContinuousCubeMapper:
                         best_shift = shift
                 if best_d < max_disp:
                     aligned = np.roll(det.corners, -best_shift, axis=0)
-                    # Center-color continuity guard: when a fast turn slides adjacent face B into R's prior
-                    # screen coordinates and R drops out, reject any match whose glare-free center color
-                    # jumped sharply (a cube center never changes color between consecutive frames!).
+                    # Center-color continuity guard: reject any match whose glare-free center color
+                    # jumped sharply vs. EITHER the last frame OR the face's accumulated historical center
+                    # (so 1 blurry/glared transition frame can never let face R slide onto Blue!).
                     cur_lab, cur_q = _det_center(di, aligned)
                     prev_lab = shading_invariant_lab(tf.raw_rgbs[4])
                     center_de = float(np.linalg.norm(cur_lab - prev_lab))
                     if cur_q > 0.20 and float(tf.quals[4]) > 0.20 and center_de > 24.0:
                         continue
+                    hist_c = frag.face_robust_lab(fname, 4)
+                    if cur_q > 0.20 and hist_c is not None and hist_c[2] >= 2 and hist_c[1] >= 0.40:
+                        # Compare in fragment's AWB-adjusted Lab space against accumulated center history
+                        awb_scale = np.exp(-frag.log_awb)
+                        rgbs_c, _, _, _ = _sample_face_cells(image_bgr, aligned)
+                        cur_awb_lab = shading_invariant_lab(np.clip(rgbs_c[4] * awb_scale, 0.0, 255.0))
+                        if float(np.linalg.norm(cur_awb_lab - hist_c[0])) > 26.0:
+                            continue
                     candidates.append((best_d, di, fname, aligned))
         candidates.sort(key=lambda x: x[0])
         for _, di, fname, aligned in candidates:
@@ -699,10 +707,10 @@ class ContinuousCubeMapper:
             return
 
         # Score all 24 SO(3) rotations mapping pending -> master
-        rot_scores: List[Tuple[float, int, np.ndarray, np.ndarray]] = []
+        rot_scores: List[Tuple[float, int, np.ndarray, np.ndarray, float, int]] = []
         for R in CUBE_SO3_ROTATIONS:
             # First estimate chromaticity offset between pending and master on overlapping slots
-            pairs_p, pairs_m, weights = [], [], []
+            pairs_p, pairs_m, weights, is_center = [], [], [], []
             overlap_faces = set()
             for (pf, pi), (plab, pq) in p_slots.items():
                 mf, mi = _rotate_fragment_slot(pf, pi, R)
@@ -711,6 +719,7 @@ class ContinuousCubeMapper:
                     pairs_p.append(plab)
                     pairs_m.append(mlab)
                     weights.append(min(pq, mq) * (2.5 if pi == 4 else 1.0))
+                    is_center.append(pi == 4)
                     overlap_faces.add(mf)
             if not overlap_faces:
                 continue
@@ -721,19 +730,33 @@ class ContinuousCubeMapper:
             shift = np.clip(np.median(arr_m - arr_p, axis=0), [-12.0, -14.0, -14.0], [12.0, 14.0, 14.0])
             errs = np.linalg.norm((arr_p + shift[None, :]) - arr_m, axis=1)
             mean_err = float(np.sum(errs * w) / max(1e-6, float(np.sum(w))))
-            rot_scores.append((mean_err, len(overlap_faces), R, shift))
+            center_errs = [float(e) for e, ic in zip(errs, is_center) if ic]
+            max_center_err = max(center_errs) if center_errs else 0.0
+            # Count severe non-center cell contradictions (catches wrong 90-deg quarter turns on almost-solved F2L faces!)
+            severe_mismatches = int(
+                sum(1 for e, ic, wi in zip(errs, is_center, weights) if (not ic) and wi >= 0.8 and float(e) > 35.0)
+            )
+            rot_scores.append((mean_err, len(overlap_faces), R, shift, max_center_err, severe_mismatches))
 
         if not rot_scores:
             return
         rot_scores.sort(key=lambda x: x[0])
-        best_err, best_ov_faces, best_R, best_shift = rot_scores[0]
+        best_err, best_ov_faces, best_R, best_shift, best_max_c_err, best_severe = rot_scores[0]
         second_err = rot_scores[1][0] if len(rot_scores) > 1 else 999.0
 
-        # SYMMETRY GUARD (Adversarial Finding #2):
-        # If pending has only 1 confirmed face and the best rotation does NOT beat the 2nd-best by a wide margin
-        # (e.g., solved yellow face where 4 quarter-turns tie with identical error!), DO NOT MERGE YET!
+        # SYMMETRY & CONTRADICTION GUARD (Adversarial Finding #2 + F2L near-solved live clip fix):
+        # 1. Never lock rotation on 1 face unless top-1 beats top-2 by a wide margin.
+        # 2. Never merge if ANY overlapping center disagrees sharply (> 26) or >=2 high-quality stickers
+        #    contradict (> 35) — prevents wrong quarter-turns on almost-solved faces from poisoning master!
         margin = second_err - best_err
-        can_merge = not ((len(p_conf) < 2 and margin < 12.0) or best_err > 18.0 or margin < 6.0)
+        max_allowed_err = 14.5 if best_ov_faces == 1 else 16.5
+        can_merge = not (
+            (len(p_conf) < 2 and margin < 12.0)
+            or best_err > max_allowed_err
+            or margin < 6.0
+            or best_max_c_err > 26.0
+            or best_severe >= 2
+        )
         if not can_merge:
             # If master never reached 6 faces and pending has cleanly mapped all 6 (or +2 more while master is unanchored),
             # promote pending so a noisy early fragment can never block a clean complete scan!
