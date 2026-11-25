@@ -1,0 +1,26 @@
+# conditions (corpus start) 2026-11-25T08:57:34-06:00 serial=HA1S28MM git=bc44c433579cf3f2ed0d5378e922d20272724c12
+model=Lenovo TB128XU release=13 sdk=33 soc=SM6225 cpus=8
+fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys
+  AC powered: false
+  USB powered: true
+  Wireless powered: false
+  status: 2
+  level: 52
+  temperature: 280
+Thermal Status: 0
+stay_on=0 power_save=0
+MemTotal:        3756260 kB
+MemAvailable:    1427356 kB
+# conditions (corpus end) 2026-11-25T09:05:01-06:00 serial=HA1S28MM git=bc44c433579cf3f2ed0d5378e922d20272724c12
+model=Lenovo TB128XU release=13 sdk=33 soc=SM6225 cpus=8
+fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys
+  AC powered: false
+  USB powered: true
+  Wireless powered: false
+  status: 2
+  level: 53
+  temperature: 297
+Thermal Status: 0
+stay_on=0 power_save=0
+MemTotal:        3756260 kB
+MemAvailable:    1374416 kB

@@ -710,16 +710,43 @@ Decisions by the product owner (SCP 2026-11-12), which replace the questions thi
 | 4 | View Rotation drops a few frames | 5 of 1,990 intervals > 33.3 ms (max 40.2 ms); median 59.69 FPS; p90 19.66 ms | **Accepted.** Within NFR-2 (≥ 30 FPS) and the AD-4 p90 ≤ 33.3 ms gate. None seen on the Samsung devices. |
 | 5 | Face-turn input latency is higher than on the Samsung devices | p90 53.39 ms, max 57.52 ms | **Accepted.** Within NFR-1 (≤ 100 ms). |
 | 6 | Macrobenchmark reports `cpuLocked: true` | Clocks were not locked (`scaling_min_freq` < `scaling_max_freq` on every cluster) | **Accepted** as the library's reading of this kernel; the flag does not describe the run conditions. |
-| 7 | Release-equivalent preparation timing is coarse | `uiautomator` dumps take 2–3 s here, so 10.46–10.49 s are upper bounds | **Accepted** as an upper bound; a precise release-build measurement belongs to #104 (and the k recalibration to #105), v1.1. |
+| 7 | Release-equivalent preparation timing is coarse | `uiautomator` dumps take 2–3 s here, so 10.46–10.49 s are upper bounds | **Accepted** as an upper bound; a precise release-build measurement belongs to #104 (the k recalibration for #105 is done, 2026-11-25). |
 
 Items 1 (rotation harness) and 8 (script line endings) are the harness changes in the AC3 subsection.
+
+## #105: release-build recalibration of k and re-run of the solve corpus (NFR-3), 2026-11-25
+
+The Story 12.2 runner and `benchmark` build (`build,debuggable=false`), `--ei cases 10000 --el seed
+20261031 --ei warmup 200`, 3 s budget, all three runs at revision
+`bc44c433579cf3f2ed0d5378e922d20272724c12` (2026-11-25 08:57–09:05 CST). The host ran
+`./gradlew :core:solver:solveCorpusBenchmark` (defaults) at the same revision, so k pairs like with like.
+Raw logs and conditions: [evidence/issue-105/](evidence/issue-105/).
+
+| Run | Median | p95 | Max | Within 3 s | Failures | Peak memory | Table preparation | Timed run wall |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **Lenovo TB128XU** (minimum), Android 13 / API 33, USB powered, battery 52 → 53 %, thermal 0 → 0, power save off | **23.326 ms** | **134.218 ms** | 1,499.345 ms | **10,101 / 10,101 (100%)** | **0** | 32.3 MiB (limit 256 MiB) | 4.95 s | 435.4 s |
+| **Galaxy S24 FE** (mid), Android 17 / API 37, wireless debugging, battery 90 → 89 %, thermal 0 → 0, power save **on** | **6.446 ms** | **35.093 ms** | 398.344 ms | **10,101 / 10,101 (100%)** | **0** | 43.7 MiB (limit 256 MiB) | 1.28 s | 116.3 s |
+| Host i7-12800H, 20 CPUs, OpenJDK 17.0.21, uncalibrated | 3.032 ms | 17.841 ms | 206.409 ms | 10,101 / 10,101 (100%) | 0 | 300.9 MiB heap pools | — | — |
+| *Lenovo, Story 12.2 AC2 (2026-11-11, `95d708f`)* | 26.999 ms | 138.710 ms | 1,561.215 ms | 10,101 / 10,101 (100%) | 0 | 32.7 MiB | 5.18 s | 476.5 s |
+
+**Release-build k** (same rule as Story 3.8: k = max(device/host median, device/host p95)):
+
+- Lenovo TB128XU: max(23.326 / 3.032 = 7.69, 134.218 / 17.841 = 7.52) = **k ≈ 7.7**, replacing the
+  debug-derived k = 16.94. The host max scaled by it is 206.4 ms × 7.7 ≈ 1.59 s, within 3 s.
+- Galaxy S24 FE: max(6.446 / 3.032 = 2.13, 35.093 / 17.841 = 1.97) = **k ≈ 2.1**.
+
+**Verdict: met, no change to NFR-3.** The minimum device solves the whole corpus within 3 s with zero
+failures and a slowest case of 1.50 s (about 2× margin); it is slightly faster than on 2026-11-11.
+The tail (max about 64× the median) causes no failure, so no slow-case investigation is needed.
+The data gives no case for device tiers on the 3 s budget. The Story 3.8 timeout (debug build) does not
+reproduce on a release-equivalent build. This closes #105.
 
 ## Out of scope
 
 - The product owner waived the Story 1.11 2D net reference-device baselines for v1.0. Device
   measurement of the benchmark retargeted to Solution Playback is pending under
   [issue #106](https://github.com/hebelmx/RubikXplorer/issues/106).
-- Solver performance work and a release-equivalent recalibration of k: v1.1, #105. The
+- The release-equivalent recalibration of k (#105) is done; see the 2026-11-25 section above. The
   per-process preparation (about 8 s on the Tab S7 FE, 12.6 s debug / ≤ 10.5 s release-equivalent on the
   minimum Lenovo): v1.1, #104. Story 12.2 measured both as they are and did not tune them.
 - Camera, scan and Quick Check flows (Key Flows 4, 5 and 9 steps 1–3): v1.1.
