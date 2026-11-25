@@ -2416,9 +2416,11 @@ action_items:
       recognition pipeline does not work on device (near-zero side-face coverage,
       calibration centre check fails even right after calibrating); plan a pipeline
       rethink via bmad-correct-course before more Quick Scan stories (10.24-10.27)
-      (high; decision; deferred from 10.21, docs/evidence/10-21/device-session-notes.md)"
+      (high; decision; deferred from 10.21, docs/evidence/10-21/device-session-notes.md;
+      done: superseded by SCP 2026-11-24 camera-release-timeline, which routes the
+      rethink to the continuous facelet scan spike session)"
     owner: "PO (Abel)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
   - id: "epic-10-deferred-10-21-cal-centre-check-fails-after-calibrating"
     epic: 10
@@ -2496,9 +2498,11 @@ action_items:
     action: "The 1-blank keep rule never applies on any held-out group because every
       held-out own calibration fails the centre check; add a held-out group with a
       matching calibration before 10.11 raises QUICK_SCAN (medium; deferred from 10.21,
-      docs/evidence/10-21/tuning-and-replay.md:96)"
+      docs/evidence/10-21/tuning-and-replay.md:96; done: superseded by SCP 2026-11-24
+      camera-release-timeline, the old Quick Scan pipeline is replaced by the continuous
+      facelet scan approach, routed to the spike session)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
   - id: "epic-10-deferred-10-21-calibrated-light-cut-backlit-unfit"
     epic: 10
@@ -2681,6 +2685,18 @@ action_items:
   - id: "scp-2026-11-24-site-order-0-11-0"
     epic: 10
     action: "For the 0.11.0 camera release, follow docs/release.md:25: merge the site privacy PR (camera sentence) before the flag-raise PR, or keep APP_REF pinned to v0.10.1 (it is as of 2026-11-24) until the tag; push v0.11.0; move APP_REF to v0.11.0 only after its release run passes (medium; SCP 2026-11-24 camera-release-timeline)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-24-camera-release-timeline.md"
+  - id: "scp-2026-11-24-release-gates-on-camera-build"
+    epic: 12
+    action: "Before Story 12.5 promotes to production, re-run the docs/release-gates-v1.0.md checklist on the camera build: gate 3 a green Release pilot run, gate 4 with SM-8 from the 0.11.0 pilot, gate 6 checked per raised feature; replace the gate 6 and SM-8 N/A lines recorded on the camera-OFF builds (medium; SCP 2026-11-24 camera-release-timeline, review #5)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-24-camera-release-timeline.md"
+  - id: "scp-2026-11-24-redo-12-3-po-items-camera-build"
+    epic: 12
+    action: "Before Story 12.5, redo the Story 12.3 PO items for the camera build's versionCode (Play vitals before production, the offline device check, docs/release.md:37-41), since 12.3 was accepted on camera-free builds (medium; SCP 2026-11-24 camera-release-timeline, review #6)"
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-24-camera-release-timeline.md"

@@ -247,7 +247,7 @@ OLD:
 > (v1.0 included: the manifest declares no CAMERA permission). For each raised feature, it is checked by Story 10.11 with Story 10.8's evidence.
 
 NEW:
-> (the 0.9.x–0.10.x pilot builds: the manifest declares no CAMERA permission). For each raised feature, it is checked by Story 10.11 with Story 10.8's evidence, or the PO's recorded evidence where 10.8 has none, and re-run on the v1.0.0 tag by Story 12.5. *(SCP 2026-11-24 camera-release-timeline: from 0.11.0, and in v1.0, `CAMERA_SCAN` is GA and `PLACEMENT` BETA, with `QUICK_SCAN` BETA once its preconditions hold, so gate 6 applies to v1.0.)*
+> (the 0.9.x–0.10.x pilot builds: the manifest declares no CAMERA permission). For each raised feature, it is checked by Story 10.11 with Story 10.8's evidence, or the PO's recorded evidence where 10.8 has none, and re-run on the v1.0.0 tag by Story 12.5. *(SCP 2026-11-24 camera-release-timeline: v1.0 raises at least `CAMERA_SCAN` (and whatever Story 10.11 raises), so gate 6 applies to v1.0.)*
 
 **PRD `.memlog.md`, new lines appended at the end:**
 
@@ -258,6 +258,11 @@ NEW:
 > - (decision by user) Story 10.21 BETA call by PO hebelmx 2026-11-24: QUICK_SCAN stays OFF, because the Quick Scan pipeline does not work on device (near-zero side-face coverage; the calibration centre check fails even right after calibrating; docs/evidence/10-21/device-session-notes.md). Stories 10.24–10.27 are superseded by the continuous facelet scan approach (PR #363, SCP 2026-11-24 camera-release-timeline).
 >
 > - (change) PRD updated (SCP 2026-11-24 camera-release-timeline): §7 gate 6's N/A sentence now covers the camera-OFF 0.9.x–0.10.x builds instead of v1.0, accepts the PO's recorded evidence where Story 10.8 has none, and is re-run on the v1.0.0 tag by Story 12.5. No FR or target change.
+
+>
+> - (decision by user) Clarifies the 0.11.0 level line above (SCP 2026-11-24 camera-release-timeline, review #9): QUICK_SCAN is intended BETA only; its release level is recorded only by the Quick Scan port stories' BETA call, not by this SCP. Story 10.21's 2026-11-24 call (QUICK_SCAN OFF) is the entry above.
+>
+> - (change) PRD updated (SCP 2026-11-24 camera-release-timeline, review #17): the §7 gate 6 note now reads 'v1.0 raises at least CAMERA_SCAN (and whatever Story 10.11 raises)' instead of stating QUICK_SCAN as fact. No FR or target change.
 
 ### 4.3 AGENTS.md
 
@@ -309,6 +314,10 @@ NEW:
 >     ref: "_bmad-output/implementation-artifacts/spec-12-4-pilot-findings-fixed-and-release-gates-passed.md"
 >   - id: "issue-318-deferred-missing-jpeg-says-no-cube"
 
+**sprint-status, action item epic-10-deferred-10-21-po-beta-quick-scan-off-pipeline-rethink**: `status: open` → `status: done`, with the action text noting it is superseded by this SCP, which routes the rethink to the continuous facelet scan spike session.
+
+**sprint-status, action item epic-10-deferred-10-21-one-blank-rule-no-held-out-group**: `status: open` → `status: done`, with the action text noting it is superseded (the old Quick Scan pipeline is replaced; review #9).
+
 **New action items, appended at the end of `action_items`:**
 
 ```yaml
@@ -327,6 +336,18 @@ NEW:
   - id: "scp-2026-11-24-site-order-0-11-0"
     epic: 10
     action: "For the 0.11.0 camera release, follow docs/release.md:25: merge the site privacy PR (camera sentence) before the flag-raise PR, or keep APP_REF pinned to v0.10.1 (it is as of 2026-11-24) until the tag; push v0.11.0; move APP_REF to v0.11.0 only after its release run passes (medium; SCP 2026-11-24 camera-release-timeline)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-24-camera-release-timeline.md"
+  - id: "scp-2026-11-24-release-gates-on-camera-build"
+    epic: 12
+    action: "Before Story 12.5 promotes to production, re-run the docs/release-gates-v1.0.md checklist on the camera build: gate 3 a green Release pilot run, gate 4 with SM-8 from the 0.11.0 pilot, gate 6 checked per raised feature; replace the gate 6 and SM-8 N/A lines recorded on the camera-OFF builds (medium; SCP 2026-11-24 camera-release-timeline, review #5)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-24-camera-release-timeline.md"
+  - id: "scp-2026-11-24-redo-12-3-po-items-camera-build"
+    epic: 12
+    action: "Before Story 12.5, redo the Story 12.3 PO items for the camera build's versionCode (Play vitals before production, the offline device check, docs/release.md:37-41), since 12.3 was accepted on camera-free builds (medium; SCP 2026-11-24 camera-release-timeline, review #6)"
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-24-camera-release-timeline.md"
@@ -351,15 +372,23 @@ NEW:
 
 ## 6. Adversarial review (2026-11-24)
 
-Applied, with the PO's decisions where a finding offered a choice:
-- **GA evidence:** §1 item 2 corrected. Story 10.8's GA recommendation (memlog 2026-11-18, `docs/spikes/oq-8-recognition-matrix.md`) is the primary evidence, `docs/scan-accuracy.md` the support; 10.8 covered warm light only.
-- **Placement:** BETA, following 10.8. Timeline, annotations, memlog and success criteria updated.
-- **Production build (option b):** production is a new `v1.0.0` tag from `main` with 0.11.0's flag levels; gates 3 and 6 re-run on it; 10.11's "last PR before the tag" applies to 0.11.0; 12.5 records gates on 1.0.0 (Epic 10 and 12 order lines, 10.11 AC1, 12.5 AC4, PRD gate 6).
-- **Pilot:** gate-4 sessions and SM-8 run on 0.11.0; 0.10.1 is install and smoke only; the 0.11.0 pilot record clears 12.5 (timeline, gate-4 action item).
-- **Site order:** follows `docs/release.md:25`; 10.11 AC2's "right after the app PR merges" conflict fixed; new action item `scp-2026-11-24-site-order-0-11-0`.
-- **Quick Scan preconditions:** the spike session's SCP amends AD-9, AD-18, `ShadowReaderPolicy`, `CameraSizePolicy`, FR-22 and §4.8; measured size headroom (about 2.0–2.5 MB estimated) is required; the Lenovo TB128XU stays the gating minimum. This SCP does not edit the spine (10.11 Depends, new action item `scp-2026-11-24-quick-scan-raise-preconditions`).
-- **Stale passages now covered:** epics order lines near 236, 238, 249 and 269; 10.21's last AC; 10.26's Depends; 10.11 AC1, AC2 and AC4 (beta label only for BETA features); 12.3 AC1 and 12.4 gate-AC annotations; PRD memlog lines superseding Q5/Q8 and the 2026-11-15 BETA-only entry and recording the 10.21 OFF call; AGENTS.md's camera-free and v1.1 lines.
-- **Gate 3 evidence:** the v0.10.1 green Release pilot run 45531395685 is recorded in the gate-3 action item.
-- **CASE_RECOGNITION (low):** stays OFF in 0.11.0, recorded in epics (line 269 and 10.11 annotation) and the memlog.
+Findings from `.git/bmad-orchestrate/scp-camera-release-timeline-review.md`, all applied:
 
-Skipped: the two other low findings, by the PO's instruction.
+1. **HIGH, GA evidence.** Applied: §1 item 2 says 10.8 already recommended Guided Scan GA (memlog 2026-11-18, `docs/spikes/oq-8-recognition-matrix.md`), warm light only; the memlog level line cites oq-8 as evidence and `docs/scan-accuracy.md` as support.
+2. **HIGH, Placement.** Applied: `PLACEMENT` BETA (PO), following 10.8, in §3, the 10.11 annotation, the memlog and AGENTS.md.
+3. **HIGH, 10.11 still blocked on 12.5.** Applied: OLD/NEW annotations for epics lines 236, 238, 249 and 269 and 10.11 Depends; memlog line superseding Q5 and Q8.
+4. **HIGH, 0.11.0 vs 1.0.0.** Applied, PO option (b): §3 timeline and 12.5 AC4 NEW: `v1.0.0` cut from main with the same flags, gates 3 and 6 re-run on it.
+5. **HIGH, 12.4 gate-6 row.** Applied: 12.4 AC annotated; gate-4 action item amended (SM-1 to SM-9, SM-8 included, on 0.11.0); new action item `scp-2026-11-24-release-gates-on-camera-build` (gates 3, 4 and 6 on the camera build before 12.5).
+6. **HIGH, 12.3.** Applied: 12.3 in Story impact, AC1 annotated; new action item `scp-2026-11-24-redo-12-3-po-items-camera-build` (vitals, offline device check for the camera build's versionCode).
+7. **HIGH, architecture.** Applied: §2 no longer says "none"; the spike session's SCP amends AD-9, AD-18, `ShadowReaderPolicy`, `CameraSizePolicy`, FR-22 and §4.8, a precondition in 10.11 Depends and in `scp-2026-11-24-quick-scan-raise-preconditions`.
+8. **HIGH, 10.11 AC4 beta label.** Applied: "(beta)" and the tooltip only for BETA features.
+9. **MED, QUICK_SCAN level wording.** Applied: memlog line appended (intended BETA; the level is recorded only by the port stories' BETA call); the 10.21 OFF call has its own memlog line; `epic-10-deferred-10-21-one-blank-rule-no-held-out-group` and `epic-10-deferred-10-21-po-beta-quick-scan-off-pipeline-rethink` closed as superseded.
+10. **MED, verbatim anchors.** Applied: 10.21's last AC quoted in full; OLD/NEW for the line 236 order chain and 10.26 Depends.
+11. **MED, site order.** Applied: 10.11 AC2 reworded to follow `docs/release.md:25`; memlog release-order line; action item `scp-2026-11-24-site-order-0-11-0`.
+12. **MED, size headroom.** Applied: measured `:app:checkCameraSize` and `:app:checkReleaseSize` before the BETA call, in 10.11 Depends and the preconditions action item.
+13. **MED, gating device.** Applied: the Lenovo TB128XU stays the gating minimum (10.11 Depends, memlog, port-stories action item, §3 risks).
+14. **MED, AGENTS.md.** Applied: lines 6 and 25 edited (§4.3).
+15. **MED, pilot build.** Applied: gate-4 pilot and SM-8 on 0.11.0, 0.10.1 install and smoke only, the 0.11.0 record clears 12.5 (§3, gate-4 action item, 12.5 AC4, memlog).
+16. **LOW, CASE_RECOGNITION.** Applied: stays OFF in 0.11.0 (epics line 269, 10.11 annotation, memlog).
+17. **LOW, gate 6 wording.** Applied: PRD gate 6 note now reads "v1.0 raises at least `CAMERA_SCAN` (and whatever Story 10.11 raises)"; memlog change line.
+18. **LOW, gate-3 run.** Applied: v0.10.1 green run 45531395685 recorded in `epic-12-deferred-12.4-green-release-device-run`.
