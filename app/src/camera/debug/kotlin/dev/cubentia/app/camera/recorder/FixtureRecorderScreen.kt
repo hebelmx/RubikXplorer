@@ -176,6 +176,9 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
     var qualityOverride by remember { mutableStateOf<CaptureQuality?>(null) }
     var cornerMode by remember { mutableStateOf(false) }
     var cornerHold by remember { mutableStateOf(1) }
+
+    // GH-318: the hold whose keypoints-only save missed its colors; its primary button reads Retake until the next capture.
+    var missedHold by remember { mutableStateOf<Int?>(null) }
     var cornerShot by remember { mutableStateOf<CapturedFrame?>(null) }
     var cornerSamples by remember { mutableStateOf<List<FaceSample>>(emptyList()) }
     var lightDirection by remember { mutableStateOf<LightDirection?>(null) }
@@ -232,6 +235,7 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
     }
 
     fun resetCorner() {
+        missedHold = null
         cornerShot = null
         cornerSamples = emptyList()
         cornerLabels.clear()
@@ -374,6 +378,7 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                 val detector = detectorKeypoints(shot.corner?.frameQuads.orEmpty(), crop)
                 val miss =
                     if (kind == CornerCapture.CORNER && samples == null) cornerMiss(cornerHold, shot.corner) ?: CornerMiss.NO_CUBE else null
+                if (kind == CornerCapture.CORNER) missedHold = null
                 placement = Placement(shot, kind, samples, detector, initialKeypoints(), miss)
                 status = miss?.let(::cornerMissStatus) ?: "Drag the 7 corners onto the cube, then Use corners."
             } catch (failure: Exception) {
@@ -399,10 +404,12 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
             return
         }
         saving = true
+        val hold = cornerHold
         scope.launch {
             try {
                 val index = saveSupplemental(placed.shot, CornerLabel.POSITIVE, placed.points, placed.detector)
-                status = keypointsOnlySaved(index, placed.miss)
+                status = keypointsOnlySaved(index, hold, placed.miss)
+                if (placed.miss != null) missedHold = hold
             } catch (failure: Exception) {
                 status = "Save failed: ${failure.message}"
             } finally {
@@ -945,7 +952,7 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (cornerHold <= 2) {
                                 Button(onClick = { captureCorner(CornerCapture.CORNER) }, enabled = ready, modifier = Modifier.weight(1f)) {
-                                    Text("Capture corner $cornerHold")
+                                    Text(cornerCaptureLabel(cornerHold, missedHold == cornerHold))
                                 }
                             } else {
                                 OutlinedButton(
