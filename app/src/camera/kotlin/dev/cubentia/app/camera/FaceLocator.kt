@@ -1,5 +1,6 @@
 package dev.cubentia.app.camera
 
+import dev.cubentia.domain.recognition.FrameQuality
 import dev.cubentia.domain.recognition.Framing
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -10,13 +11,15 @@ import kotlin.math.sqrt
 /**
  * A 3×3 lattice located in the drawn grid (Story 10.14, PO 2026-11-16): its side is [scale] times the grid's, and its
  * center sits [dx], [dy] grid cells from the grid's center in frame axes. [score] is the search's score (higher fits a
- * cube face better; see [FaceLocator]).
+ * cube face better; see [FaceLocator]). A [promoted] lattice earned a ranked read through the dark-cell preference
+ * and scored below the original geometric shortlist.
  */
 internal data class Lattice(
     val scale: Double,
     val dx: Double,
     val dy: Double,
     val score: Double,
+    val promoted: Boolean = false,
 ) {
     /** The face fills the grid exactly: the fixed grid itself is read. */
     val exact: Boolean get() = scale == 1.0 && dx == 0.0 && dy == 0.0
@@ -75,21 +78,23 @@ internal data class Lattice(
  * - **minus** [DISPLACEMENT_PENALTY] per cell of offset or of side lost, so that among equal fits the smallest move
  *   wins.
  *
- * The search runs only when the exact grid does not read as a cube face (MISALIGNED), so a face that fills the grid
- * reads exactly as before; the [RANKED] best candidates are then read in order and the first that is a cube face wins.
+ * The search runs when the exact grid reads MISALIGNED or LOW_LIGHT. Candidates whose nine central cell boxes
+ * are free of near-black colors rank first. The [RANKED] best candidates are read in order until one is acceptable.
  *
  * [wide] candidates (scales down to [WIDE_MIN_SCALE], offsets up to ±[WIDE_MAX_OFFSET]) are searched only when the
- * tolerated face is not a cube face, to coach the Learner toward one that is clearly present outside the tolerance.
+ * tolerated search finds no face or its accepted fit was promoted from below the score cutoff. A stronger
+ * accepted fit outside the tolerance then coaches the Learner toward the grid.
  *
  * Cost: a frame whose fixed grid reads as a cube face pays nothing extra. Otherwise the map reads about
  * (grid + 2 × [MAP_EXTENT] cells)² / stride² luma samples ([MAP_SAMPLES_PER_CELL] per cell; every pixel on the Lenovo's
  * ≈ 53 px cells, every second one on larger cells) into six integral images of about 100² entries; each candidate
- * costs about 60 constant-time box sums, and each ranked candidate read one ordinary frame read. Measured by
- * `FaceLocatorTest` on the JVM test machine, the worst case (no face anywhere: fixed read, tolerated search of 847
- * candidates, wide search, 2 × [RANKED] candidate reads) is about 6–7 ms for the Lenovo's 200×640 and the S24 FE's
- * 480×422 crops, against about 0.5 ms for one fixed-grid read; on the Lenovo's ARM cores, estimated at 5–10× slower,
- * that is roughly 30–70 ms per misaligned frame and none on an aligned one. The analyzer runs off the main thread and
- * keeps only the latest frame, so a slow frame only lowers the misaligned analysis rate.
+ * uses constant-time box sums for its score and up to nine mean colors for the dark-cell check. Only ranked
+ * candidates receive a full frame read. Measured by `FaceLocatorTest` on the JVM test machine, the worst case (no face
+ * anywhere: fixed read, tolerated search of 847 candidates, wide search, 2 × [RANKED] candidate reads) is about 7–8 ms
+ * for the Lenovo's 200×640 and the S24 FE's 480×422 crops, against about 0.5 ms for one fixed-grid read; on the
+ * Lenovo's ARM cores, estimated at 5–10× slower, that is roughly 35–80 ms per misaligned or low-light frame and none on
+ * an aligned one. The analyzer runs off the main thread and keeps only the latest frame, so a slow frame only lowers the
+ * misaligned analysis rate.
  */
 internal object FaceLocator {
     const val MIN_SCALE = 0.7
@@ -146,21 +151,44 @@ internal object FaceLocator {
         return scales.flatMap { scale -> offsets.flatMap { dy -> offsets.map { dx -> Triple(scale, dx, dy) } } }
     }
 
-    /** The [count] best-scoring of [candidates] on [map], best first (ties keep the candidates' order). */
+    /** Prefer lattices without near-black cells. Within each group, rank by score and keep input order on ties. */
     fun rank(
         map: LumaMap,
         candidates: List<Triple<Double, Double, Double>>,
         count: Int = RANKED,
     ): List<Lattice> {
-        val best = ArrayList<Lattice>(count + 1)
+        if (count == 0) return emptyList()
+        val clean = ArrayList<Lattice>(count)
+        val dark = ArrayList<Lattice>(count)
         for ((scale, dx, dy) in candidates) {
             val score = score(map, scale, dx, dy)
+            if (clean.size == count && score <= clean.last().score) continue
+            val lattice = Lattice(scale, dx, dy, score)
+            val best = if (hasDarkCell(map, lattice.square(map.grid))) dark else clean
             if (best.size == count && score <= best.last().score) continue
             val at = best.indexOfFirst { score > it.score }.let { if (it < 0) best.size else it }
-            best.add(at, Lattice(scale, dx, dy, score))
+            best.add(at, lattice)
             if (best.size > count) best.removeAt(best.size - 1)
         }
-        return best
+        val scoreCutoff = (clean + dark).map { it.score }.sortedDescending().getOrNull(count - 1) ?: Double.NEGATIVE_INFINITY
+        return (clean + dark.take(count - clean.size)).map { if (it.score < scoreCutoff) it.copy(promoted = true) else it }
+    }
+
+    private fun hasDarkCell(
+        map: LumaMap,
+        square: GridSquare,
+    ): Boolean {
+        val cell = square.side / 3
+        val roi = cell * FrameReader.CELL_ROI_FRACTION
+        val margin = (cell - roi) / 2
+        for (row in 0..2) {
+            for (column in 0..2) {
+                val x = square.left + column * cell + margin
+                val y = square.top + row * cell + margin
+                if (map.isNearBlack(x, y, x + roi, y + roi)) return true
+            }
+        }
+        return false
     }
 
     /** The candidate's score (see the class KDoc). */
@@ -323,6 +351,18 @@ internal object FaceLocator {
         ): Double {
             val n = box(x0, y0, x1, y1)
             return sum(sumY) / n
+        }
+
+        /** Apply the frame quality dark-cell thresholds to the box's mean color. */
+        fun isNearBlack(
+            x0: Double,
+            y0: Double,
+            x1: Double,
+            y1: Double,
+        ): Boolean {
+            val n = box(x0, y0, x1, y1)
+            val lab = FrameReader.labOf(sum(sumY) / n, sum(sumU) / n, sum(sumV) / n)
+            return lab.l <= FrameQuality.DARK_CELL_MAX_L && sqrt(lab.a * lab.a + lab.b * lab.b) <= FrameQuality.DARK_CELL_MAX_CHROMA
         }
 
         /** The YUV standard deviation (root of the summed channel variances) over a frame box. */

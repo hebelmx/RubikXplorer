@@ -168,11 +168,12 @@ internal object FrameReader {
 
     /**
      * Reads [frame] inside [grid] — by default the centered square of [GRID_FRACTION] of the crop's shorter side — and,
-     * when that does not read as a cube face (MISALIGNED), locates the face's lattice with [FaceLocator] (Story 10.14):
-     * the best-ranked tolerated lattices are read ([readAt]) in order and the first ACCEPTABLE one is the frame's
-     * reading. When none is, the fixed grid's reading stands, and the wider search looks for a face outside the
+     * when the grid reads MISALIGNED or LOW_LIGHT, locates the face's lattice with [FaceLocator] (Story 10.14):
+     * the best-ranked tolerated lattices are read ([readAt]) in order. If dark-cell preference promotes a partial
+     * face from below the original score cutoff, a stronger accepted fit outside the tolerance takes precedence.
+     * When no tolerated face is accepted, the fixed grid's reading stands, and the wider search looks outside the
      * tolerance; when one reads ACCEPTABLE, the stats carry its [FrameStats.framing] for the Learner, whose preview is the
-     * frame turned [rotationDegrees] clockwise. [FrameReading.lattice] is the lattice read, or the best-scoring candidate
+     * frame turned [rotationDegrees] clockwise. [FrameReading.lattice] is the lattice read, or the highest-ranked candidate
      * when none was accepted (for the diagnostics).
      */
     fun locate(
@@ -185,18 +186,24 @@ internal object FrameReader {
         val square = grid ?: ViewfinderGrid.inFrame(0.0, 0.0, frame.left, frame.top, frame.right, frame.bottom, 0)
         if (square.side <= 0) return FrameReading(empty(), exact)
         val stats = readAt(frame, square)
-        if (FrameQuality.assess(stats) != CaptureQuality.MISALIGNED) return FrameReading(stats, exact)
+        val quality = FrameQuality.assess(stats)
+        if (quality != CaptureQuality.MISALIGNED && quality != CaptureQuality.LOW_LIGHT) return FrameReading(stats, exact)
         val map = FaceLocator.LumaMap(frame, square)
 
         /** The first of [ranked] that reads as a cube face, with its stats. */
-        fun firstFace(ranked: List<Lattice>): Pair<Lattice, FrameStats>? =
+        fun firstFace(ranked: List<Lattice>): FrameReading? =
             ranked.firstNotNullOfOrNull { lattice ->
                 val located = readAt(frame, lattice.square(square))
-                (lattice to located).takeIf { FrameQuality.assess(located) == CaptureQuality.ACCEPTABLE }
+                if (FrameQuality.assess(located) == CaptureQuality.ACCEPTABLE) FrameReading(located, lattice) else null
             }
         val ranked = FaceLocator.rank(map, FaceLocator.tolerated)
-        firstFace(ranked)?.let { (lattice, located) -> return FrameReading(located, lattice) }
-        val outside = firstFace(FaceLocator.rank(map, FaceLocator.wide))?.first
+        val located = firstFace(ranked)
+        if (located != null && !located.lattice.promoted) return located
+
+        // A partial face can read the same sticker in adjacent cells. Check whether the full face fits better outside.
+        val wide = FaceLocator.rank(map, FaceLocator.wide)
+        val outside = firstFace(wide.filter { located == null || it.score > located.lattice.score })?.lattice
+        if (outside == null && located != null) return located
         return FrameReading(stats.copy(framing = outside?.framing(rotationDegrees)), ranked.first(), outside)
     }
 
@@ -603,7 +610,7 @@ internal object FrameReader {
                 }
             }
             if (count == 0) return null
-            return labOf(sumY / count, sumU / count - CHROMA_OFFSET, sumV / count - CHROMA_OFFSET)
+            return labOf(sumY / count, sumU / count, sumV / count)
         }
 
         fun side(
@@ -642,17 +649,19 @@ internal object FrameReader {
         y: Int,
     ): Lab {
         val yy = frame.y.at(x, y).toDouble()
-        val uu = frame.u.at(x / 2, y / 2) - CHROMA_OFFSET
-        val vv = frame.v.at(x / 2, y / 2) - CHROMA_OFFSET
+        val uu = frame.u.at(x / 2, y / 2).toDouble()
+        val vv = frame.v.at(x / 2, y / 2).toDouble()
         return labOf(yy, uu, vv)
     }
 
-    /** Full-range BT.601 Y and centered U, V (Cb, Cr) to CIELAB. */
-    private fun labOf(
+    /** Full-range BT.601 Y, U and V (0–255) to CIELAB. */
+    internal fun labOf(
         yy: Double,
-        uu: Double,
-        vv: Double,
+        u: Double,
+        v: Double,
     ): Lab {
+        val uu = u - CHROMA_OFFSET
+        val vv = v - CHROMA_OFFSET
         val red = (yy + 1.402 * vv).toInt().coerceIn(0, BYTE_MASK)
         val green = (yy - 0.344136 * uu - 0.714136 * vv).toInt().coerceIn(0, BYTE_MASK)
         val blue = (yy + 1.772 * uu).toInt().coerceIn(0, BYTE_MASK)

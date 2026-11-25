@@ -2743,3 +2743,9 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-24-continuous-quick-scan.md"
+  - id: "issue-247-deferred-in-grid-fit-overridden-outside"
+    epic: 10
+    action: "When dark-cell ranking promotes an acceptable in-tolerance lattice, a higher-scoring acceptable fit outside the tolerance overrides it, so a correctly framed face may get move coaching; count promoted-and-overridden frames on recorded black-background device frames (medium, unverified; deferred from #247, app/src/camera/kotlin/dev/cubentia/app/camera/FrameReader.kt:199-207)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-247-guided-scan-dark-background-dark-cells.md"

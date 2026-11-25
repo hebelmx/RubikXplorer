@@ -119,6 +119,7 @@ class CameraXFrameSourceTest {
             ShadowLog.clear()
             executor.submit { source.read(image) }.get()
 
+            assertEquals(grid, source.meteringSquare)
             assertEquals(expected, delivered.single().stats)
             assertEquals(rotation, delivered.single().rotationDegrees)
             val logs = ShadowLog.getLogsForTag(ScanDiagnostics.TAG)
@@ -151,8 +152,13 @@ class CameraXFrameSourceTest {
         try {
             source.start(activity.get(), executor, { delivered.add(it) }, { error("Camera unexpectedly unavailable") })
             executor.submit { source.read(image) }.get()
+            assertEquals(located.lattice.square(grid), source.meteringSquare)
             assertEquals(located.stats, delivered.single().stats)
             assertNotEquals(fixed, delivered.single().stats)
+            // The corner view meters the drawn grid again, not the lattice the last Guided frame located.
+            source.cornerMode(true)
+            executor.submit { source.read(image) }.get()
+            assertEquals(grid, source.meteringSquare)
         } finally {
             source.stop()
             executor.shutdownNow()
