@@ -638,13 +638,16 @@ class GuidedScanController internal constructor(
         /** Repeated-face rejections at one step before *Use this face anyway* is offered. */
         const val REJECTIONS_BEFORE_OVERRIDE = 2
 
-        /** The coaching for [quality]; a MISALIGNED frame with a face outside the tolerance coaches its [framing]. */
+        /**
+         * The coaching for [quality]; a MISALIGNED or LOW_LIGHT frame with a face outside the tolerance coaches its
+         * [framing] (set only when that outside face read ACCEPTABLE, so a dark background around it is not low light).
+         */
         fun coachingFor(
             quality: CaptureQuality,
             framing: Framing? = null,
         ): Coaching? =
             when {
-                quality == CaptureQuality.MISALIGNED && framing != null -> {
+                (quality == CaptureQuality.MISALIGNED || quality == CaptureQuality.LOW_LIGHT) && framing != null -> {
                     when (framing) {
                         Framing.CLOSER -> Coaching.MOVE_CLOSER
                         Framing.LEFT -> Coaching.MOVE_LEFT

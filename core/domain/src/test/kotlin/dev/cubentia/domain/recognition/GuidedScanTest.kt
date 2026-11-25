@@ -198,6 +198,15 @@ class GuidedScanTest {
         val blurred = GuidedScanController()
         blurred.onFrame(misaligned.copy(sharpness = 1.0, framing = Framing.LEFT), 0, 0)
         assertEquals(Coaching.BLURRED, blurred.coaching)
+        // A dark drawn grid around a well-lit face outside the tolerance (issue #247) coaches the move, not low light.
+        val lowLight = stats(luma = 5.0)
+        assertEquals(CaptureQuality.LOW_LIGHT, FrameQuality.assess(lowLight))
+        val dark = GuidedScanController()
+        dark.onFrame(lowLight.copy(framing = Framing.LEFT), 0, 0)
+        assertEquals(Coaching.MOVE_LEFT, dark.coaching)
+        val unframed = GuidedScanController()
+        unframed.onFrame(lowLight, 0, 0)
+        assertEquals(Coaching.LOW_LIGHT, unframed.coaching)
     }
 
     @Test
