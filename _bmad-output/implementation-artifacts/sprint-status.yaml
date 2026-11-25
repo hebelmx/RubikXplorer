@@ -1466,7 +1466,10 @@ action_items:
       carries AD-4 commit-before-animate, session integrity and the en.json checkLearnerText
       rule (low; deferred from 12.3, _bmad-output/implementation-artifacts/epic-12-context.md)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
+    evidence: "_bmad-output/implementation-artifacts/epic-12-context.md recompiled at the start of
+      Story 12.4 (2026-11-24): carries AD-4 commit-before-animate, session integrity and the
+      en.json checkLearnerText rule"
     ref: "_bmad-output/implementation-artifacts/spec-12-3-stability-size-and-privacy-hardening.md"
   - id: "ai-b1-deferred-device-freeze-unavailable-race"
     epic: 10
