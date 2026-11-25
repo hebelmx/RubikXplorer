@@ -2700,3 +2700,15 @@ action_items:
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-24-camera-release-timeline.md"
+  - id: "issue-314-deferred-release-docs-old-300s-limit"
+    epic: 12
+    action: "docs/release-gates-v1.0.md (gate 3 row) and docs/evidence/release-device-session/README.md:69 still describe the fixed 300 s render-sync limit and the 15-minute workaround; update them after the PO device run (low; deferred from #314)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-314-render-sync-test-tiered-timeout.md"
+  - id: "issue-314-deferred-high-tier-unmeasured"
+    epic: 12
+    action: "The HIGH tier (10 GiB RAM and up) keeps the 300 s render-sync limit with no measured device behind it; raise it to 450-600 s or measure one such device (low; deferred from #314, app/src/sharedTest/kotlin/dev/cubentia/app/render/DeviceSpeedTier.kt:16)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-314-render-sync-test-tiered-timeout.md"
