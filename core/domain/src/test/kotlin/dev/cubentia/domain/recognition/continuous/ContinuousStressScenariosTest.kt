@@ -45,7 +45,7 @@ class ContinuousStressScenariosTest {
                 sawPendingOnSymmetricFace = true
             }
             val (_, _, wrong) = scoreNet(snap.net, truth)
-            if ((cfg.twistAtFrame == null || fr.frameIndex < cfg.twistAtFrame) && wrong > maxTransientWrong) {
+            if (wrong > maxTransientWrong) {
                 maxTransientWrong = wrong
             }
         }
@@ -108,6 +108,7 @@ class ContinuousStressScenariosTest {
         val awb = score.mapper.masterLogAwb
         assertTrue(awb.all { it in -0.36..0.36 }, "logAwb out of bounds: ${awb.toList()}")
         assertTrue(abs(awb.average()) < 1e-6, "logAwb must be zero-mean: ${awb.toList()}")
+        assertTrue(awb.maxOf { abs(it) } > 0.05, "Expected non-trivial AWB adaptation under S2 drift: ${awb.toList()}")
         assertInstanceOf(ContinuousScanSnapshot.Complete::class.java, score.lastSnapshot)
     }
 

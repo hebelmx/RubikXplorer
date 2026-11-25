@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -138,6 +139,11 @@ class ContinuousHandoffTest {
         assertTrue(suspects.isNotEmpty(), "SuspectRanking must flag the boundary sticker")
         assertEquals(redIdx, suspects.first().index)
         assertEquals(Color.RED, suspects.first().likely)
+
+        val perturbedReview = ScanReview(perturbedStickers, null, perturbedEvidence)
+        assertTrue(perturbedReview.suspects.isNotEmpty())
+        assertEquals(redIdx, perturbedReview.suspects.first().index)
+        assertEquals(Color.RED, perturbedReview.suspects.first().likely)
     }
 
     @Test
@@ -495,5 +501,246 @@ class ContinuousHandoffTest {
         for (i in 9 until 18) assertNull(fallback[i], "Unmapped R face must stay null")
         for (i in 18 until 27) assertEquals(scrambledNet.getValue(Face.F)[i - 18], fallback[i])
         for (i in 27 until 54) assertNull(fallback[i], "Unmapped D/L/B faces must stay null")
+
+        // Anchored face with orientationLocked = false must not leak non-center stickers into Editor or ScanReview
+        val unorientedAnchored =
+            ContinuousScanHandoff(
+                faces =
+                    mapOf(
+                        Face.U to
+                            ContinuousFaceHandoff(
+                                face = Face.U,
+                                colors = scrambledNet.getValue(Face.U),
+                                confidence = List(9) { StickerConfidence.CONFIDENT },
+                                labs = List(9) { RecognitionFixtures.LABS.getValue(Color.WHITE) },
+                                orientationLocked = false,
+                            ),
+                    ),
+                calibration = CalibrationCenters(RecognitionFixtures.LABS),
+                globalAnchored = true,
+            )
+        assertFalse(unorientedAnchored.isComplete)
+        val unorientedFallback = unorientedAnchored.toFallbackStickers()
+        assertEquals(Color.WHITE, unorientedFallback[4])
+        for (i in 0 until 9) {
+            if (i != 4) assertNull(unorientedFallback[i], "Unoriented non-center cell $i must stay null")
+        }
+        val unorientedReview = ScanReview.from(unorientedAnchored)
+        assertEquals(48, unorientedReview.blanks.size)
+        val reviewLabs = requireNotNull(unorientedReview.evidence).labs
+        assertNotNull(reviewLabs[4])
+        for (i in 0 until 9) {
+            if (i != 4) assertNull(reviewLabs[i], "Unoriented non-center Lab $i must stay null")
+        }
+
+        // Key vs face mismatch must fail fast
+        assertThrows(IllegalArgumentException::class.java) {
+            ContinuousScanHandoff(
+                faces =
+                    mapOf(
+                        Face.U to
+                            ContinuousFaceHandoff(
+                                face = Face.F,
+                                colors = List(9) { null },
+                                confidence = List(9) { StickerConfidence.UNCERTAIN },
+                                labs = List(9) { null },
+                                orientationLocked = false,
+                            ),
+                    ),
+                globalAnchored = true,
+            )
+        }
+    }
+
+    @Test
+    fun `assembleHandover preserves conflict-reopened nulls on 6-face handoffs and supports saved fallback plus logo derivation`() {
+        // 1. 6-face handoff with a conflict-reopened null sticker (and populated Lab) must stay UNCERTAIN, never CIE76-reclassified
+        val reopenedFaces =
+            Face.entries.associateWith { f ->
+                val colors = scrambledNet.getValue(f).mapIndexed { i, c -> if (f == Face.U && i == 0) null else c }
+                val conf = List(9) { i -> if (f == Face.U && i == 0) StickerConfidence.UNCERTAIN else StickerConfidence.CONFIDENT }
+                ContinuousFaceHandoff(
+                    face = f,
+                    colors = colors,
+                    confidence = conf,
+                    labs = scrambledNet.getValue(f).map { RecognitionFixtures.LABS.getValue(it) },
+                    orientationLocked = true,
+                )
+            }
+        val sixFaceWithConflict =
+            ContinuousScanHandoff(
+                faces = reopenedFaces,
+                calibration = CalibrationCenters(RecognitionFixtures.LABS),
+                globalAnchored = true,
+            )
+        val resConflict =
+            assertInstanceOf(
+                ScanResult.Full::class.java,
+                ScanAssembler.assembleHandover(sixFaceWithConflict, emptyList()),
+            )
+        assertEquals(StickerConfidence.UNCERTAIN, resConflict.confidence[0], "Reopened cell must stay UNCERTAIN")
+
+        // 2. Saved FR-24 calibration fills a missing/logo center while live handoff centers override stale saved centers
+        val kept3 =
+            listOf(Face.U, Face.F, Face.R).associateWith { f ->
+                ContinuousFaceHandoff(
+                    face = f,
+                    colors = scrambledNet.getValue(f),
+                    confidence = List(9) { StickerConfidence.CONFIDENT },
+                    labs =
+                        List(9) { idx ->
+                            if (f == Face.U && idx == 4) null else RecognitionFixtures.LABS.getValue(scrambledNet.getValue(f)[idx])
+                        },
+                    orientationLocked = true,
+                )
+            }
+        val staleSaved =
+            CalibrationCenters(
+                RecognitionFixtures.LABS.mapValues { (c, lab) ->
+                    if (c == Color.WHITE) lab else Lab(lab.l, lab.a + 40.0, lab.b - 40.0)
+                },
+            )
+        val added3 =
+            listOf(Face.D, Face.L, Face.B).map { f ->
+                RecognitionFixtures.sample(
+                    center = Color.home(f),
+                    up = Face.U.let { if (f == Face.D) Color.GREEN else Color.WHITE },
+                    stickers = scrambledNet.getValue(f).map { RecognitionFixtures.LABS.getValue(it) },
+                    face = f,
+                )
+            }
+        // Include a stray colliding sample for kept Face.F with bad Labs to verify colliding added samples are filtered
+        val strayF =
+            RecognitionFixtures.sample(
+                center = Color.GREEN,
+                up = Color.WHITE,
+                stickers = List(9) { Lab(10.0, 0.0, 0.0) },
+                face = Face.F,
+            )
+        val savedRes =
+            assertInstanceOf(
+                ScanResult.Full::class.java,
+                ScanAssembler.assembleHandover(
+                    ContinuousScanHandoff(kept3, calibration = null, globalAnchored = true),
+                    added3 + strayF,
+                    saved = staleSaved,
+                ),
+            )
+        assertEquals(scrambledFacelets, savedRes.facelets)
+
+        // 3. Logo-guarded added face with saved = null derives center across kept + added 6-face Labs
+        val fullLabKept3 =
+            listOf(Face.U, Face.F, Face.R).associateWith { f ->
+                ContinuousFaceHandoff(
+                    face = f,
+                    colors = scrambledNet.getValue(f),
+                    confidence = List(9) { StickerConfidence.CONFIDENT },
+                    labs = scrambledNet.getValue(f).map { RecognitionFixtures.LABS.getValue(it) },
+                    orientationLocked = true,
+                )
+            }
+        val addedWithLogo =
+            listOf(Face.D, Face.L, Face.B).map { f ->
+                RecognitionFixtures
+                    .sample(
+                        center = Color.home(f),
+                        up = null,
+                        stickers = scrambledNet.getValue(f).map { RecognitionFixtures.LABS.getValue(it) },
+                        face = f,
+                    ).copy(centerPlain = f != Face.D)
+            }
+        val logoRes =
+            assertInstanceOf(
+                ScanResult.Full::class.java,
+                ScanAssembler.assembleHandover(
+                    ContinuousScanHandoff(fullLabKept3, calibration = null, globalAnchored = true),
+                    addedWithLogo,
+                    saved = null,
+                ),
+            )
+        assertEquals(scrambledFacelets, logoRes.facelets)
+    }
+
+    @Test
+    fun `assembleHandover handles posed added samples and reports Partial gaps cleanly`() {
+        val keptUF =
+            listOf(Face.U, Face.F).associateWith { f ->
+                ContinuousFaceHandoff(
+                    face = f,
+                    colors = scrambledNet.getValue(f),
+                    confidence = List(9) { StickerConfidence.CONFIDENT },
+                    labs = scrambledNet.getValue(f).map { RecognitionFixtures.LABS.getValue(it) },
+                    orientationLocked = true,
+                )
+            }
+        val handoffWithCal =
+            ContinuousScanHandoff(
+                faces = keptUF,
+                calibration = CalibrationCenters(RecognitionFixtures.LABS),
+                globalAnchored = true,
+            )
+
+        val posedR =
+            RecognitionFixtures.sample(
+                center = Color.RED,
+                up = Color.WHITE,
+                stickers = scrambledNet.getValue(Face.R).map { RecognitionFixtures.LABS.getValue(it) },
+                face = Face.R,
+            )
+        val unposedD =
+            RecognitionFixtures.sample(
+                center = Color.YELLOW,
+                up = null,
+                stickers = scrambledNet.getValue(Face.D).map { RecognitionFixtures.LABS.getValue(it) },
+                face = Face.D,
+            )
+        val dupL1 =
+            RecognitionFixtures.sample(
+                center = Color.ORANGE,
+                up = Color.WHITE,
+                stickers = scrambledNet.getValue(Face.L).map { RecognitionFixtures.LABS.getValue(it) },
+                face = Face.L,
+            )
+        val dupL2 = dupL1.copy(orientationDegrees = 90)
+        val blurredB =
+            RecognitionFixtures.sample(
+                center = Color.BLUE,
+                up = Color.WHITE,
+                stickers = scrambledNet.getValue(Face.B).map { RecognitionFixtures.LABS.getValue(it) },
+                face = Face.B,
+                quality = CaptureQuality.BLURRED,
+            )
+
+        val partial =
+            assertInstanceOf(
+                ScanResult.Partial::class.java,
+                ScanAssembler.assembleHandover(handoffWithCal, listOf(posedR, unposedD, dupL1, dupL2, blurredB)),
+            )
+        assertEquals(setOf(Face.U, Face.F, Face.R), partial.observation.faces.keys)
+        assertEquals(scrambledNet.getValue(Face.R), partial.observation.faces.getValue(Face.R))
+        assertEquals(ScanGap.NO_POSE, partial.gaps[Face.D])
+        assertEquals(ScanGap.DUPLICATE, partial.gaps[Face.L])
+        assertEquals(ScanGap.POOR_QUALITY, partial.gaps[Face.B])
+
+        // Uncalibrated and unclaimed (centerColor == null) gaps
+        val unclaimedB =
+            FaceSample(
+                face = Face.B,
+                orientationDegrees = 0,
+                stickers = scrambledNet.getValue(Face.B).map { RecognitionFixtures.LABS.getValue(it) },
+                quality = CaptureQuality.ACCEPTABLE,
+                centerColor = null,
+            )
+        val uncalPartial =
+            assertInstanceOf(
+                ScanResult.Partial::class.java,
+                ScanAssembler.assembleHandover(
+                    ContinuousScanHandoff(keptUF, calibration = null, globalAnchored = true),
+                    listOf(posedR, unclaimedB),
+                    saved = null,
+                ),
+            )
+        assertEquals(ScanGap.UNCALIBRATED, uncalPartial.gaps[Face.R])
+        assertEquals(ScanGap.NO_POSE, uncalPartial.gaps[Face.B])
     }
 }

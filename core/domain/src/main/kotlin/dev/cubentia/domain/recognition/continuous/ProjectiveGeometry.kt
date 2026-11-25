@@ -118,7 +118,7 @@ object ProjectiveGeometry {
         q1: Quad2D,
         q2: Quad2D,
     ): Double {
-        if (!q1.isFinite() || !q2.isFinite()) return 0.0
+        if (!isConvexQuad(q1) || !isConvexQuad(q2)) return 0.0
         var subject = ensureClockwise(q1.corners)
         val clip = ensureClockwise(q2.corners)
         for (i in 0 until 4) {
@@ -476,13 +476,20 @@ object ProjectiveGeometry {
         }
 
         var minIdx = 0
-        var minVal = a[0][0]
-        for (i in 1 until n) {
-            if (a[i][i] < minVal) {
-                minVal = a[i][i]
+        var minVal = Double.POSITIVE_INFINITY
+        var secondMinVal = Double.POSITIVE_INFINITY
+        for (i in 0 until n) {
+            val diag = a[i][i]
+            if (!diag.isFinite()) return null
+            if (diag < minVal) {
+                secondMinVal = minVal
+                minVal = diag
                 minIdx = i
+            } else if (diag < secondMinVal) {
+                secondMinVal = diag
             }
         }
+        if (secondMinVal < 1e-9) return null
         val vec = DoubleArray(n) { r -> v[r][minIdx] }
         return if (vec.all { it.isFinite() }) vec else null
     }

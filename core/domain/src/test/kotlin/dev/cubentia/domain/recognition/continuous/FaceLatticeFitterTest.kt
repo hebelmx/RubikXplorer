@@ -51,6 +51,17 @@ class FaceLatticeFitterTest {
 
         for (still in fixture.stills) {
             val centers = still.peaks.map { Point2D(it[0], it[1]) }
+            val nn1 =
+                DoubleArray(centers.size) { i ->
+                    var best = Double.POSITIVE_INFINITY
+                    for (j in centers.indices) {
+                        if (i == j) continue
+                        val d = ProjectiveGeometry.distance(centers[i], centers[j])
+                        if (d < best) best = d
+                    }
+                    best
+                }.sortedArray()
+            val maxScale = maxOf(FaceLatticeFitter.percentile(nn1, 50.0), FaceLatticeFitter.percentile(nn1, 75.0))
             val fitted = FaceLatticeFitter.fit(centers, maxFaces = 3, minInliers = 6)
             assertEquals(
                 still.expectedFaces,
@@ -59,7 +70,7 @@ class FaceLatticeFitterTest {
             )
             totalFaces += fitted.size
 
-            // Verify every fitted quad is CW, convex, with opposite-edge ratio <= 1.55
+            // Verify every fitted quad is CW, convex, with opposite-edge ratio <= 1.55 and mean_err <= 0.12 * d
             for (face in fitted) {
                 assertTrue(ProjectiveGeometry.signedArea2(face.quad.corners) > 0.0, "Quad must be clockwise")
                 assertTrue(ProjectiveGeometry.isConvexQuad(face.quad), "Quad must be convex")
@@ -69,7 +80,10 @@ class FaceLatticeFitterTest {
                 assertTrue(maxOf(lens[1], lens[3]) / minOf(lens[1], lens[3]) <= 1.55)
                 assertEquals(9, face.gridCenters.size)
                 assertTrue(face.inlierIndices.size >= 6)
-                assertTrue(face.meanError.isFinite() && face.meanError >= 0.0)
+                assertTrue(
+                    face.meanError.isFinite() && face.meanError >= 0.0 && face.meanError <= 0.12 * maxScale + 1e-6,
+                    "meanError=${face.meanError} exceeded 0.12 * $maxScale on ${still.group}/${still.still}",
+                )
             }
 
             var shared = 0
@@ -199,5 +213,40 @@ class FaceLatticeFitterTest {
         assertEquals(100.0, ProjectiveGeometry.convexIntersectionArea(sq1, sq1), 1e-6)
         assertTrue(abs(ProjectiveGeometry.quadArea(sq1) - 100.0) < 1e-6)
         assertFalse(ProjectiveGeometry.isValidFaceQuad(sq1, dMed = 40.0))
+
+        // Degenerate zero-area point quad must have 0.0 intersection area
+        val ptQuad = Quad2D(List(4) { Point2D(5.0, 5.0) })
+        assertEquals(0.0, ProjectiveGeometry.convexIntersectionArea(sq1, ptQuad), 1e-9)
+        assertEquals(0.0, ProjectiveGeometry.convexIntersectionArea(ptQuad, sq1), 1e-9)
+
+        // Collinear / rank-deficient correspondences must return null homography
+        val collinear4 = listOf(Point2D(0.0, 0.0), Point2D(1.0, 0.0), Point2D(2.0, 0.0), Point2D(3.0, 0.0))
+        val target4 = listOf(Point2D(0.0, 0.0), Point2D(10.0, 0.0), Point2D(10.0, 10.0), Point2D(0.0, 10.0))
+        assertTrue(ProjectiveGeometry.findHomography(collinear4, target4) == null)
+        val threeCollinear = listOf(Point2D(0.0, 0.0), Point2D(1.0, 0.0), Point2D(2.0, 0.0), Point2D(1.0, 1.0))
+        assertTrue(ProjectiveGeometry.findHomography(threeCollinear, target4) == null)
+    }
+
+    @Test
+    fun `bimodal multi-scale fallback recovers cube faces when tightly-spaced clutter outnumbers cube centers`() {
+        // 18 cube points (2 adjacent 3x3 faces at 40 px spacing) + 24 clutter points at 9 px spacing
+        // -> dMed lands on 9 px clutter spacing, while p75 holds the 40 px cube spacing!
+        val centers = mutableListOf<Point2D>()
+        for (r in 0 until 3) {
+            for (c in 0 until 3) {
+                centers.add(Point2D(300.0 + c * 40.0, 200.0 + r * 40.0))
+                centers.add(Point2D(420.0 + c * 40.0, 200.0 + r * 40.0))
+            }
+        }
+        // Add 24 tightly-spaced clutter points scattered in small pairs/clusters (not a 3x3 face)
+        for (k in 0 until 12) {
+            val bx = 20.0 + (k % 4) * 55.0
+            val by = 20.0 + (k / 4) * 55.0
+            centers.add(Point2D(bx, by))
+            centers.add(Point2D(bx + 9.0, by + 1.0))
+        }
+        val fitted = FaceLatticeFitter.fit(centers, maxFaces = 2, minInliers = 6)
+        assertEquals(2, fitted.size, "Multi-scale p75 fallback must recover both 40 px cube faces")
+        assertTrue(fitted.all { ProjectiveGeometry.quadArea(it.quad) > 8000.0 })
     }
 }

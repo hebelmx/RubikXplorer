@@ -124,8 +124,12 @@ class ScanReview(
                         val face = Face.entries[i / 9]
                         val cell = i % 9
                         val fh = handoff.faces[face]
-                        fh?.colors?.getOrNull(cell)?.takeIf {
-                            fh.confidence.getOrNull(cell) == StickerConfidence.CONFIDENT
+                        if (fh == null || (cell != 4 && !fh.orientationLocked)) {
+                            null
+                        } else {
+                            fh.colors.getOrNull(cell)?.takeIf {
+                                fh.confidence.getOrNull(cell) == StickerConfidence.CONFIDENT
+                            }
                         }
                     }
                 }
@@ -138,10 +142,15 @@ class ScanReview(
                                 null
                             } else {
                                 val face = Face.entries[i / 9]
-                                handoff.faces[face]
-                                    ?.labs
-                                    ?.getOrNull(i % 9)
-                                    ?.takeIf { it.isValid() }
+                                val cell = i % 9
+                                val fh = handoff.faces[face]
+                                if (fh == null || (cell != 4 && !fh.orientationLocked)) {
+                                    null
+                                } else {
+                                    fh.labs
+                                        .getOrNull(cell)
+                                        ?.takeIf { it.isValid() }
+                                }
                             }
                         }
                     ScanEvidence(labs, cal.centers)

@@ -58,7 +58,7 @@ class ContinuousFaceletMapper {
 
     private data class RobustLab(
         val lab: LabVec,
-        val standardLab: Lab,
+        val standardLab: Lab?,
         val qualitySum: Double,
         val count: Int,
     )
@@ -95,6 +95,7 @@ class ContinuousFaceletMapper {
             face: Face,
             cellIdx: Int,
             topKFrac: Double = 0.45,
+            includeStandardLab: Boolean = false,
         ): RobustLab? {
             val lst = obsList(face, cellIdx)
             if (lst.isEmpty()) return null
@@ -130,14 +131,21 @@ class ContinuousFaceletMapper {
                 lSum += o.lab.l * o.quality
                 aSum += o.lab.a * o.quality
                 bSum += o.lab.b * o.quality
-                val stdLab = ContinuousColorModel.rgbToLab(o.rgbAwb)
-                stdLSum += stdLab.l * o.quality
-                stdASum += stdLab.a * o.quality
-                stdBSum += stdLab.b * o.quality
+                if (includeStandardLab) {
+                    val stdLab = ContinuousColorModel.rgbToLab(o.rgbAwb)
+                    stdLSum += stdLab.l * o.quality
+                    stdASum += stdLab.a * o.quality
+                    stdBSum += stdLab.b * o.quality
+                }
             }
             val denom = max(1e-6, wSum)
             val est = LabVec(lSum / denom, aSum / denom, bSum / denom)
-            val stdEst = Lab((stdLSum / denom).coerceIn(0.0, 100.0), stdASum / denom, stdBSum / denom)
+            val stdEst =
+                if (includeStandardLab) {
+                    Lab((stdLSum / denom).coerceIn(0.0, 100.0), stdASum / denom, stdBSum / denom)
+                } else {
+                    null
+                }
             val cleanQSum = clean.sumOf { it.quality }
             return RobustLab(est, stdEst, cleanQSum, clean.size)
         }
@@ -210,6 +218,7 @@ class ContinuousFaceletMapper {
         }
         val plausible = filterPlausibleQuads(detections)
         if (plausible.isEmpty()) {
+            hasPrevUnattached = false
             emptyStreak++
             if (emptyStreak >= 3) {
                 master?.tracked?.clear()
@@ -264,7 +273,7 @@ class ContinuousFaceletMapper {
                     if (assigned.isEmpty()) {
                         pendingMissStreak++
                         val maxMiss = if (curPending.confirmedFaces().isNotEmpty()) 3 else 1
-                        if (pendingMissStreak >= maxMiss) {
+                        if (curPending.tracked.isEmpty() || pendingMissStreak >= maxMiss) {
                             val resetFrag = newFragment()
                             pending = resetFrag
                             pendingMissStreak = 0
@@ -319,7 +328,7 @@ class ContinuousFaceletMapper {
         if (rot == null) {
             val localFaces = LinkedHashMap<Face, ContinuousFaceHandoff>()
             for (mf in confirmed) {
-                val labs = List(9) { mi -> m.faceRobustLab(mf, mi)?.standardLab }
+                val labs = List(9) { mi -> m.faceRobustLab(mf, mi, includeStandardLab = true)?.standardLab }
                 localFaces[mf] =
                     ContinuousFaceHandoff(
                         face = mf,
@@ -332,11 +341,12 @@ class ContinuousFaceletMapper {
             return ContinuousScanHandoff(faces = localFaces, calibration = null, globalAnchored = false)
         }
 
-        val exportFaces = LinkedHashSet<Face>(confirmed)
-        for (mf in m.observedFaces) {
-            val cf = ContinuousCubeGeometry.rotateFace(mf, rot)
-            if (net.getValue(cf)[4] != null) exportFaces.add(mf)
-        }
+        val exportFaces: Set<Face> =
+            if (validateCompleteNet() != null) {
+                m.observedFaces
+            } else {
+                confirmed
+            }
         val locked = exportFaces.size >= 2
         val canonFaces = LinkedHashMap<Face, ContinuousFaceHandoff>()
         val standardCenters = LinkedHashMap<Color, Lab>()
@@ -345,7 +355,7 @@ class ContinuousFaceletMapper {
             val labs = arrayOfNulls<Lab>(9)
             for (mi in 0 until 9) {
                 val slot = ContinuousCubeGeometry.rotateSlot(mf, mi, rot)
-                labs[slot.cellIndex] = m.faceRobustLab(mf, mi)?.standardLab
+                labs[slot.cellIndex] = m.faceRobustLab(mf, mi, includeStandardLab = true)?.standardLab
             }
             labs[4]?.takeIf { it.isValid() }?.let { standardCenters[Color.home(cf)] = it }
             val faceColors = net.getValue(cf)
@@ -417,6 +427,7 @@ class ContinuousFaceletMapper {
             detections.filter { det ->
                 det.quad.isFinite() &&
                     ProjectiveGeometry.isConvexQuad(det.quad) &&
+                    ProjectiveGeometry.signedArea2(det.quad.corners) > 0.0 &&
                     det.sharpness.isFinite() &&
                     det.cellRgbs.all { it.isFinite() } &&
                     det.cellQualities.all { it.isFinite() }
@@ -641,34 +652,24 @@ class ContinuousFaceletMapper {
                 chromaB.add(medianOf(dB.toDoubleArray()))
             }
         }
+        val nextLogAwb = frag.logAwb.copyOf()
         if (chromaR.isNotEmpty()) {
             val stepR = medianOf(chromaR.toDoubleArray()).coerceIn(-0.025, 0.025)
             val stepG = medianOf(chromaG.toDoubleArray()).coerceIn(-0.025, 0.025)
             val stepB = medianOf(chromaB.toDoubleArray()).coerceIn(-0.025, 0.025)
-            frag.logAwb[0] += stepR
-            frag.logAwb[1] += stepG
-            frag.logAwb[2] += stepB
-            val meanAwb = (frag.logAwb[0] + frag.logAwb[1] + frag.logAwb[2]) / 3.0
-            var maxAbsAwb = 0.0
-            for (c in 0 until 3) {
-                frag.logAwb[c] -= meanAwb
-                val a = abs(frag.logAwb[c])
-                if (a > maxAbsAwb) maxAbsAwb = a
-            }
-            if (maxAbsAwb > 0.36) {
-                val scale = 0.36 / maxAbsAwb
-                for (c in 0 until 3) {
-                    frag.logAwb[c] *= scale
-                }
-            }
+            nextLogAwb[0] += stepR
+            nextLogAwb[1] += stepG
+            nextLogAwb[2] += stepB
+            normalizeLogAwbInPlace(nextLogAwb)
         }
 
-        val awbScaleR = exp(-frag.logAwb[0])
-        val awbScaleG = exp(-frag.logAwb[1])
-        val awbScaleB = exp(-frag.logAwb[2])
+        val awbScaleR = exp(-nextLogAwb[0])
+        val awbScaleG = exp(-nextLogAwb[1])
+        val awbScaleB = exp(-nextLogAwb[2])
 
-        // 2. Nonrigid layer-twist check across ALL visible faces BEFORE appending any observations (master only)
+        // 2. Nonrigid layer-twist check across ALL visible faces BEFORE mutating AWB or appending observations
         val pendingObs = LinkedHashMap<Face, Triple<List<RgbColor>, List<LabVec>, List<Double>>>(sampled.size)
+        val lineTwistedFaces = HashSet<Face>()
         for ((fname, sf) in sampled) {
             val rgbsAwb =
                 List(9) { ci ->
@@ -723,6 +724,7 @@ class ContinuousFaceletMapper {
                             stableCells >= 4 &&
                             OUTER_LINES.any { line -> flippedCells.all { it in line } }
                     if (lineTwist) {
+                        lineTwistedFaces.add(fname)
                         frag.twistStreak[fname.ordinal]++
                         if (frag.twistStreak[fname.ordinal] >= 5) {
                             twistDetected = true
@@ -736,7 +738,11 @@ class ContinuousFaceletMapper {
         }
 
         if (!twistDetected) {
+            if (lineTwistedFaces.isEmpty()) {
+                nextLogAwb.copyInto(frag.logAwb)
+            }
             for ((fname, triple) in pendingObs) {
+                if (fname in lineTwistedFaces) continue
                 val (rgbsAwb, labs, quals) = triple
                 for (ci in 0 until 9) {
                     frag.obsList(fname, ci).add(
@@ -876,6 +882,9 @@ class ContinuousFaceletMapper {
             return
         }
 
+        val mergeAwbScaleR = exp(-m.logAwb[0])
+        val mergeAwbScaleG = exp(-m.logAwb[1])
+        val mergeAwbScaleB = exp(-m.logAwb[2])
         val mergeFaces = HashSet<Face>(pConf)
         for (pf in p.tracked.keys) {
             if (p.obsList(pf, 4).size >= 2) mergeFaces.add(pf)
@@ -887,11 +896,21 @@ class ContinuousFaceletMapper {
                 val mSlot = ContinuousCubeGeometry.rotateSlot(pf, pi, best.rotIdx)
                 val target = m.obsList(mSlot.face, mSlot.cellIndex)
                 for (o in obsList) {
-                    target.add(CellObs(o.frameIndex, o.rgbAwb, o.lab + best.shift, o.quality))
+                    val alignedRgbAwb =
+                        RgbColor(
+                            (o.rgbAwb.r * mergeAwbScaleR).coerceIn(0.0, 255.0),
+                            (o.rgbAwb.g * mergeAwbScaleG).coerceIn(0.0, 255.0),
+                            (o.rgbAwb.b * mergeAwbScaleB).coerceIn(0.0, 255.0),
+                        )
+                    target.add(CellObs(o.frameIndex, alignedRgbAwb, o.lab + best.shift, o.quality))
                 }
                 m.observedFaces.add(mSlot.face)
             }
         }
+        for (c in 0 until 3) {
+            m.logAwb[c] += p.logAwb[c]
+        }
+        normalizeLogAwbInPlace(m.logAwb)
 
         val newTracked = LinkedHashMap<Face, TrackedFace>()
         for ((pf, tf) in p.tracked) {
@@ -1036,7 +1055,7 @@ class ContinuousFaceletMapper {
         }
 
         if (protos.size == 6) {
-            val protoColors = protos.keys.toList()
+            val protoColors = Color.entries
             val protoLabs = protoColors.map { protos.getValue(it).toDomainLab() }
             val whiteProto = protos.getValue(Color.WHITE)
             val readyCells = ArrayList<ReadyCell>(48)
@@ -1047,7 +1066,7 @@ class ContinuousFaceletMapper {
                     val r = m.faceRobustLab(mf, mi) ?: continue
                     if (r.qualitySum < 0.55 || r.count < 2) continue
                     val slot = ContinuousCubeGeometry.rotateSlot(mf, mi, rot)
-                    val cellLab = Lab(r.lab.l, r.lab.a, r.lab.b)
+                    val cellLab = r.lab.toDomainLab()
                     val dists =
                         DoubleArray(6) { k ->
                             ContinuousColorModel.whiteReferencedHueDistance(
@@ -1136,6 +1155,10 @@ class ContinuousFaceletMapper {
         trackedNow: List<TrackedQuadOverlay>,
     ): ContinuousScanCue {
         if (twistDetected) return ContinuousScanCue.LayerTwistDetected
+        val committed = Face.entries.sumOf { f -> net.getValue(f).count { it != null } }
+        if (committed == Facelets.SIZE && conflictedSlots.isEmpty() && validateCompleteNet() != null) {
+            return ContinuousScanCue.AllVerified
+        }
         if (trackedNow.isEmpty()) return ContinuousScanCue.BringIntoView
         val curPending = pending
         if (curPending != null) {
@@ -1146,8 +1169,9 @@ class ContinuousFaceletMapper {
             }
         }
         val curMaster = master
-        if (curMaster == null || curMaster.observedFaces.size < 6) {
-            val missing = 6 - (curMaster?.observedFaces?.size ?: 0)
+        val confirmedCount = curMaster?.confirmedFaces()?.size ?: 0
+        if (curMaster == null || confirmedCount < Face.entries.size) {
+            val missing = Face.entries.size - confirmedCount
             return if (anyGlare) {
                 ContinuousScanCue.TiltAwayLightRemaining(missing)
             } else {
@@ -1158,10 +1182,33 @@ class ContinuousFaceletMapper {
             val firstFace = conflictedSlots.sorted().first().face
             return ContinuousScanCue.ResolveConflict(firstFace)
         }
-        val committed = Face.entries.sumOf { f -> net.getValue(f).count { it != null } }
-        if (committed == Facelets.SIZE && validateCompleteNet() != null) return ContinuousScanCue.AllVerified
+        if (committed == Facelets.SIZE) {
+            return ContinuousScanCue.ResolveConflict(globalInvalidFace())
+        }
         if (anyGlare) return ContinuousScanCue.TiltAwayLight
         return ContinuousScanCue.TiltRemainingStickers(committed)
+    }
+
+    private fun globalInvalidFace(): Face {
+        val all = ArrayList<Color>(Facelets.SIZE)
+        for (f in Face.entries) {
+            val cells = net.getValue(f)
+            for (i in 0 until 9) {
+                all.add(cells[i] ?: return f)
+            }
+        }
+        val problemPos =
+            CubeValidator
+                .problems(Facelets(all))
+                .firstOrNull { it.positions.isNotEmpty() }
+                ?.positions
+                ?.firstOrNull()
+        if (problemPos != null && problemPos in 0 until Facelets.SIZE) {
+            return Face.entries[problemPos / 9]
+        }
+        return Face.entries.minByOrNull { f ->
+            (0 until 9).filter { it != 4 }.sumOf { ci -> slotSupport[FaceSlot(f, ci)] ?: 0.0 }
+        } ?: Face.U
     }
 
     private fun buildSnapshot(
@@ -1201,7 +1248,7 @@ class ContinuousFaceletMapper {
                 trackedQuads = visQuads,
                 cue = cue,
                 committedCount = committed,
-                mappedFacesCount = mappedFaces,
+                mappedFacesCount = Face.entries.size,
                 pendingFragmentFaces = pendingFaces,
             )
         }
@@ -1222,6 +1269,22 @@ class ContinuousFaceletMapper {
     private companion object {
         val CORNER_ORDER = intArrayOf(0, 2, 8, 6)
         val OUTER_LINES = listOf(setOf(0, 1, 2), setOf(6, 7, 8), setOf(0, 3, 6), setOf(2, 5, 8))
+
+        fun normalizeLogAwbInPlace(logAwb: DoubleArray) {
+            val meanAwb = (logAwb[0] + logAwb[1] + logAwb[2]) / 3.0
+            var maxAbsAwb = 0.0
+            for (c in 0 until 3) {
+                logAwb[c] -= meanAwb
+                val a = abs(logAwb[c])
+                if (a > maxAbsAwb) maxAbsAwb = a
+            }
+            if (maxAbsAwb > 0.36) {
+                val scale = 0.36 / maxAbsAwb
+                for (c in 0 until 3) {
+                    logAwb[c] *= scale
+                }
+            }
+        }
 
         fun emptyNet(): MutableMap<Face, Array<Color?>> = Face.entries.associateWithTo(LinkedHashMap()) { arrayOfNulls(9) }
 

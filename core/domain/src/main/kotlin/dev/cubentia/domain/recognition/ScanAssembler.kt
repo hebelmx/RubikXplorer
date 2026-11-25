@@ -717,19 +717,45 @@ object ScanAssembler {
     ): ScanResult {
         val keptByFace: Map<Face, ContinuousFaceHandoff> =
             if (handoff.globalAnchored) handoff.faces else emptyMap()
+        val filteredAdded = added.filter { sample -> sample.centerColor?.let(HOME_FACE::getValue) !in keptByFace }
         val fallbackCenters = buildHandoverFallbackCenters(handoff, saved)
         val addedBySlot =
-            added
+            filteredAdded
                 .mapNotNull { sample -> sample.centerColor?.let { HOME_FACE.getValue(it) to sample } }
                 .groupBy({ it.first }, { it.second })
-        val unclaimed = added.filter { it.centerColor == null }.map { it.face }.toSet()
+        val unclaimed = filteredAdded.filter { it.centerColor == null }.map { it.face }.toSet()
+
+        val keptSamples =
+            keptByFace.mapNotNull { (face, fh) ->
+                val validLabs = fh.labs.takeIf { it.size == STICKERS && it.all { l -> l != null && l.isValid() } }
+                validLabs?.let { labs ->
+                    FaceSample(
+                        face = face,
+                        orientationDegrees = 0,
+                        stickers = labs.filterNotNull(),
+                        quality = CaptureQuality.ACCEPTABLE,
+                        centerColor = Color.home(face),
+                        centerPlain = true,
+                    )
+                }
+            }
 
         val calibration: CalibrationCenters? =
             if (keptByFace.size == Face.entries.size) {
                 fallbackCenters?.takeIf(StickerClassifier::isValid)
             } else {
-                (SelfCalibration.from(added, fallbackCenters) as? SelfCalibration.Calibrated)?.calibration
+                val derivedWithKept =
+                    if (saved == null && keptSamples.size == keptByFace.size &&
+                        keptSamples.size + filteredAdded.size >= Face.entries.size
+                    ) {
+                        (SelfCalibration.from(keptSamples + filteredAdded, saved = null) as? SelfCalibration.Calibrated)?.calibration
+                    } else {
+                        null
+                    }
+                derivedWithKept
+                    ?: (SelfCalibration.from(filteredAdded, fallbackCenters) as? SelfCalibration.Calibrated)?.calibration
             }
+        val classifyUnclassified = handoff.calibration == null && keptByFace.size < Face.entries.size
 
         val placedAdded = mutableMapOf<Face, Placement.Placed>()
         val gaps = mutableMapOf<Face, ScanGap>()
@@ -763,7 +789,7 @@ object ScanAssembler {
                 Face.entries.map { face ->
                     val kept = keptByFace[face]
                     if (kept != null) {
-                        val base = handoffFaceReadings(face, kept, calibration)
+                        val base = handoffFaceReadings(face, kept, calibration, classifyUnclassified)
                         if (kept.orientationLocked) listOf(base) else List(TURNS) { rotateClockwise(base, it) }
                     } else {
                         val placed = placedAdded.getValue(face)
@@ -815,7 +841,7 @@ object ScanAssembler {
             if (face in gaps) continue
             val kept = keptByFace[face]
             if (kept != null) {
-                val readings = handoffFaceReadings(face, kept, calibration)
+                val readings = handoffFaceReadings(face, kept, calibration, classifyUnclassified)
                 obsFaces[face] = readings.map { it?.color ?: Color.home(face) }
                 confFaces[face] = readings.map { it?.confidence ?: StickerConfidence.UNCERTAIN }
             } else {
@@ -836,8 +862,8 @@ object ScanAssembler {
         saved: CalibrationCenters?,
     ): CalibrationCenters? {
         val merged = LinkedHashMap<Color, Lab>()
-        saved?.centers?.forEach { (c, lab) -> if (lab.isValid()) merged[c] = lab }
-        handoff.calibration?.centers?.forEach { (c, lab) -> if (c !in merged && lab.isValid()) merged[c] = lab }
+        // Prefer live continuous-scan centers over any older saved FR-24 calibration.
+        handoff.calibration?.centers?.forEach { (c, lab) -> if (lab.isValid()) merged[c] = lab }
         if (handoff.globalAnchored) {
             handoff.faces.forEach { (face, fh) ->
                 val color = Color.home(face)
@@ -845,6 +871,7 @@ object ScanAssembler {
                 if (color !in merged && lab != null && lab.isValid()) merged[color] = lab
             }
         }
+        saved?.centers?.forEach { (c, lab) -> if (c !in merged && lab.isValid()) merged[c] = lab }
         return if (merged.isEmpty()) null else CalibrationCenters(merged)
     }
 
@@ -852,8 +879,9 @@ object ScanAssembler {
         face: Face,
         handoffFace: ContinuousFaceHandoff,
         calibration: CalibrationCenters? = null,
+        classifyUnclassified: Boolean = false,
     ): List<StickerReading?> {
-        val centers = calibration?.takeIf(StickerClassifier::isValid)?.centers
+        val centers = if (classifyUnclassified) calibration?.takeIf(StickerClassifier::isValid)?.centers else null
         return List(STICKERS) { index ->
             if (index == FaceSample.CENTER_INDEX) {
                 StickerReading(Color.home(face), handoffFace.confidence[index])

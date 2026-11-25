@@ -248,19 +248,25 @@ data class ContinuousScanHandoff(
     val calibration: CalibrationCenters? = null,
     val globalAnchored: Boolean = true,
 ) {
-    /** True when all 6 canonical faces have 9 confident non-null stickers. */
+    init {
+        require(faces.all { (k, v) -> k == v.face }) { "face-key-mismatch" }
+    }
+
+    /** True when all 6 canonical faces are orientation-locked and have 9 confident non-null stickers. */
     val isComplete: Boolean
         get() =
             globalAnchored &&
                 faces.size == Face.entries.size &&
                 Face.entries.all { f ->
                     val fh = faces[f] ?: return@all false
-                    fh.colors.none { it == null } && fh.confidence.all { it == StickerConfidence.CONFIDENT }
+                    fh.orientationLocked &&
+                        fh.colors.none { it == null } &&
+                        fh.confidence.all { it == StickerConfidence.CONFIDENT }
                 }
 
     /**
      * 54 URFDLB stickers for seeding the Solve-tab Manual Editor (#321): confirmed confident stickers
-     * are set; unmapped, uncertain, or unanchored cells stay `null`.
+     * are set; unmapped, unoriented, uncertain, or unanchored cells stay `null`.
      */
     fun toFallbackStickers(): List<Color?> {
         if (!globalAnchored || faces.isEmpty()) return List(Facelets.SIZE) { null }
@@ -269,7 +275,9 @@ data class ContinuousScanHandoff(
             val cell = index % QuadObservation.CELLS
             val handoffFace = faces[face] ?: return@List null
             if (cell == CENTER_CELL) {
-                handoffFace.colors[cell] ?: Color.home(face)
+                Color.home(face)
+            } else if (!handoffFace.orientationLocked) {
+                null
             } else {
                 handoffFace.colors[cell].takeIf { handoffFace.confidence[cell] == StickerConfidence.CONFIDENT }
             }

@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import kotlin.math.abs
 
 class ContinuousFaceletMapperTest {
     @Test
@@ -61,6 +62,19 @@ class ContinuousFaceletMapperTest {
         partialBadCorner.getValue(Face.R)[0] = Color.YELLOW
         val pairKinds = ContinuousCubeGeometry.checkLocalInvariants(partialBadCorner).map { it.kind }.toSet()
         assertTrue(LocalInvariantKind.IMPOSSIBLE_CORNER_PAIR in pairKinds)
+
+        // Duplicate corner cubie (duplicate UFR (WHITE, RED, GREEN) onto UFL with valid CW chirality)
+        val dupCorner = solved.mapValues { it.value.toMutableList<Color?>() }
+        dupCorner.getValue(Face.U)[6] = Color.WHITE
+        dupCorner.getValue(Face.F)[0] = Color.RED
+        dupCorner.getValue(Face.L)[2] = Color.GREEN
+        val dupCornerViols =
+            ContinuousCubeGeometry
+                .checkLocalInvariants(
+                    dupCorner,
+                ).filter { it.kind == LocalInvariantKind.DUPLICATE_CORNER }
+        assertTrue(dupCornerViols.isNotEmpty(), "Expected DUPLICATE_CORNER invariant violation")
+        assertEquals(6, dupCornerViols.first().slots.size)
     }
 
     @Test
@@ -277,6 +291,7 @@ class ContinuousFaceletMapperTest {
         assertEquals(54, finalSnap.committedCount)
         assertInstanceOf(ContinuousScanSnapshot.Scanning::class.java, finalSnap)
         assertNotEquals(ContinuousScanCue.AllVerified, finalSnap.cue)
+        assertInstanceOf(ContinuousScanCue.ResolveConflict::class.java, finalSnap.cue)
         assertInstanceOf(ContinuousScanExport.Partial::class.java, mapper.export())
     }
 
@@ -334,5 +349,143 @@ class ContinuousFaceletMapperTest {
         assertEquals(3, snap.trackedQuads.size)
         val snap2 = mapper.processFrame(1, obsList)
         assertEquals(3, snap2.mappedFacesCount)
+    }
+
+    @Test
+    fun `counter-clockwise convex quads are rejected and isolated clutter across empty frames never initializes master`() {
+        val mapper = ContinuousFaceletMapper()
+        val cwQuad = Quad2D(listOf(Point2D(200.0, 150.0), Point2D(320.0, 150.0), Point2D(320.0, 270.0), Point2D(200.0, 270.0)))
+        val ccwQuad = Quad2D(cwQuad.corners.reversed())
+        val green = RgbColor(34.0, 168.0, 72.0)
+
+        val ccwObs = QuadObservation(ccwQuad, List(9) { green }, List(9) { 0.9 }, sharpness = 0.9, hasGlare = false)
+        assertTrue(mapper.processFrame(0, listOf(ccwObs)).trackedQuads.isEmpty())
+        assertTrue(mapper.processFrame(1, listOf(ccwObs)).trackedQuads.isEmpty())
+
+        // Single CW quad separated by an empty frame must reset hasPrevUnattached and not initialize master
+        val cwObs = QuadObservation(cwQuad, List(9) { green }, List(9) { 0.9 }, sharpness = 0.9, hasGlare = false)
+        assertTrue(mapper.processFrame(2, listOf(cwObs)).trackedQuads.isEmpty())
+        assertTrue(mapper.processFrame(3, emptyList()).trackedQuads.isEmpty())
+        assertTrue(mapper.processFrame(4, listOf(cwObs)).trackedQuads.isEmpty())
+    }
+
+    @Test
+    fun `historical center-color lock catches color jump across a low-quality bridge frame`() {
+        val mapper = ContinuousFaceletMapper()
+        val quad = Quad2D(listOf(Point2D(200.0, 150.0), Point2D(320.0, 150.0), Point2D(320.0, 270.0), Point2D(200.0, 270.0)))
+        val green = RgbColor(34.0, 168.0, 72.0)
+        val red = RgbColor(204.0, 38.0, 42.0)
+
+        val greenObs = QuadObservation(quad, List(9) { green }, List(9) { 0.9 }, sharpness = 0.9, hasGlare = false)
+        repeat(4) { i -> mapper.processFrame(i, listOf(greenObs)) }
+
+        // Low center quality (0.10 <= 0.20) bypasses frame-to-frame check on the next frame
+        val lowQBridge =
+            QuadObservation(
+                quad = quad,
+                cellRgbs = List(9) { green },
+                cellQualities = List(9) { idx -> if (idx == 4) 0.10 else 0.9 },
+                sharpness = 0.9,
+                hasGlare = false,
+            )
+        mapper.processFrame(4, listOf(lowQBridge))
+
+        // High-quality RED on frame 5 must still be rejected by historical center lock (> 26.0)
+        val redObs = QuadObservation(quad, List(9) { red }, List(9) { 0.9 }, sharpness = 0.9, hasGlare = false)
+        val sJump = mapper.processFrame(5, listOf(redObs))
+        assertTrue(sJump.pendingFragmentFaces >= 1, "Historical center lock must reject RED across low-quality bridge")
+    }
+
+    @Test
+    fun `pending promotion replaces unanchored master and immediate tracking resumes after pending tracked clears`() {
+        val mapper = ContinuousFaceletMapper()
+        val quad = Quad2D(listOf(Point2D(200.0, 150.0), Point2D(320.0, 150.0), Point2D(320.0, 270.0), Point2D(200.0, 270.0)))
+        val blue = RgbColor(28.0, 86.0, 206.0)
+        val oneFace = QuadObservation(quad, List(9) { blue }, List(9) { 0.9 }, sharpness = 0.9, hasGlare = false)
+
+        // Seed unanchored 1-face master
+        repeat(4) { i -> mapper.processFrame(i, listOf(oneFace)) }
+        // Clear master.tracked with 3 empty frames
+        repeat(3) { i -> mapper.processFrame(4 + i, emptyList()) }
+
+        // Create a 1-face confirmed pending fragment, then clear pending.tracked via 3 empty frames
+        val orange = RgbColor(238.0, 118.0, 28.0)
+        val otherFace = QuadObservation(quad, List(9) { orange }, List(9) { 0.9 }, sharpness = 0.9, hasGlare = false)
+        mapper.processFrame(7, listOf(otherFace))
+        mapper.processFrame(8, listOf(otherFace))
+        repeat(3) { i -> mapper.processFrame(9 + i, emptyList()) }
+
+        // Very first frame after pending.tracked cleared must track immediately (no 2-frame BringIntoView blackout)
+        val cfg = SyntheticCubeStream.buildScenarios()[0]
+        val frames = SyntheticCubeStream.generateSequence(cfg)
+        val resumeSnap = mapper.processFrame(12, frames[0].detections)
+        assertTrue(resumeSnap.trackedQuads.isNotEmpty(), "Expected immediate tracking when pending.tracked was cleared")
+
+        // Continuing the S1 stream must promote pending to master and finish as Complete
+        var lastSnap: ContinuousScanSnapshot = resumeSnap
+        for (k in 1 until frames.size) {
+            lastSnap = mapper.processFrame(12 + k, frames[k].detections)
+        }
+        val complete = assertInstanceOf(ContinuousScanSnapshot.Complete::class.java, lastSnap)
+        assertEquals(6, complete.mappedFacesCount)
+        assertEquals(ContinuousScanCue.AllVerified, complete.cue)
+
+        // Empty frame after completion must still report Complete with AllVerified (never BringIntoView)
+        val afterEmpty = mapper.processFrame(999, emptyList())
+        val stillComplete = assertInstanceOf(ContinuousScanSnapshot.Complete::class.java, afterEmpty)
+        assertEquals(ContinuousScanCue.AllVerified, stillComplete.cue)
+    }
+
+    @Test
+    fun `minimal-history layer twist freezes logAwb and observations across streak frames`() {
+        val mapper = ContinuousFaceletMapper()
+        val quad = Quad2D(listOf(Point2D(200.0, 150.0), Point2D(320.0, 150.0), Point2D(320.0, 270.0), Point2D(200.0, 270.0)))
+        val green = RgbColor(34.0, 168.0, 72.0)
+        val red = RgbColor(204.0, 38.0, 42.0)
+        val clean = QuadObservation(quad, List(9) { green }, List(9) { 0.9 }, sharpness = 0.95, hasGlare = false)
+
+        // Exactly 6 frames -> 5 observations after master init (meets h.count >= 5 threshold)
+        repeat(7) { f -> mapper.processFrame(f, listOf(clean)) }
+        val awbBeforeTwist = mapper.masterLogAwb.toList()
+
+        // Twist top outer row to saturated RED with slightly warmer shift across all cells
+        val warmGreen = RgbColor(40.0, 168.0, 62.0)
+        val twisted =
+            clean.copy(
+                cellRgbs = List(9) { i -> if (i in 0..2) red else warmGreen },
+            )
+        var lastSnap: ContinuousScanSnapshot = mapper.processFrame(7, listOf(twisted))
+        for (f in 8..11) {
+            lastSnap = mapper.processFrame(f, listOf(twisted))
+        }
+        val twistSnap = assertInstanceOf(ContinuousScanSnapshot.TwistDetected::class.java, lastSnap)
+        assertEquals(ContinuousScanCue.LayerTwistDetected, twistSnap.cue)
+        assertEquals(awbBeforeTwist, mapper.masterLogAwb.toList(), "Twisted streak frames must not mutate masterLogAwb")
+    }
+
+    @Test
+    fun `regrip merge under AWB drift keeps masterLogAwb bounded zero-mean and exports consistent calibration`() {
+        val cfg =
+            SyntheticCubeStream.ScenarioConfig(
+                name = "awb_plus_regrip",
+                state = SyntheticCubeStream.scramble("R U R' F' L2 D B' U2 R' F L D'"),
+                awbDrift = true,
+                regripRange = 52..65,
+                jitterPx = 0.0,
+                nFrames = 140,
+            )
+        val frames = SyntheticCubeStream.generateSequence(cfg)
+        val mapper = ContinuousFaceletMapper()
+        var lastSnap: ContinuousScanSnapshot? = null
+        for (fr in frames) {
+            lastSnap = mapper.processFrame(fr.frameIndex, fr.detections)
+        }
+        assertInstanceOf(ContinuousScanSnapshot.Complete::class.java, lastSnap)
+        assertTrue(mapper.reappearanceMergeCount >= 1)
+        val awb = mapper.masterLogAwb
+        assertTrue(awb.all { it in -0.36..0.36 })
+        assertTrue(abs(awb.average()) < 1e-6)
+        val exported = assertInstanceOf(ContinuousScanExport.Complete::class.java, mapper.export())
+        assertEquals(6, requireNotNull(exported.handoff.calibration).centers.size)
     }
 }

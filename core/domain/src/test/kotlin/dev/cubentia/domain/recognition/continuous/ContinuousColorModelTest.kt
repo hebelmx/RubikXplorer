@@ -111,5 +111,17 @@ class ContinuousColorModelTest {
         assertThrows(IllegalArgumentException::class.java) {
             ContinuousColorModel.solveBalanced8PerColor(arrayOf(doubleArrayOf(1.0, 2.0), doubleArrayOf(3.0)))
         }
+        assertThrows(IllegalArgumentException::class.java) {
+            ContinuousColorModel.solveBalanced8PerColor(arrayOf(doubleArrayOf(1.0, 2.0)), cap = 0)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            ContinuousColorModel.solveBalanced8PerColor(arrayOf(doubleArrayOf(1.0, 2.0)), cap = -1)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            ContinuousColorModel.solveBalanced8PerColor(
+                Array(5) { doubleArrayOf(1.0, 2.0) },
+                cap = 2,
+            )
+        }
     }
 }

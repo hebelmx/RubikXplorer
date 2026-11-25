@@ -136,6 +136,8 @@ object ContinuousColorModel {
         val k = costMatrix[0].size
         if (k == 0) return IntArray(0)
         require(costMatrix.all { it.size == k }) { "All costMatrix rows must have length $k" }
+        require(cap > 0) { "cap must be positive, got $cap" }
+        require(cap.toLong() * k >= nCells) { "Infeasible cap=$cap for $nCells cells across $k colors" }
         val assign = IntArray(nCells)
         val counts = IntArray(k)
 
@@ -228,6 +230,7 @@ object ContinuousColorModel {
                 pathLen++
                 cur = parent[cur]
             }
+            if (parent[cur] != -1 || counts[cur] <= cap) break
             for (p in 0 until pathLen) {
                 val u = pathU[p]
                 val v = pathV[p]
