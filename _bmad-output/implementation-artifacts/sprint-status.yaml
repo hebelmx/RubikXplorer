@@ -156,10 +156,10 @@ development_status:
   # 10-24..10-27 dropped by SCP 2026-11-24 continuous-quick-scan; replaced by 10-30..10-33
   10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa: done
   10-29-solution-playback-shows-the-same-quick-check-result-as-lesso: backlog
-  10-30-port-continuous-facelet-lattice-fitter-and-cube-mapper-to-p: backlog
-  10-31-wire-litert-v2-int8-sticker-center-detector-split-continuou: backlog
-  10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fa: backlog
-  10-33-continuous-quick-scan-physical-device-matrix-and-po-beta-ca: backlog
+  10-30-port-continuous-facelet-lattice-fitter-and-cube-mapper-to-pu: backlog
+  10-31-wire-litert-v2-int8-sticker-center-detector-split-continuous: backlog
+  10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal: backlog
+  10-33-continuous-quick-scan-physical-device-matrix-and-po-beta-cal: backlog
   10-22-quick-scan-captures-promptly-once-the-cube-is-in-view: done
   10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads: done
   epic-10-retrospective: optional
@@ -1113,9 +1113,10 @@ action_items:
     epic: 11
     action: "Device check on Lenovo + S24: a Quick Scan re-ask held off its named
       top merges in the corner frame (fix is proven only by domain tests that model
-      the grid turn) (medium; deferred from #194)"
+      the grid turn) (medium; deferred from #194)
+      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the 2-corner Quick Scan"
     owner: "PO (hebelmx)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-194-quick-scan-reasked-face-rotated.md"
   - id: "issue-194-deferred-ambiguous-reask-fallback"
     epic: 11
@@ -1123,9 +1124,10 @@ action_items:
       misread, Quick Scan falls back to the named-top merge, which can implicate more
       than 2 faces and skip the round-2 re-ask or show a rotated face in Review; pass
       the unposed result to involvedFaces in that case (medium; deferred from #194,
-      QuickScan.kt:119-128)"
+      QuickScan.kt:119-128)
+      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the 2-corner Quick Scan"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-194-quick-scan-reasked-face-rotated.md"
   - id: "epic-13-retro-item-107-manual-a11y-pass-on-site-pages"
     epic: 13
@@ -1677,26 +1679,29 @@ action_items:
     action: "No test (and no device check: corner auto-capture fires before an adb
       tap) covers tapping 'Scan face by face' during the 400 ms corner capture freeze
       (low; deferred from 10.17, app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt
-      switchToFaceByFace)"
+      switchToFaceByFace)
+      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the 2-corner Quick Scan"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-17-switch-from-quick-scan-to-the-guided-scan-and-keep-the-captured-faces.md"
   - id: "epic-10-deferred-10.17-kept-face-colour-stability"
     epic: 10
     action: "Kept corner faces get their colours once in the combined review against
       the merged six-face calibration, not the reading judged at keep time; add a
       test pinning kept-face colour stability or carry the judged colours into review
-      as reviewAfterRetake does (medium; deferred from 10.17, core/domain/src/main/kotlin/dev/cubentia/domain/recognition/QuickScan.kt:177)"
+      as reviewAfterRetake does (medium; deferred from 10.17, core/domain/src/main/kotlin/dev/cubentia/domain/recognition/QuickScan.kt:177)
+      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the 2-corner Quick Scan"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-17-switch-from-quick-scan-to-the-guided-scan-and-keep-the-captured-faces.md"
   - id: "epic-10-deferred-10.17-fbf-inert-during-freeze"
     epic: 10
     action: "'Scan face by face' stays visible but does nothing during the freeze
       after capture 2; hide it once the corner view is left or make the tap take effect
-      (low, Learner-visible; deferred from 10.17, app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanFlow.kt:225)"
+      (low, Learner-visible; deferred from 10.17, app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanFlow.kt:225)
+      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the 2-corner Quick Scan"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-17-switch-from-quick-scan-to-the-guided-scan-and-keep-the-captured-faces.md"
   - id: "epic-10-deferred-10.19-side-face-accuracy"
     epic: 10
@@ -1717,9 +1722,10 @@ action_items:
       actually lit; if enableTorch fails (e.g. a hot S24 FE) a backlit cube captures
       with no light hold; skip only while the torch is applied (medium; deferred from
       10.19, core/domain/src/main/kotlin/dev/cubentia/domain/recognition/QuickScan.kt:199);
-      built in Story 10.21"
+      built in Story 10.21
+      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the 2-corner Quick Scan"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-19-quick-scan-reads-the-side-faces-in-good-light.md"
   - id: "epic-10-deferred-10.19-light-clear-steadiness"
     epic: 10
@@ -1727,18 +1733,20 @@ action_items:
       check (session fix f7b0573f), while AC1 says pass about 0.5 s while steady;
       PO to confirm movement may be ignored in the light-clear window or restore the
       2-cells-per-face restart (medium; deferred from 10.19, core/domain/src/main/kotlin/dev/cubentia/domain/recognition/CornerHold.kt:278);
-      built in Story 10.21"
+      built in Story 10.21
+      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the 2-corner Quick Scan"
     owner: "PO (hebelmx)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-19-quick-scan-reads-the-side-faces-in-good-light.md"
   - id: "epic-10-deferred-10.19-cal-offer-reappears"
     epic: 10
     action: "Backing out of calibration opened from the Quick Scan corner view shows
       the calibration offer again at once from the stale light hold; clear the hold
       or offer on return (low, Learner-visible; deferred from 10.19, app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt:173);
-      built in Story 10.21"
+      built in Story 10.21
+      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the 2-corner Quick Scan"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-19-quick-scan-reads-the-side-faces-in-good-light.md"
   - id: "issue-270-deferred-decode-rejections-silent"
     epic: 10
@@ -1790,9 +1798,10 @@ action_items:
     epic: 10
     action: "'Scan face by face' accepts a tap before the corner camera delivers its
       first frame, which can hand over all six faces at once; gate switchToFaceByFace
-      on the camera having started (low, Learner-visible, existing before #276; app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt:454)"
+      on the camera having started (low, Learner-visible, existing before #276; app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt:454)
+      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the 2-corner Quick Scan"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-276-quick-scan-reopen-fresh-corner-view.md"
   - id: "issue-260-deferred-device-arrow-look-and-label"
     epic: 12
@@ -2182,17 +2191,19 @@ action_items:
       on one Fixtures/corner JPEG and compares it with a tensor or cell-mean fixture
       exported by tools/sticker-model/assemble.py, so a flip, rotation or colour mismatch
       between training and on-device input is caught (medium; deferred from 10.23,
-      StickerModelContract.kt:46)"
+      StickerModelContract.kt:46)
+      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the 2-corner Quick Scan"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads.md"
   - id: "epic-10-deferred-10.23-sticker-model-python-tests-in-ci"
     epic: 10
     action: "Run the tools/sticker-model Python unittests (assembly determinism, crop
       orientation, tau choice, size limit) in CI, or a CPU-only subset of them; they
-      need TensorFlow and the corner model (medium; deferred from 10.23, tools/sticker-model/test_*.py)"
+      need TensorFlow and the corner model (medium; deferred from 10.23, tools/sticker-model/test_*.py)
+      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the 2-corner Quick Scan"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads.md"
   - id: "epic-10-deferred-10.23-device-session-h1-h2"
     epic: 10
@@ -2201,9 +2212,10 @@ action_items:
       with the shadow reader on and 10 off, recording inference time per capture and
       the 10.22 per-hold capture times (H2), plus extra fixture captures where the
       inventory is thin (H1); fill docs/evidence/10-23/human-gate.md (high; PO-deferred
-      human gate from 10.23, AC8 and AC1)"
+      human gate from 10.23, AC8 and AC1)
+      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the 2-corner Quick Scan"
     owner: "PO (hebelmx)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads.md"
   - id: "epic-10-deferred-10.23-evaluate-on-10-20-groups"
     epic: 10
