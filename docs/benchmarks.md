@@ -686,7 +686,7 @@ margin to the 3 s timeout.
 | NFR-13/AC3 rotation keeps state and layout follows window class | 7/7 flows with default settings (#119 harness); 7/7 with orientation requests honored; 0/7 with default settings on the old harness (it could not rotate) | 7/7 | 7/7 | **yes**, with default settings (#119 harness, 2026-11-19, 7/7) and with the PO-accepted override |
 | 3.8 StrictMode: no main-thread disk access | 0 violations | 10 platform-only (waived, #107) | — | **yes**, no waiver needed |
 | 3.8 first-run delivery rule G ≤ 5 s (decides delivery, not a pass criterion) | 14.35 s | 10.01 s | — | fails, so bundled (as on the Tab) |
-| #104 per-process preparation (accepted for v1.0, no threshold) | 12.6 s debug; ≤ 10.5 s release (coarse) | 8.3 s; ≤ 7.6–7.8 s | — | n/a, about 1.5× the Tab |
+| #104 per-process preparation (accepted by the PO; #104 closed 2026-11-25) | 12.6 s debug; ≤ 10.5 s release (coarse); **3.51 s median cold Accept → Solution, release-equivalent (2026-11-25)** | 8.3 s; ≤ 7.6–7.8 s | — | n/a, about 1.5× the Tab |
 
 NFR-1 is responsiveness (input acknowledged ≤ 100 ms) and NFR-2 is rendering (≥ 30 FPS on the minimum
 device); earlier drafts of this table had the two labels swapped.
@@ -698,19 +698,19 @@ Decisions by the product owner (SCP 2026-11-12), which replace the questions thi
 - **AC3 method:** running the Key Flow suite with `wm set-ignore-orientation-request false` (restored
   afterwards) is an accepted method on this device. A rotation path that works with default settings is
   the #119 harness change above; it passed 7/7 on this device on 2026-11-19.
-- **#104:** about 10.5 s release-equivalent preparation per process stays accepted for v1.0 and is
-  tracked in #104 (Story 3.9, v1.0 scope, not a tag gate). The preparing copy was reworded so it promises no duration (#123).
+- **#104:** per-process preparation is accepted for v1.0. The 2026-11-25 re-measure gave a
+  cold Accept → Solution median 3.51 s (3.39–5.76 s) on the release-equivalent build, 2026-11-25 (§ Story 3.9 baseline); the PO accepted it and closed #104 with no optimization (SCP 2026-11-25 close-104). The preparing copy was reworded so it promises no duration (#123).
 
 ### Known limitations on the minimum device (#119)
 
 | # | Limitation | Measured | Disposition |
 | --- | --- | --- | --- |
-| 2 | Per-process solver preparation is long | 12.6 s debug (median, n = 5); ≤ 10.5 s release-equivalent (coarse) | **Accepted for v1.0; speed-up tracked in #104 (Story 3.9, v1.0 scope, not a tag gate).** The copy no longer promises "a few seconds": `msg.solve.preparing` now reads "Preparing the solver." (`core/domain/src/main/resources/content/strings/en.json`, #262; earlier wording #123). A second solve in the same process goes straight to playback. |
+| 2 | Per-process solver preparation is long | 12.6 s debug (median, n = 5); ≤ 10.5 s release-equivalent (coarse) | **Accepted (PO 2026-11-25).** Re-measured as cold Accept → Solution median 3.51 s (3.39–5.76 s) on the release-equivalent build, 2026-11-25; #104 closed with no optimization (SCP 2026-11-25 close-104). The copy no longer promises "a few seconds": `msg.solve.preparing` now reads "Preparing the solver." (`core/domain/src/main/resources/content/strings/en.json`, #262; earlier wording #123). A second solve in the same process goes straight to playback. |
 | 3 | First-time table generation is long | G = 14.35 s | **Accepted.** Generation runs only on the fallback path (bundled tables are selected, Story 3.8 rule G ≤ 5 s), once per install. The first-use copy ("This can take a little while.") promises no duration. |
 | 4 | View Rotation drops a few frames | 5 of 1,990 intervals > 33.3 ms (max 40.2 ms); median 59.69 FPS; p90 19.66 ms | **Accepted.** Within NFR-2 (≥ 30 FPS) and the AD-4 p90 ≤ 33.3 ms gate. None seen on the Samsung devices. |
 | 5 | Face-turn input latency is higher than on the Samsung devices | p90 53.39 ms, max 57.52 ms | **Accepted.** Within NFR-1 (≤ 100 ms). |
 | 6 | Macrobenchmark reports `cpuLocked: true` | Clocks were not locked (`scaling_min_freq` < `scaling_max_freq` on every cluster) | **Accepted** as the library's reading of this kernel; the flag does not describe the run conditions. |
-| 7 | Release-equivalent preparation timing is coarse | `uiautomator` dumps take 2–3 s here, so 10.46–10.49 s are upper bounds | **Accepted** as an upper bound; a precise release-build measurement belongs to #104 (the k recalibration for #105 is done, 2026-11-25). |
+| 7 | Release-equivalent preparation timing is coarse | `uiautomator` dumps take 2–3 s here, so 10.46–10.49 s are upper bounds | **Superseded** by the 2026-11-25 screen-recording measurement (§ Story 3.9 baseline: 3.51 s median). The k recalibration for #105 is done, 2026-11-25. |
 
 Items 1 (rotation harness) and 8 (script line endings) are the harness changes in the AC3 subsection.
 
@@ -761,6 +761,8 @@ A sixth run, used to set up the method and not counted, gave 3.82 s from accessi
 
 **Reading.** This is about a third of the "≤ 10.5 s release-equivalent" upper bound from 2026-11-11 (`95d708f`). That earlier figure came from polling `uiautomator` dumps, which take 2–3 s each and load the CPU on this device, so it over-stated the wait. The figure here covers move-table preparation, pruning-table load and search together. Story 3.9 AC1 still needs them timed separately; for a 1-move cube, search is negligible (corpus median 23 ms). For comparison, the solve-corpus runner on the same device and build prepares its tables in 4.95 s (#105 section).
 
+**Decision (PO, 2026-11-25):** accepted as is for this low-end minimum device; no optimization. Story 3.9 is closed and #104 is closed (SCP 2026-11-25 close-104).
+
 Raw: [runs and JSON](evidence/story-3-9/) (`run1.mp4`–`run5.mp4`, `accept-to-solution-lenovo-tb128xu.json`, `conditions-lenovo-tb128xu.txt`).
 
 ## Out of scope
@@ -770,5 +772,5 @@ Raw: [runs and JSON](evidence/story-3-9/) (`run1.mp4`–`run5.mp4`, `accept-to-s
   [issue #106](https://github.com/hebelmx/RubikXplorer/issues/106).
 - The release-equivalent recalibration of k (#105) is done; see the 2026-11-25 section above. The
   per-process preparation (about 8 s on the Tab S7 FE, 12.6 s debug / ≤ 10.5 s release-equivalent on the
-  minimum Lenovo): #104 (Story 3.9, v1.0 scope, not a tag gate). Story 12.2 measured both as they are and did not tune them.
+  minimum Lenovo): measured again on 2026-11-25 (3.51 s median cold Accept → Solution, release-equivalent) and accepted; #104 closed with no optimization. Story 12.2 measured both as they are and did not tune them.
 - Camera, scan and Quick Check flows (Key Flows 4, 5 and 9 steps 1–3): from 0.11.0 (action item retire-v1-1-camera-flow-passes).
