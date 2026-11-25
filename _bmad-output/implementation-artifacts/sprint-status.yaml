@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-24-2026 15:39'
+last_updated: '11-24-2026 19:27'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -173,7 +173,7 @@ development_status:
   12-1-accessibility-audit-and-fixes: done
   12-2-performance-and-compatibility-on-the-reference-devices: done
   12-3-stability-size-and-privacy-hardening: done
-  12-4-pilot-findings-fixed-and-release-gates-passed: backlog
+  12-4-pilot-findings-fixed-and-release-gates-passed: done
   12-5-store-listing-and-public-portfolio-repo: backlog
   12-6-rebrand-to-cubentia: done
   12-7-physical-progress-is-recorded-only-when-true: done
@@ -1466,7 +1466,10 @@ action_items:
       carries AD-4 commit-before-animate, session integrity and the en.json checkLearnerText
       rule (low; deferred from 12.3, _bmad-output/implementation-artifacts/epic-12-context.md)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
+    evidence: "_bmad-output/implementation-artifacts/epic-12-context.md recompiled
+      at the start of Story 12.4 (2026-11-24): carries AD-4 commit-before-animate,
+      session integrity and the en.json checkLearnerText rule (_bmad-output/implementation-artifacts/spec-12-4-pilot-findings-fixed-and-release-gates-passed.md)"
     ref: "_bmad-output/implementation-artifacts/spec-12-3-stability-size-and-privacy-hardening.md"
   - id: "ai-b1-deferred-device-freeze-unavailable-race"
     epic: 10
@@ -2587,25 +2590,55 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/spec-gh-313-guided-scan-close-in-control-group.md"
   - id: "epic-10-deferred-10.28-recorder-screen-wiring-tests"
     epic: 10
-    action: "Extract the corner recorder post-write decision (count-check status, next hold, refusal or clear) and the CornerFixtureRecord building (reviewed flags from the operator taps) into pure RecorderRules functions and unit-test them; confirmCornerFace, retakeHold and saveOverride have no test (medium; deferred from 10.28, FixtureRecorderScreen.kt:415)"
+    action: "Extract the corner recorder post-write decision (count-check status,
+      next hold, refusal or clear) and the CornerFixtureRecord building (reviewed
+      flags from the operator taps) into pure RecorderRules functions and unit-test
+      them; confirmCornerFace, retakeHold and saveOverride have no test (medium; deferred
+      from 10.28, FixtureRecorderScreen.kt:415)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa.md"
   - id: "epic-10-deferred-10.28-count-check-write-retry"
     epic: 10
-    action: "When the count check passes but recordCountCheck fails, the group stays PENDING (unsaved, ignored by every consumer) with only a status line; keep the holds and offer a retry as saveOverride does (medium; deferred from 10.28, FixtureRecorderScreen.kt:471)"
+    action: "When the count check passes but recordCountCheck fails, the group stays
+      PENDING (unsaved, ignored by every consumer) with only a status line; keep the
+      holds and offer a retry as saveOverride does (medium; deferred from 10.28, FixtureRecorderScreen.kt:471)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa.md"
   - id: "epic-10-deferred-10.28-epic-10-context-drift"
     epic: 10
-    action: "Check the epic-10-context.md recompiled in 10.28 against epics.md: it may have dropped the 10.24-10.26 rules (retake merge, corner naming, cube-rule fill) and exposure/prompt-capture rules, and added unrelated 10.29 scope (medium; deferred from 10.28, epic-10-context.md; see also epic-10-deferred-10.20-epic-10-context-refresh)"
+    action: "Check the epic-10-context.md recompiled in 10.28 against epics.md: it
+      may have dropped the 10.24-10.26 rules (retake merge, corner naming, cube-rule
+      fill) and exposure/prompt-capture rules, and added unrelated 10.29 scope (medium;
+      deferred from 10.28, epic-10-context.md; see also epic-10-deferred-10.20-epic-10-context-refresh)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa.md"
   - id: "epic-10-deferred-10.28-recorder-ui-device-check"
     epic: 10
-    action: "Before the next corner-fixture recording session, try the 10.28 recorder UI on a device: refusal row with named colours, ringed pre-fills, Retake corner 1/2, Override dialog (blank reason refused), side-face Confirm lock (medium; deferred from 10.28, FixtureRecorderScreen.kt)"
+    action: "Before the next corner-fixture recording session, try the 10.28 recorder
+      UI on a device: refusal row with named colours, ringed pre-fills, Retake corner
+      1/2, Override dialog (blank reason refused), side-face Confirm lock (medium;
+      deferred from 10.28, FixtureRecorderScreen.kt)"
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa.md"
+  - id: "epic-12-deferred-12.4-green-release-device-run"
+    epic: 12
+    action: "Gate 3: after the next release tag, record its green Release pilot run (Key Flow suite and device instrumentation; the last green one is v0.9.0 43358827489, v0.10.0 run 45514196023 failed and its tag was deleted) in docs/release-gates-v1.0.md, before Story 12.5 promotes to production (medium; deferred from 12.4, docs/release-gates-v1.0.md)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-12-4-pilot-findings-fixed-and-release-gates-passed.md"
+  - id: "epic-12-deferred-12.4-pilot-sm-baselines"
+    epic: 12
+    action: "Gate 4: run the #127 beginner pilot sessions and write the SM-1 to SM-7 and SM-9 baselines and the pilot record into docs/release-gates-v1.0.md, triaging any new severity-1/2 issue, before Story 12.5 promotes to production; see epic-7-retro-item-66 for the tag and install part (medium; deferred from 12.4, docs/release-gates-v1.0.md)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-12-4-pilot-findings-fixed-and-release-gates-passed.md"
+  - id: "epic-12-deferred-12.4-release-order-10-11-vs-12-5"
+    epic: 12
+    action: "Decide the release order: Story 10.11 (raises camera flags, checks gate 6) depends on 12.5, whose last AC promotes to production, so production could ship before gate 6 and the data-safety re-check for raised camera flags; settle it with bmad-correct-course (medium; deferred from 12.4, epic-12-context.md)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-12-4-pilot-findings-fixed-and-release-gates-passed.md"
