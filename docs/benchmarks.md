@@ -741,6 +741,28 @@ The tail (max about 64× the median) causes no failure, so no slow-case investig
 The data gives no case for device tiers on the 3 s budget. The Story 3.8 timeout (debug build) does not
 reproduce on a release-equivalent build. This closes #105.
 
+## Story 3.9 baseline: cold Accept → Solution on the minimum device, 2026-11-25
+
+This is a coarse baseline for #104, measured before any Story 3.9 code. It covers the production path a Learner takes: a fresh app process (`am force-stop` + `am start`), *Solve* → *Enter colors*, the cube after U entered in the Manual Cube Editor (54 stickers), then **Accept**.
+
+- **Build and device:** `benchmark` build (R8, not debuggable) at revision `e14a9fe0`, Lenovo TB128XU `HA1S28MM`, Android 13 (API 33). USB powered, battery 100 %, thermal status 0 at the start and end of the session.
+- **Method:** each Accept is captured with `screenrecord`. The frames are classified against reference frames (editor / "Preparing the solver." / Solution playback) by [`classify_frames.py`](evidence/story-3-9/classify_frames.py). Elapsed time is the first playback frame minus the first "Preparing" frame; "Preparing" appears in the frame right after the tap. Resolution is one frame (about 17–33 ms).
+
+| Run | Accept → Solution on screen |
+| --- | --- |
+| 1 | 3.826 s |
+| 2 | 3.386 s |
+| 3 | 5.755 s |
+| 4 | 3.421 s |
+| 5 | 3.510 s |
+| **Median (min–max)** | **3.510 s (3.386–5.755 s)** |
+
+A sixth run, used to set up the method and not counted, gave 3.82 s from accessibility and logcat timestamps.
+
+**Reading.** This is about a third of the "≤ 10.5 s release-equivalent" upper bound from 2026-11-11 (`95d708f`). That earlier figure came from polling `uiautomator` dumps, which take 2–3 s each and load the CPU on this device, so it over-stated the wait. The figure here covers move-table preparation, pruning-table load and search together. Story 3.9 AC1 still needs them timed separately; for a 1-move cube, search is negligible (corpus median 23 ms). For comparison, the solve-corpus runner on the same device and build prepares its tables in 4.95 s (#105 section).
+
+Raw: [runs and JSON](evidence/story-3-9/) (`run1.mp4`–`run5.mp4`, `accept-to-solution-lenovo-tb128xu.json`, `conditions-lenovo-tb128xu.txt`).
+
 ## Out of scope
 
 - The product owner waived the Story 1.11 2D net reference-device baselines for v1.0. Device
