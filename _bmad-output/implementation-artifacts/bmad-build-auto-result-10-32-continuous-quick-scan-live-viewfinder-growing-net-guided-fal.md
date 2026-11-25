@@ -1,5 +1,5 @@
 ---
-status: blocked
+status: draft
 ---
 
 # BMad Build Auto Result
