@@ -16,6 +16,8 @@ Clean-room, self-contained training, export, and evaluation pipeline for `app/sr
 - **Zero** `Fixtures/corner/` photos and **zero** held-out groups enter training.
 - Strictly excludes the canonical holdout union (`tools/sticker-model/holdout.json` ∪ held-out `Fixtures/corner/groups.json`) and excludes `live/sm-s721u1_stkb_studio-a`.
 - No third-party model weights, pseudo-labels, or distillation are used.
+- `model-card.json` `trainingLiveGroups` lists every `Fixtures/live/` group the loader may read. Only groups whose records carry a `frame` contribute textures: today the five `*_studio-a` groups do, and the four `*_studio` groups contribute none.
+- The shipped model was trained with `--bg-dir` pointing at cube-free room frames taken from non-held-out tuning clips. Those frames are not committed, so the command below reproduces the recipe but not the exact bytes; pass your own directory with `--bg-dir` (a missing directory is an error, and any path inside `Fixtures/corner/`, a held-out group or the excluded group is rejected).
 
 ## Commands
 

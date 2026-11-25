@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import os
 import re
 import tempfile
 import unittest
@@ -136,6 +137,23 @@ class CenterModelProvenanceTest(unittest.TestCase):
             (excl_bg / "sm-s721u1_stkb_studio-a_01.png").write_bytes(b"png")
             with self.assertRaises(ValueError):
                 holdout_policy.validate_background_paths(excl_bg, root)
+
+            # A relative directory or a symlink must not hide a held-out or corner-fixture location.
+            corner_group = root / "Fixtures/corner/some_tuning_group"
+            corner_group.mkdir(parents=True)
+            (corner_group / "corner-1.jpg").write_bytes(b"jpg")
+            previous_cwd = Path.cwd()
+            os.chdir(corner_group)
+            try:
+                with self.assertRaises(ValueError):
+                    holdout_policy.validate_background_paths(Path("."), root)
+            finally:
+                os.chdir(previous_cwd)
+            linked_bg = root / "bg_linked"
+            linked_bg.mkdir()
+            (linked_bg / "room_02.jpg").symlink_to(corner_group / "corner-1.jpg")
+            with self.assertRaises(ValueError):
+                holdout_policy.validate_background_paths(linked_bg, root)
 
     def test_injected_heldout_group_fails_loudly(self) -> None:
         leaked = copy.deepcopy(self.card)

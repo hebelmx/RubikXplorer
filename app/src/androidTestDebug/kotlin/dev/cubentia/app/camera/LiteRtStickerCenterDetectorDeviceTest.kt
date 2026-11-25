@@ -55,11 +55,15 @@ class LiteRtStickerCenterDetectorDeviceTest {
     @Test
     fun pcToAndroidPeakParityAndThreeFaceLatticeRecoveryOnTuningStills() {
         val dir = File(TUNING_STILLS_DIR)
-        val present =
-            TUNING_EXPECTATIONS.all {
-                File(dir, it.fileName).isFile || File(dir, it.fileName.replace(".jpg", ".png")).isFile
-            }
-        assumeTrue("Pushed tuning stills absent under $TUNING_STILLS_DIR; skipping file-backed parity", present)
+        val missing =
+            TUNING_EXPECTATIONS
+                .filterNot { File(dir, it.fileName).isFile || File(dir, it.fileName.replace(".jpg", ".png")).isFile }
+                .map { it.fileName }
+        assumeTrue(
+            "Pushed tuning stills absent under $TUNING_STILLS_DIR; skipping file-backed parity",
+            missing.size < TUNING_EXPECTATIONS.size,
+        )
+        assertTrue("Tuning stills only partly pushed under $TUNING_STILLS_DIR; missing $missing", missing.isEmpty())
 
         val context = ApplicationProvider.getApplicationContext<Context>()
         val detector = LiteRtStickerCenterDetector(context)
@@ -142,7 +146,7 @@ class LiteRtStickerCenterDetectorDeviceTest {
     @Test
     fun endToEndPipelineMeetsPhysicalR8LatencyBudgetAndRejectsNegatives() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val filesBefore = snapshotFileNames(context)
+        val filesBefore = snapshotFiles(context)
         val detector = LiteRtStickerCenterDetector(context)
         val executor = Executors.newSingleThreadExecutor()
         try {
@@ -179,6 +183,10 @@ class LiteRtStickerCenterDetectorDeviceTest {
                     report.negTotal,
                     report.negClean,
                 )
+                assertTrue(
+                    "[${width}x$height] Negative frames must decode 0 sticker-center peaks, got ${report.negWithPeaks}",
+                    report.negWithPeaks.isEmpty(),
+                )
 
                 if (!isEmulator()) {
                     val budgetMs = if (isGalaxyS24Fe()) 20.0 else 50.0
@@ -194,8 +202,8 @@ class LiteRtStickerCenterDetectorDeviceTest {
             executor.shutdownNow()
         }
 
-        // AD-13: zero camera frames persisted to app storage or cache.
-        assertEquals("Zero frames may be persisted to app filesDir/cacheDir", filesBefore, snapshotFileNames(context))
+        // AD-13: zero camera frames persisted to app storage or cache — no file added, removed, resized or rewritten.
+        assertEquals("Zero frames may be persisted to app filesDir/cacheDir", filesBefore, snapshotFiles(context))
     }
 
     private fun runEndToEndBenchmark(
@@ -228,6 +236,7 @@ class LiteRtStickerCenterDetectorDeviceTest {
         var posWithFaces = 0
         var overlaysChecked = 0
         var negClean = 0
+        val negWithPeaks = ArrayList<String>()
 
         // 60 pure 5-stage positive cube frames across rotations 0/90/180/270, stickered & stickerless
         for (i in 0 until posTotal) {
@@ -290,6 +299,14 @@ class LiteRtStickerCenterDetectorDeviceTest {
             val rot = rotations[i % rotations.size]
             val w = if (rot % 180 == 0) shortSide else longSide
             val h = if (rot % 180 == 0) longSide else shortSide
+            val kind =
+                if (i >= 8) {
+                    "glossy"
+                } else if (i % 2 == 0) {
+                    "dark"
+                } else {
+                    "empty"
+                }
             val frame = if (i < 8) renderEmptyYuv(w, h, dark = i % 2 == 0) else renderDarkGlossyYuv(w, h, i)
 
             val t0 = SystemClock.elapsedRealtimeNanos()
@@ -304,6 +321,7 @@ class LiteRtStickerCenterDetectorDeviceTest {
             val elapsedMs = (SystemClock.elapsedRealtimeNanos() - t0) / 1_000_000.0
             negE2eMs += elapsedMs
             if (out.fittedFaces.isEmpty()) negClean++
+            if (out.detection.peaks.isNotEmpty()) negWithPeaks += "$kind#$i rot=$rot peaks=${out.detection.peaks.size}"
         }
 
         val sortedPosE2e = posE2eMs.sorted()
@@ -320,6 +338,7 @@ class LiteRtStickerCenterDetectorDeviceTest {
             posWithFaces = posWithFaces,
             negClean = negClean,
             negTotal = negTotal,
+            negWithPeaks = negWithPeaks,
             overlaysChecked = overlaysChecked,
         )
     }
@@ -335,6 +354,7 @@ class LiteRtStickerCenterDetectorDeviceTest {
         val posWithFaces: Int,
         val negClean: Int,
         val negTotal: Int,
+        val negWithPeaks: List<String>,
         val overlaysChecked: Int,
     )
 
@@ -372,16 +392,17 @@ class LiteRtStickerCenterDetectorDeviceTest {
         return count
     }
 
-    private fun snapshotFileNames(context: Context): Set<String> {
+    /** Path → "length:lastModified" of every app-private file, so a rewritten existing file is caught too. */
+    private fun snapshotFiles(context: Context): Map<String, String> {
         val dirs = listOfNotNull(context.filesDir, context.cacheDir)
         return dirs
             .flatMap { root ->
                 root
                     .walkTopDown()
                     .filter { it.isFile && !isAndroidRuntimeBookkeeping(it) }
-                    .map { it.absolutePath }
+                    .map { it.absolutePath to "${it.length()}:${it.lastModified()}" }
                     .toList()
-            }.toSet()
+            }.toMap()
     }
 
     private fun isAndroidRuntimeBookkeeping(file: File): Boolean {
@@ -471,17 +492,23 @@ class LiteRtStickerCenterDetectorDeviceTest {
         return argbToYuv(width, height, pixels, noise = 3)
     }
 
+    /**
+     * Camera-shaped `YUV_420_888` planes: direct buffers, padded rows and `pixelStride = 2` chroma, so the timed
+     * loops pay the same buffer access cost as frames from an `ImageProxy`.
+     */
     private fun argbToYuv(
         width: Int,
         height: Int,
         pixels: IntArray,
         noise: Int,
     ): YuvFrame {
-        val yBuf = ByteBuffer.allocate(width * height)
+        val yStride = width + ROW_PADDING
         val uvW = (width + 1) / 2
         val uvH = (height + 1) / 2
-        val uBuf = ByteBuffer.allocate(uvW * uvH)
-        val vBuf = ByteBuffer.allocate(uvW * uvH)
+        val uvStride = uvW * 2 + ROW_PADDING
+        val yBuf = ByteBuffer.allocateDirect(yStride * height)
+        val uBuf = ByteBuffer.allocateDirect(uvStride * uvH)
+        val vBuf = ByteBuffer.allocateDirect(uvStride * uvH)
         val rng = Random(42)
         for (row in 0 until height) {
             for (col in 0 until width) {
@@ -490,15 +517,15 @@ class LiteRtStickerCenterDetectorDeviceTest {
                 val g = (rgb shr 8) and 255
                 val b = rgb and 255
                 val n = if (noise > 0) rng.nextInt(2 * noise + 1) - noise else 0
-                yBuf.put(row * width + col, (0.299 * r + 0.587 * g + 0.114 * b + n).roundToInt().coerceIn(0, 255).toByte())
+                yBuf.put(row * yStride + col, (0.299 * r + 0.587 * g + 0.114 * b + n).roundToInt().coerceIn(0, 255).toByte())
                 if (row % 2 == 0 && col % 2 == 0) {
-                    val idx = (row / 2) * uvW + (col / 2)
+                    val idx = (row / 2) * uvStride + (col / 2) * 2
                     uBuf.put(idx, (128 - 0.168736 * r - 0.331264 * g + 0.5 * b).roundToInt().coerceIn(0, 255).toByte())
                     vBuf.put(idx, (128 + 0.5 * r - 0.418688 * g - 0.081312 * b).roundToInt().coerceIn(0, 255).toByte())
                 }
             }
         }
-        return YuvFrame(YuvPlane(yBuf, width, 1), YuvPlane(uBuf, uvW, 1), YuvPlane(vBuf, uvW, 1), 0, 0, width, height)
+        return YuvFrame(YuvPlane(yBuf, yStride, 1), YuvPlane(uBuf, uvStride, 2), YuvPlane(vBuf, uvStride, 2), 0, 0, width, height)
     }
 
     private fun expectedFace(
@@ -529,6 +556,7 @@ class LiteRtStickerCenterDetectorDeviceTest {
     private companion object {
         const val TAG = "LiteRtCenterDeviceTest"
         const val TUNING_STILLS_DIR = "/data/local/tmp/cubentia-10-31-tuning"
+        const val ROW_PADDING = 32
 
         val BENCHMARK_SIZES = listOf(640 to 480, 1280 to 960)
 

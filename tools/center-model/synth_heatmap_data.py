@@ -48,8 +48,10 @@ BASE_PALETTES = [
 
 def load_real_backgrounds(bg_dir: Path | None, repo_root: Path = REPO_ROOT) -> List[np.ndarray]:
     """Load optional verified cube-free room backgrounds (strictly from non-held-out tuning clips)."""
-    if bg_dir is None or not bg_dir.is_dir():
+    if bg_dir is None:
         return []
+    if not bg_dir.is_dir():
+        raise FileNotFoundError(f"Background directory does not exist: {bg_dir}")
     bgs: List[np.ndarray] = []
     for p in validate_background_paths(bg_dir, repo_root=repo_root):
         with Image.open(p) as im:

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import time
 from collections import Counter, defaultdict
@@ -59,8 +60,9 @@ class LiteRtCenterDetector:
         img_sz = self.img_size
         hm_sz = self.hm_size
         scale = min(img_sz / w, img_sz / h)
-        nw = max(1, min(img_sz, int(round(w * scale))))
-        nh = max(1, min(img_sz, int(round(h * scale))))
+        # Round half up, as Kotlin's roundToInt does in StickerCenterModelTransform.letterbox.
+        nw = max(1, min(img_sz, int(math.floor(w * scale + 0.5))))
+        nh = max(1, min(img_sz, int(math.floor(h * scale + 0.5))))
         left, top = (img_sz - nw) // 2, (img_sz - nh) // 2
         resized = np.asarray(Image.fromarray(img_rgb_u8).resize((nw, nh), Image.BILINEAR), dtype=np.uint8)
         canvas = np.zeros((img_sz, img_sz, 3), dtype=np.uint8)
@@ -107,7 +109,8 @@ class LiteRtCenterDetector:
         if not len(ys):
             return [], dt_ms
         scores = hm[ys, xs]
-        order = np.argsort(-scores)[:max_peaks]
+        # Same order as StickerCenterModelTransform.decodePeaks: stable by score, cap applied after the padding filter.
+        order = np.argsort(-scores, kind="stable")
         peaks: List[Tuple[float, float, float]] = []
         for idx in order:
             gy, gx = int(ys[idx]), int(xs[idx])
@@ -119,6 +122,8 @@ class LiteRtCenterDetector:
             oy = (py_in - top) / scale
             if 0.0 <= ox < w and 0.0 <= oy < h:
                 peaks.append((float(ox), float(oy), float(scores[idx])))
+                if len(peaks) >= max_peaks:
+                    break
         return peaks, dt_ms
 
 

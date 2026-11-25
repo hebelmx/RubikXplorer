@@ -15,6 +15,16 @@ import java.nio.channels.FileChannel
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** One loaded model; the seam that lets JVM tests drive inference-time failures without `libLiteRt.so`. */
+internal interface StickerCenterInferenceSession {
+    fun run(
+        input: ByteBuffer,
+        output: ByteBuffer,
+    )
+
+    fun close()
+}
+
 /**
  * LiteRT v2 INT8 sticker-center heatmap detector (`com.google.ai.edge.litert`, AD-9 / Story 10.31).
  *
@@ -25,14 +35,17 @@ import javax.inject.Singleton
 internal class LiteRtStickerCenterDetector
     internal constructor(
         private val loadModel: () -> ByteBuffer,
+        private val openSession: (ByteBuffer) -> StickerCenterInferenceSession?,
     ) : StickerCenterDetector {
+        internal constructor(loadModel: () -> ByteBuffer) : this(loadModel, { openLiteRtSession(it) })
+
         @Inject
         constructor(
             @ApplicationContext context: Context,
         ) : this({ loadModelBuffer(context) })
 
         private val lock = Any()
-        private var interpreter: Interpreter? = null
+        private var session: StickerCenterInferenceSession? = null
         private var initAttempted = false
         private var closed = false
         private val inputBytes = ByteArray(StickerCenterModelContract.INPUT_BYTES)
@@ -54,11 +67,11 @@ internal class LiteRtStickerCenterDetector
         ): StickerCenterDetection {
             if (frame.left < 0 || frame.top < 0 || frame.width <= 0 || frame.height <= 0) return StickerCenterDetection.EMPTY
             synchronized(lock) {
-                val tflite = ensureInterpreter() ?: return StickerCenterDetection.EMPTY
+                val active = ensureSession() ?: return StickerCenterDetection.EMPTY
                 val params =
                     StickerCenterModelTransform.fillYuvInput(frame, rotationDegrees, inputBytes, yuvScratch)
                         ?: return StickerCenterDetection.EMPTY
-                val dtMs = runInference(tflite) ?: return StickerCenterDetection.EMPTY
+                val dtMs = runInference(active) ?: return StickerCenterDetection.EMPTY
                 val peaks =
                     StickerCenterModelTransform.decodePeaks(
                         output = outputFloats,
@@ -91,14 +104,14 @@ internal class LiteRtStickerCenterDetector
             threshold: Float = StickerCenterModelContract.DEFAULT_THRESHOLD,
             maxPeaks: Int = StickerCenterModelContract.MAX_PEAKS,
         ): StickerCenterDetection {
-            if (width <= 0 || height <= 0 || rgb.size.toLong() < width.toLong() * height.toLong() * 3L) {
+            if (width <= 0 || height <= 0 || rgb.size / 3 / width < height) {
                 return StickerCenterDetection.EMPTY
             }
             synchronized(lock) {
-                val tflite = ensureInterpreter() ?: return StickerCenterDetection.EMPTY
+                val active = ensureSession() ?: return StickerCenterDetection.EMPTY
                 val params =
                     StickerCenterModelTransform.fillRgbArrayInput(rgb, width, height, inputBytes) ?: return StickerCenterDetection.EMPTY
-                val dtMs = runInference(tflite) ?: return StickerCenterDetection.EMPTY
+                val dtMs = runInference(active) ?: return StickerCenterDetection.EMPTY
                 val peaks =
                     StickerCenterModelTransform.decodePeaks(
                         output = outputFloats,
@@ -122,55 +135,42 @@ internal class LiteRtStickerCenterDetector
             }
         }
 
-        private fun runInference(tflite: Interpreter): Double? =
+        private fun runInference(active: StickerCenterInferenceSession): Double? =
             try {
                 inputBuffer.clear()
                 inputBuffer.put(inputBytes)
                 inputBuffer.rewind()
                 outputBuffer.clear()
                 val t0 = System.nanoTime()
-                tflite.run(inputBuffer, outputBuffer)
+                active.run(inputBuffer, outputBuffer)
                 val dtMs = (System.nanoTime() - t0) / 1_000_000.0
                 outputFloatView.rewind()
                 outputFloatView.get(outputFloats)
                 dtMs
-            } catch (e: IllegalArgumentException) {
-                logWarning("LiteRT sticker-center tensor mismatch; disabling detector", e)
+            } catch (e: Exception) {
+                logWarning("LiteRT sticker-center inference failed; disabling detector", e)
                 latchDisabled()
                 null
             } catch (e: LinkageError) {
                 logWarning("LiteRT runtime linkage error; disabling detector", e)
                 latchDisabled()
                 null
-            } catch (e: Exception) {
-                logWarning("LiteRT sticker-center inference failed", e)
-                null
             }
 
+        /** A failed inference never retries: the next frame would repeat the same failure and log it again. */
         private fun latchDisabled() {
             closed = true
-            runCatching { interpreter?.close() }
-            interpreter = null
+            runCatching { session?.close() }
+            session = null
         }
 
-        private fun ensureInterpreter(): Interpreter? {
+        private fun ensureSession(): StickerCenterInferenceSession? {
             if (closed) return null
-            interpreter?.let { return it }
+            session?.let { return it }
             if (initAttempted) return null
             initAttempted = true
             return try {
-                val modelBuffer = loadModel()
-                val options =
-                    Interpreter.Options().apply {
-                        setNumThreads(StickerCenterModelContract.NUM_THREADS)
-                        setUseXNNPACK(true)
-                    }
-                val created = Interpreter(modelBuffer, options)
-                if (!matchesModelContract(created)) {
-                    created.close()
-                    return null
-                }
-                created.also { interpreter = it }
+                openSession(loadModel())?.also { session = it }
             } catch (e: Exception) {
                 logWarning("Unable to load ${StickerCenterModelContract.MODEL_ASSET}; continuous detector disabled", e)
                 null
@@ -180,52 +180,11 @@ internal class LiteRtStickerCenterDetector
             }
         }
 
-        private fun matchesModelContract(tflite: Interpreter): Boolean {
-            if (tflite.inputTensorCount < 1 || tflite.outputTensorCount < 1) {
-                logWarning(
-                    "Model tensor count invalid",
-                    IllegalStateException("in=${tflite.inputTensorCount} out=${tflite.outputTensorCount}"),
-                )
-                return false
-            }
-            val inTensor = tflite.getInputTensor(0)
-            val outTensor = tflite.getOutputTensor(0)
-            val expectedInShape =
-                intArrayOf(
-                    1,
-                    StickerCenterModelContract.INPUT_SIZE,
-                    StickerCenterModelContract.INPUT_SIZE,
-                    StickerCenterModelContract.CHANNELS,
-                )
-            val expectedOutShape =
-                intArrayOf(
-                    1,
-                    StickerCenterModelContract.HEATMAP_SIZE,
-                    StickerCenterModelContract.HEATMAP_SIZE,
-                    StickerCenterModelContract.OUTPUT_CHANNELS,
-                )
-            val ok =
-                inTensor.dataType() == DataType.UINT8 &&
-                    inTensor.shape().contentEquals(expectedInShape) &&
-                    outTensor.dataType() == DataType.FLOAT32 &&
-                    outTensor.shape().contentEquals(expectedOutShape)
-            if (!ok) {
-                logWarning(
-                    "Model tensor contract mismatch",
-                    IllegalArgumentException(
-                        "in=${inTensor.dataType()}${inTensor.shape().contentToString()} " +
-                            "out=${outTensor.dataType()}${outTensor.shape().contentToString()}",
-                    ),
-                )
-            }
-            return ok
-        }
-
         internal fun close() {
             synchronized(lock) {
                 closed = true
-                interpreter?.close()
-                interpreter = null
+                session?.close()
+                session = null
             }
         }
 
@@ -237,6 +196,68 @@ internal class LiteRtStickerCenterDetector
                 error: Throwable,
             ) {
                 runCatching { Log.w(TAG, message, error) }
+            }
+
+            private fun openLiteRtSession(modelBuffer: ByteBuffer): StickerCenterInferenceSession? {
+                val options =
+                    Interpreter.Options().apply {
+                        setNumThreads(StickerCenterModelContract.NUM_THREADS)
+                        setUseXNNPACK(true)
+                    }
+                val interpreter = Interpreter(modelBuffer, options)
+                if (!matchesModelContract(interpreter)) {
+                    interpreter.close()
+                    return null
+                }
+                return object : StickerCenterInferenceSession {
+                    override fun run(
+                        input: ByteBuffer,
+                        output: ByteBuffer,
+                    ) = interpreter.run(input, output)
+
+                    override fun close() = interpreter.close()
+                }
+            }
+
+            private fun matchesModelContract(tflite: Interpreter): Boolean {
+                if (tflite.inputTensorCount < 1 || tflite.outputTensorCount < 1) {
+                    logWarning(
+                        "Model tensor count invalid",
+                        IllegalStateException("in=${tflite.inputTensorCount} out=${tflite.outputTensorCount}"),
+                    )
+                    return false
+                }
+                val inTensor = tflite.getInputTensor(0)
+                val outTensor = tflite.getOutputTensor(0)
+                val expectedInShape =
+                    intArrayOf(
+                        1,
+                        StickerCenterModelContract.INPUT_SIZE,
+                        StickerCenterModelContract.INPUT_SIZE,
+                        StickerCenterModelContract.CHANNELS,
+                    )
+                val expectedOutShape =
+                    intArrayOf(
+                        1,
+                        StickerCenterModelContract.HEATMAP_SIZE,
+                        StickerCenterModelContract.HEATMAP_SIZE,
+                        StickerCenterModelContract.OUTPUT_CHANNELS,
+                    )
+                val ok =
+                    inTensor.dataType() == DataType.UINT8 &&
+                        inTensor.shape().contentEquals(expectedInShape) &&
+                        outTensor.dataType() == DataType.FLOAT32 &&
+                        outTensor.shape().contentEquals(expectedOutShape)
+                if (!ok) {
+                    logWarning(
+                        "Model tensor contract mismatch",
+                        IllegalArgumentException(
+                            "in=${inTensor.dataType()}${inTensor.shape().contentToString()} " +
+                                "out=${outTensor.dataType()}${outTensor.shape().contentToString()}",
+                        ),
+                    )
+                }
+                return ok
             }
 
             private fun loadModelBuffer(context: Context): ByteBuffer =

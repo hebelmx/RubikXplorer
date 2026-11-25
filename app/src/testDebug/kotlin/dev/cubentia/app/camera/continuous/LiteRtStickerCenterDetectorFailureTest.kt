@@ -64,6 +64,76 @@ class LiteRtStickerCenterDetectorFailureTest {
     }
 
     @Test
+    fun `an inference-time failure disables the detector after a single attempt`() {
+        val failures =
+            listOf<() -> Throwable>(
+                { IllegalArgumentException("tensor mismatch") },
+                { IllegalStateException("invoke failed") },
+                { UnsatisfiedLinkError("libLiteRt.so symbol missing") },
+            )
+        for (failure in failures) {
+            var opens = 0
+            var runs = 0
+            var closes = 0
+            val detector =
+                LiteRtStickerCenterDetector(
+                    loadModel = { ByteBuffer.allocateDirect(16) },
+                    openSession = {
+                        opens++
+                        object : StickerCenterInferenceSession {
+                            override fun run(
+                                input: ByteBuffer,
+                                output: ByteBuffer,
+                            ) {
+                                runs++
+                                throw failure()
+                            }
+
+                            override fun close() {
+                                closes++
+                            }
+                        }
+                    },
+                )
+            repeat(3) { assertTrue(detector.detect(validFrame, rotationDegrees = 0).peaks.isEmpty()) }
+            assertTrue(detector.detectRgb(ByteArray(48), 4, 4).peaks.isEmpty())
+            assertEquals(1, opens, failure().toString())
+            assertEquals(1, runs, failure().toString())
+            assertEquals(1, closes, failure().toString())
+        }
+    }
+
+    @Test
+    fun `a healthy session runs once per frame and is closed exactly once`() {
+        var runs = 0
+        var closes = 0
+        val detector =
+            LiteRtStickerCenterDetector(
+                loadModel = { ByteBuffer.allocateDirect(16) },
+                openSession = {
+                    object : StickerCenterInferenceSession {
+                        override fun run(
+                            input: ByteBuffer,
+                            output: ByteBuffer,
+                        ) {
+                            runs++
+                        }
+
+                        override fun close() {
+                            closes++
+                        }
+                    }
+                },
+            )
+        repeat(3) { assertTrue(detector.detect(validFrame, rotationDegrees = 90).peaks.isEmpty()) }
+        assertEquals(3, runs)
+        detector.close()
+        assertTrue(detector.detect(validFrame, rotationDegrees = 90).peaks.isEmpty())
+        assertEquals(3, runs)
+        assertEquals(1, closes)
+    }
+
+    @Test
     fun `empty or degenerate crop dimensions return empty without touching model loader`() {
         var loads = 0
         val detector =
@@ -81,6 +151,7 @@ class LiteRtStickerCenterDetectorFailureTest {
         assertTrue(detector.detect(negTop, 90).peaks.isEmpty())
         assertTrue(detector.detectRgb(ByteArray(0), 0, 0).peaks.isEmpty())
         assertTrue(detector.detectRgb(ByteArray(16), 50_000, 50_000).peaks.isEmpty())
+        assertTrue(detector.detectRgb(ByteArray(16), Int.MAX_VALUE, Int.MAX_VALUE).peaks.isEmpty())
         assertEquals(0, loads)
     }
 

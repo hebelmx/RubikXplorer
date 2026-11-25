@@ -44,13 +44,14 @@ def validate_background_paths(bg_dir: Path, repo_root: Path = REPO_ROOT) -> List
     held_stems = {g.split("/", 1)[-1] for g in held}
     paths = sorted(bg_dir.glob("*.jpg")) + sorted(bg_dir.glob("*.png"))
     for p in paths:
-        parts_lower = str(p).lower()
-        if "fixtures/corner" in parts_lower:
-            raise ValueError(f"Background path leaks Fixtures/corner/: {p}")
+        # Judge the real location: a relative `bg_dir` or a symlink must not hide where the pixels come from.
+        real = p.resolve()
+        if "fixtures/corner" in real.as_posix().lower():
+            raise ValueError(f"Background path leaks Fixtures/corner/: {real}")
         for excl in EXCLUDED_LIVE:
-            if excl in p.name or excl in p.parts:
-                raise ValueError(f"Background path leaks excluded group {excl}: {p}")
+            if excl in real.name or excl in real.parts:
+                raise ValueError(f"Background path leaks excluded group {excl}: {real}")
         for stem in held_stems:
-            if stem in p.name or stem in p.parts:
-                raise ValueError(f"Background path leaks held-out group {stem}: {p}")
+            if stem in real.name or stem in real.parts:
+                raise ValueError(f"Background path leaks held-out group {stem}: {real}")
     return paths

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.nio.ByteBuffer
@@ -222,6 +223,93 @@ class ContinuousFaceSamplerTest {
         frame1.viewOverlays.single().viewCorners.forEach { corner ->
             assertTrue(corner.x in 0.0..1.0 && corner.y in 0.0..1.0, corner.toString())
         }
+
+        // An invalid crop after a tracked frame keeps the accumulated scan state; after reset() it starts over.
+        assertTrue(frame1.snapshot.trackedQuads.isNotEmpty())
+        val stale = pipeline.processFrame(2, emptyYuv, rotationDegrees = 0, viewWidth = 480, viewHeight = 480)
+        assertSame(frame1.snapshot, stale.snapshot)
+        assertTrue(stale.fittedFaces.isEmpty())
+        assertTrue(stale.viewOverlays.isEmpty())
+        pipeline.reset()
+        val fresh = pipeline.processFrame(3, emptyYuv, rotationDegrees = 0, viewWidth = 480, viewHeight = 480)
+        assertTrue(fresh.snapshot.trackedQuads.isEmpty())
+        assertEquals(0, fresh.snapshot.committedCount)
+    }
+
+    @Test
+    fun `rotated YUV frames read the same pixels as the upright image on both axes`() {
+        // A 3-levels-per-pixel ramp: reading one pixel off shifts every cell by 3, far above the 1.5 tolerance.
+        val uprightW = 84
+        val uprightH = 80
+        val face = faceFor(12.0, 10.0, 60.0)
+        for (alongX in listOf(true, false)) {
+            val uprightRgb = ByteArray(uprightW * uprightH * 3)
+            for (uy in 0 until uprightH) {
+                for (ux in 0 until uprightW) {
+                    val level = (3 * (if (alongX) ux else uy)).toByte()
+                    val off = (uy * uprightW + ux) * 3
+                    uprightRgb[off] = level
+                    uprightRgb[off + 1] = level
+                    uprightRgb[off + 2] = level
+                }
+            }
+            val expected = checkNotNull(sampler.sampleRgb(uprightRgb, uprightW, uprightH, face)).cellRgbs.map { it.g }
+            for (rot in listOf(0, 90, 180, 270)) {
+                val rawW = if (rot % 180 == 90) uprightH else uprightW
+                val rawH = if (rot % 180 == 90) uprightW else uprightH
+                val yArr = ByteArray(rawW * rawH)
+                for (ry in 0 until rawH) {
+                    for (rx in 0 until rawW) {
+                        val (ux, uy) =
+                            when (rot) {
+                                0 -> rx to ry
+                                90 -> (rawH - 1 - ry) to rx
+                                180 -> (rawW - 1 - rx) to (rawH - 1 - ry)
+                                else -> ry to (rawW - 1 - rx)
+                            }
+                        yArr[ry * rawW + rx] = uprightRgb[(uy * uprightW + ux) * 3]
+                    }
+                }
+                val chroma = ByteArray((rawW / 2) * (rawH / 2)) { 128.toByte() }
+                val frame =
+                    YuvFrame(
+                        y = YuvPlane(ByteBuffer.wrap(yArr), rawW, 1),
+                        u = YuvPlane(ByteBuffer.wrap(chroma), rawW / 2, 1),
+                        v = YuvPlane(ByteBuffer.wrap(chroma), rawW / 2, 1),
+                        left = 0,
+                        top = 0,
+                        right = rawW,
+                        bottom = rawH,
+                    )
+                val obs = checkNotNull(sampler.sample(frame, rotationDegrees = rot, face = face))
+                for (i in 0 until 9) {
+                    assertEquals(expected[i], obs.cellRgbs[i].g, 1.5, "alongX=$alongX rot=$rot cell=$i")
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `a face whose sampled cells leave the frame is rejected instead of reading border pixels`() {
+        val colors = List(9) { Triple(210, 40, 42) }
+        val rgb = renderGridRgb(240, 240, left = 48, top = 48, size = 144, cellColors = colors)
+        val yuv = rgbToYuv(rgb, 240, 240)
+
+        // Only the outer margin of the quad is off-frame: every cell ROI is still inside, so it samples.
+        val marginOut = faceFor(-5.0, 48.0, 144.0)
+        assertNotNull(sampler.sampleRgb(rgb, 240, 240, marginOut))
+        for (rot in listOf(0, 90, 180, 270)) assertNotNull(sampler.sample(yuv, rot, faceFor(-5.0, -5.0, 144.0)), "rot=$rot")
+
+        // A third of the face is off-frame on one side: its outer cells were never seen.
+        for (cut in listOf(
+            faceFor(-48.0, 48.0, 144.0),
+            faceFor(48.0, -48.0, 144.0),
+            faceFor(144.0, 48.0, 144.0),
+            faceFor(48.0, 144.0, 144.0),
+        )) {
+            assertNull(sampler.sampleRgb(rgb, 240, 240, cut))
+            for (rot in listOf(0, 90, 180, 270)) assertNull(sampler.sample(yuv, rot, cut), "rot=$rot")
+        }
     }
 
     @Test
@@ -323,6 +411,7 @@ class ContinuousFaceSamplerTest {
         assertNull(sampler.sample(negLeft, 0, face))
         assertNull(sampler.sample(negTop, 0, face))
         assertNull(sampler.sampleRgb(ByteArray(16), 50_000, 50_000, face))
+        assertNull(sampler.sampleRgb(ByteArray(16), Int.MAX_VALUE, Int.MAX_VALUE, face))
 
         var detectCalls = 0
         val countingDetector =

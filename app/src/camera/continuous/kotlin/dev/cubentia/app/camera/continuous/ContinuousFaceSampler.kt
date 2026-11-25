@@ -48,21 +48,21 @@ internal class ContinuousFaceSampler {
         face: FittedFace,
     ): QuadObservation? {
         if (frame.left < 0 || frame.top < 0 || frame.width <= 0 || frame.height <= 0 || !face.quad.isFinite()) return null
+        val lastX = (frame.right - 1).toDouble()
+        val lastY = (frame.bottom - 1).toDouble()
+        // Pixel-index convention, as in warpFromRgb and StickerCenterModelTransform.fillYuvInput: a reversed
+        // axis mirrors about the last crop pixel, so every rotation reads the same pixels as the upright image.
         val rawCorners =
             face.quad.corners.map { c ->
-                val (rx, ry) =
-                    StickerCenterModelTransform.uprightToFrame(
-                        ux = c.x,
-                        uy = c.y,
-                        cropLeft = frame.left,
-                        cropTop = frame.top,
-                        cropRight = frame.right,
-                        cropBottom = frame.bottom,
-                        rotationDegrees = rotationDegrees,
-                    )
-                Point2D(rx, ry)
+                when (Math.floorMod(rotationDegrees, FULL_TURN)) {
+                    QUARTER_TURN -> Point2D(frame.left + c.y, lastY - c.x)
+                    HALF_TURN -> Point2D(lastX - c.x, lastY - c.y)
+                    THREE_QUARTER_TURN -> Point2D(lastX - c.y, frame.top + c.x)
+                    else -> Point2D(frame.left + c.x, frame.top + c.y)
+                }
             }
         val hRaw = ProjectiveGeometry.findHomography(DST_CORNERS, rawCorners) ?: return null
+        if (!sampledCellsInside(hRaw, frame.left.toDouble(), frame.top.toDouble(), lastX, lastY)) return null
         warpFromYuv(frame, hRaw)
         return summarizeWarp(face.quad, face.score)
     }
@@ -77,10 +77,38 @@ internal class ContinuousFaceSampler {
         height: Int,
         face: FittedFace,
     ): QuadObservation? {
-        if (width <= 0 || height <= 0 || rgb.size.toLong() < width.toLong() * height.toLong() * 3L || !face.quad.isFinite()) return null
+        if (width <= 0 || height <= 0 || rgb.size / 3 / width < height || !face.quad.isFinite()) return null
         val h = ProjectiveGeometry.findHomography(DST_CORNERS, face.quad.corners) ?: return null
+        if (!sampledCellsInside(h, 0.0, 0.0, (width - 1).toDouble(), (height - 1).toDouble())) return null
         warpFromRgb(rgb, width, height, h)
         return summarizeWarp(face.quad, face.score)
+    }
+
+    /**
+     * True when every sampled cell ROI of the warp maps inside the given image bounds. A face whose
+     * outer cells leave the image would otherwise read clamped border pixels as sticker colour evidence.
+     */
+    private fun sampledCellsInside(
+        h: DoubleArray,
+        minX: Double,
+        minY: Double,
+        maxX: Double,
+        maxY: Double,
+    ): Boolean {
+        var sign = 0.0
+        for (corner in 0 until 4) {
+            val wx = if (corner == 1 || corner == 2) ROI_MAX else ROI_MIN
+            val wy = if (corner >= 2) ROI_MAX else ROI_MIN
+            val den = h[6] * wx + h[7] * wy + h[8]
+            if (abs(den) <= 1e-9 || den * sign < 0.0) return false
+            sign = den
+            val x = (h[0] * wx + h[1] * wy + h[2]) / den
+            val y = (h[3] * wx + h[4] * wy + h[5]) / den
+            if (x < minX - EDGE_TOLERANCE || x > maxX + EDGE_TOLERANCE || y < minY - EDGE_TOLERANCE || y > maxY + EDGE_TOLERANCE) {
+                return false
+            }
+        }
+        return true
     }
 
     private fun warpFromYuv(
@@ -476,6 +504,15 @@ internal class ContinuousFaceSampler {
         const val SIDE = 96
         const val MAX_CELL_PIXELS = SIDE * SIDE
         const val MAX_CORNER_PIXELS = (SIDE / 3) * (SIDE / 3)
+
+        // Outermost warp pixels any cell ROI reads: the inner-48% ROI of the outer cells spans [0.26, 2.74) cells.
+        const val ROI_MIN = 8.0
+        const val ROI_MAX = 87.0
+        const val EDGE_TOLERANCE = 0.5
+        const val QUARTER_TURN = 90
+        const val HALF_TURN = 180
+        const val THREE_QUARTER_TURN = 270
+        const val FULL_TURN = 360
 
         val DST_CORNERS =
             listOf(

@@ -60,13 +60,8 @@ internal class AndroidFixture(
 <uses-feature android:name="android.hardware.camera.any" android:required="false"/>
 </manifest>""",
         )
-        write(
-            "src/camera/continuous/AndroidManifest.xml",
-            """<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
-<uses-permission android:name="android.permission.FOREGROUND_SERVICE" tools:node="remove"/>
-<uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" tools:node="remove"/>
-</manifest>""",
-        )
+        // The app's own manifest, not a copy: only this file strips LiteRT's permissions from a continuous-only release.
+        write("src/camera/continuous/AndroidManifest.xml", File("../app/src/camera/continuous/AndroidManifest.xml").readText())
         write(
             "src/camera/corner/AndroidManifest.xml",
             """<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">

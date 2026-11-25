@@ -340,7 +340,7 @@ internal object StickerCenterModelTransform {
         require(output.size >= StickerCenterModelContract.INPUT_BYTES) {
             "Expected output buffer >= ${StickerCenterModelContract.INPUT_BYTES}, got ${output.size}"
         }
-        if (width <= 0 || height <= 0 || rgb.size.toLong() < width.toLong() * height.toLong() * 3L) return null
+        if (width <= 0 || height <= 0 || rgb.size / 3 / width < height) return null
         val params = letterbox(width, height) ?: return null
         val inputSize = StickerCenterModelContract.INPUT_SIZE
         val nw = params.resizedWidth
@@ -471,7 +471,7 @@ internal object StickerCenterModelTransform {
         }
         val hmSize = StickerCenterModelContract.HEATMAP_SIZE
         val stride = StickerCenterModelContract.HEATMAP_STRIDE.toDouble()
-        val candidates = ArrayList<CandidatePeak>(maxPeaks * 2)
+        val candidates = ArrayList<CandidatePeak>()
 
         for (gy in 0 until hmSize) {
             val rowBase = gy * hmSize

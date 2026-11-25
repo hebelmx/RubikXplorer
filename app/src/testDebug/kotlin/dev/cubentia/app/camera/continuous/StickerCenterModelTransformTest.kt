@@ -475,6 +475,42 @@ class StickerCenterModelTransformTest {
 
         // 32-bit Int overflow guard (50_000 * 50_000 * 3 overflows signed Int to negative).
         assertNull(StickerCenterModelTransform.fillRgbArrayInput(ByteArray(16), 50_000, 50_000, out))
+        // Int.MAX_VALUE squared times 3 overflows even a signed Long.
+        assertNull(StickerCenterModelTransform.fillRgbArrayInput(ByteArray(16), Int.MAX_VALUE, Int.MAX_VALUE, out))
+    }
+
+    @Test
+    fun `fillYuvInput blends the four neighbouring luminances and decodePeaks accepts an unbounded peak limit`() {
+        // 512x512 -> 256x256: every output pixel centre falls exactly between four source pixels.
+        val side = 512
+        val tile = intArrayOf(40, 80, 120, 200)
+        val yBytes = ByteArray(side * side) { i -> tile[(i / side % 2) * 2 + i % side % 2].toByte() }
+        val chroma = ByteArray((side / 2) * (side / 2)) { 128.toByte() }
+        val frame =
+            YuvFrame(
+                y = YuvPlane(ByteBuffer.wrap(yBytes), side, 1),
+                u = YuvPlane(ByteBuffer.wrap(chroma), side / 2, 1),
+                v = YuvPlane(ByteBuffer.wrap(chroma), side / 2, 1),
+                left = 0,
+                top = 0,
+                right = side,
+                bottom = side,
+            )
+        val out = ByteArray(StickerCenterModelContract.INPUT_BYTES)
+        for (rot in listOf(0, 90, 180, 270)) {
+            assertNotNullAndReturn(StickerCenterModelTransform.fillYuvInput(frame, rot, out))
+            for (pixel in listOf(0, 255, 128 * 256 + 77, 255 * 256 + 255)) {
+                for (channel in 0 until 3) {
+                    assertEquals(110, out[pixel * 3 + channel].toInt() and 0xFF, "rot=$rot pixel=$pixel channel=$channel")
+                }
+            }
+        }
+
+        val params = checkNotNull(StickerCenterModelTransform.letterbox(640, 480))
+        val heatmap = FloatArray(StickerCenterModelContract.OUTPUT_FLOATS)
+        heatmap[(32 * 64 + 32) * 3] = 0.9f
+        val peaks = StickerCenterModelTransform.decodePeaks(heatmap, params, 0, 0, 640, 480, 0, maxPeaks = Int.MAX_VALUE)
+        assertEquals(1, peaks.size)
     }
 
     private fun <T> assertNotNullAndReturn(value: T?): T {
