@@ -182,7 +182,9 @@ These items were accepted or waived by the PO for v1.0 (#104 and #105 on 2026-11
   10,101), and the calibrated profile (k = 16.94) has 1 failure (3,303.6 ms scaled). See
   [benchmarks.md](benchmarks.md#story-38-calibrated-reference-device-equivalent-profile-2026-11-10).
   The zero-failure deviation and the recalibration of k against a release-equivalent device build are
-  waived by the PO for v1.0 and deferred to #105.
+  waived by the PO for v1.0 and deferred to #105. Closed 2026-11-25: a release-equivalent re-run on the
+  Lenovo TB128XU had 0 failures (max 1,499 ms) and the release-build k is about 7.7; see
+  [benchmarks.md](benchmarks.md#105-release-build-recalibration-of-k-and-re-run-of-the-solve-corpus-nfr-3-2026-11-25).
 - **Platform-only StrictMode disk reads (#107).** Samsung FlipFont reads in
   `Application.onCreate` (4 per process start) and `ActivityThread.getProfileSizeOfApp` (2 on the
   first process after install) have no movable app frame. The PO waived them for v1.0 against the

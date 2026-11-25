@@ -1,0 +1,18 @@
+--------- beginning of main
+11-25 08:57:35.981 22670 22670 I SolveCorpusBenchmark: device=samsung/SM-S721U1,api=37,release=17
+11-25 08:57:35.981 22670 22670 I SolveCorpusBenchmark: identity,fingerprint=samsung/r12suew/r12s:17/CP2A.260605.016/S721U1UEUEEZJ6:user/release-keys,cpus=10
+11-25 08:57:35.981 22670 22670 I SolveCorpusBenchmark: args,cases=10000,seed=20261031,warmup=200
+11-25 08:57:35.981 22670 22670 I SolveCorpusBenchmark: build,debuggable=false
+11-25 08:57:35.987 22670 22670 I SolveCorpusBenchmark: conditions,start,plugged=1,batteryPercent=90,thermalStatus=0,powerSave=true
+11-25 08:57:37.275 22670 22738 I SolveCorpusBenchmark: tablesReady,bytes=4031685,prepareNanos=1283921445
+11-25 08:59:33.551 22670 22738 I SolveCorpusBenchmark: report,Solve corpus benchmark: two-phase; 10000 uniform legal states + solved + 100 deep Scrambles; seed 20261031
+11-25 08:59:33.551 22670 22738 I SolveCorpusBenchmark: report,  cases          10101
+11-25 08:59:33.551 22670 22738 I SolveCorpusBenchmark: report,  median         6.446 ms
+11-25 08:59:33.551 22670 22738 I SolveCorpusBenchmark: report,  p95            35.093 ms
+11-25 08:59:33.551 22670 22738 I SolveCorpusBenchmark: report,  max            398.344 ms
+11-25 08:59:33.551 22670 22738 I SolveCorpusBenchmark: report,  within budget  100.0% (10101/10101 at or under 3000.000 ms)
+11-25 08:59:33.551 22670 22738 I SolveCorpusBenchmark: report,  failures       0 (0.0%)
+11-25 08:59:33.551 22670 22738 I SolveCorpusBenchmark: report,  peak heap      43.7 MiB
+11-25 08:59:33.552 22670 22738 I SolveCorpusBenchmark: raw,cases=10101,medianNanos=6445781.0,p95Nanos=35093281,maxNanos=398343555,withinBudget=10101,failures=0,peakHeapBytes=45829344,javaHeapMaxBytes=268435456,wallNanos=116276694258
+11-25 08:59:33.554 22670 22738 I SolveCorpusBenchmark: conditions,end,plugged=1,batteryPercent=89,thermalStatus=0,powerSave=true
+11-25 08:59:33.555 22670 22738 I SolveCorpusBenchmark: done
