@@ -5,7 +5,7 @@ created: '2026-11-24'
 status: 'done'
 baseline_revision: '5bb90a31da74477750c5d047f1efcb905b12f5c9'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/epic-12-context.md'
 warnings: ['oversized']
@@ -112,6 +112,40 @@ Severity-1/2 triage record (sources: the 2026-11-19 draft table and the device-s
   - `[low]` `[patch]` (edge) Gate 6 wording vs AC — grouped with intent finding.
   - `[false]` `[reject]` (gap) no verification gaps in behavioral code — the diff has no code; sprint_plan.py validate ran green.
 
+### 2026-11-24 — Review pass (follow-up)
+- verdicts: 29 findings — high 0, medium 3, low 20, false 6, maybe-false 0
+- layers: no `codex-review.on` marker in this worktree, so all four layers ran as Claude subagents; verification-gap reported no gaps (no finding)
+- findings:
+  - `[low]` `[reject]` (blind) spec frontmatter says in-review while Auto Run Result says done — the fix edits this build's spec (frontmatter is in-review only while this review runs; finalize sets done).
+  - `[low]` `[reject]` (blind) Verification still says "only the three files" — carried: the fix is an edit to this spec.
+  - `[low]` `[patch]` (blind) epic-12-context "Release order" bullet and Goal decide the 10.11 vs 12.5 order the spec defers to the PO — reworded: the order is open for a PO decision (deferred from 12.4), 10.11's text named as the newer statement.
+  - `[low]` `[reject]` (blind) v1.0 scope "grown to include camera" vs camera-free production — part of the same planning-doc ordering question already in `deferred`; no separate defect in this diff.
+  - `[low]` `[patch]` (blind) 6.8 Lenovo editor-paint jank FAIL missing from the checklist — Still-needed item added with the README anchor and action item `issue-253-deferred-editor-turn-search-main-thread`.
+  - `[false]` `[reject]` (blind) #325 (scan Close drops faces) not tracked before a camera raise — `gh issue view 325`: CLOSED.
+  - `[low]` `[patch]` (blind) device-session Blocks 2, 3, 4, 7 and Block 6 camera items not listed as open — Still-needed item added (README resume plan; #198/#200 noted closed in GitHub).
+  - `[false]` `[reject]` (blind) #127's dependency on Story 13.6 not named — sprint-status: `13-6-register-the-privacy-policy-in-play-console: done`, so no open blocker is hidden.
+  - `[low]` `[patch]` (blind) 6.9 cited without its "not covered" caveat — caveat added to gate 5.
+  - `[false]` `[reject]` (blind) PR #360 "7 of 7 flows" has no evidence link — PR #360 is linked and its body records `OFFLINE=1 tools/run-keyflow-rotation.sh`, all 7 flows pass.
+  - `[low]` `[patch]` (blind) 6.8/6.9 links point at the README root — section anchors added.
+  - `[low]` `[patch]` (blind) gate-5 cell repeats the dfc5c3d6 SHA and the benchmark-build note — duplicate SHA removed (restructuring the cell rejected as cosmetic).
+  - `[low]` `[patch]` (blind) dropped "link the final CI and release run URLs for the release-candidate commit" — restored in Still needed.
+  - `[low]` `[patch]` (blind) sprint-status evidence names no fixed source — this spec's path added to the evidence field; validate ok.
+  - `[low]` `[patch]` (blind) "issue fixes promoted on 2026-11-20 and 2026-11-24" is vague — the two SCP files named.
+  - `[low]` `[patch]` (edge) Block 5 runs cited without revision — `dfc5c3d6864968e455f09de4bfd3e0ab87e8228b`, before #357 and PR #360, stated.
+  - `[low]` `[patch]` (edge) "10,000 steps in 183 s" credited to EndToEndSyncVerificationTest — moved to Cube3DRenderSyncTest's 10,000-step test (README line 68).
+  - `[low]` `[patch]` (edge) gate 5 cites the release-tag offline Key Flow suite without its latest (failed) outcome — v0.10.0 run 45514196023 failure stated.
+  - `[false]` `[reject]` (edge) no checklist item for re-checking gate 6 on a camera raise — the Gate 6 section already records that Story 10.11 checks gate 6 for each feature it raises; this checklist is the camera-free release.
+  - `[low]` `[patch]` (edge) #338 left out of the no-severity list — added (label-review issue, same session as #337).
+  - `[low]` `[reject]` (edge) spec frontmatter vs Auto Run Result — same as the blind row: fix edits this spec.
+  - `[medium]` `[patch]` (edge) severities of #206, #207, #194–#196 lost the source's "proposed" label — each now reads "proposed (…, 2026-11-19 draft)"; note added that no per-issue PO confirmation is recorded, with the PO's 2026-11-24 statement; Still-needed confirmation item covers all six.
+  - `[low]` `[patch]` (edge) dropped release-candidate CI/release URL item — grouped with the blind row.
+  - `[medium]` `[patch]` (edge) severities quoted as final — grouped with the proposed-severity row.
+  - `[medium]` `[patch]` (intent a) proposed severities relabelled as confirmed — grouped with the proposed-severity row.
+  - `[low]` `[reject]` (intent b) #195/#196 resolution is a deferral — carried: already stated as open and unreachable, with the pre-raise rule.
+  - `[false]` `[reject]` (intent c) story title vs status — carried: build-auto never sets the story's sprint-status line; open evidence is named in Auto Run Result.
+  - `[low]` `[patch]` (intent d) epic context picks a side in the release-order conflict — grouped with the blind release-order row.
+  - `[false]` `[reject]` (intent e/f) gate 2 "each scenario checks its category's Recovery Path" unbacked; minor notes — RecoveryPathScenarioTest asserts the diagnosed `recoveryPath` in every scenario (lines 60–129); f reports no defect.
+
 ## Verification
 
 **Commands:**
@@ -153,3 +187,17 @@ Status: done
 - #314: the 10,000-step render-sync test needs a device-tiered timeout.
 - The PO has not confirmed #354's proposed severity 2.
 - Codex was unavailable (usage limit), so the implementation and review ran on Claude subagents.
+
+### Follow-up review pass (2026-11-24)
+
+**Summary:** a second review re-checked the checklist claims against their sources. The severity column now keeps the source's "proposed" label for all six issues, with a note that no per-issue PO confirmation is recorded beside the PO's 2026-11-24 statement. Gate 3 and gate 5 name the Block 5 revision, credit the 183 s timing to the right test, state the failed v0.10.0 offline Key Flow run and add the 6.9 caveat. "Still needed" gains the release-candidate CI/release URLs, the unrun device-session blocks and the 6.8 editor-paint jank FAIL. The epic context no longer settles the 10.11 vs 12.5 order; it marks it open for the PO.
+
+**Files changed in this pass:** `docs/release-gates-v1.0.md` (claim corrections and follow-ups), `_bmad-output/implementation-artifacts/epic-12-context.md` (release order marked open, SCPs named), `_bmad-output/implementation-artifacts/sprint-status.yaml` (evidence field cites this spec), this spec.
+
+**Review:** 29 findings. Patched by verdict: medium 1 entry (the grouped proposed-severity entry, 3 rows), low 13 entries. Deferred: none new. Rejected: 5 low (spec-edit fixes, carried rows, the scope note covered by the existing deferral), 6 false (see triage log).
+
+**Follow-up review recommended:** false. This is a follow-up pass and no high finding was patched.
+
+**Verification:** `sprint_plan.py validate --status-file _bmad-output/implementation-artifacts/sprint-status.yaml` is valid with no problems. `git diff --stat` shows only the four files above. #198, #200 (closed), #314, #338 (open), #325 (closed), #127 (open) and PR #360 checked with `gh`. No app, test, workflow, tag or planning-artifact change.
+
+**Residual risks:** the README section anchors were derived from GitHub's heading-slug rules and not checked in a rendered view. All open follow-ups from the first pass remain (pilot #127 and SM baselines, a green release device-suite run after v0.9.0, the a11y table, the Play-track offline run, vitals, #314, PO severity confirmation).
