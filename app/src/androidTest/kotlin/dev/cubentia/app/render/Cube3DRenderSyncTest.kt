@@ -51,8 +51,11 @@ import kotlin.time.Instant
  */
 @RunWith(AndroidJUnit4::class)
 class Cube3DRenderSyncTest {
-    @get:Rule
+    @get:Rule(order = 0)
     val rule = createComposeRule()
+
+    @get:Rule(order = 1)
+    val tieredTimeout = DeviceTieredTimeoutRule()
 
     private val host = SessionHost(TickingClock())
     private val renderer = Cube3DRenderer()
@@ -74,7 +77,8 @@ class Cube3DRenderSyncTest {
         )
     }
 
-    @Test(timeout = 300_000)
+    @Test
+    @DeviceTieredTimeout
     fun tenThousandRandomStepsKeepTheCubeEqualToTheVirtualState() {
         rule.mainClock.autoAdvance = false
         rule.setContent { renderer.Content(RenderStyle(), Modifier.fillMaxSize()) }
