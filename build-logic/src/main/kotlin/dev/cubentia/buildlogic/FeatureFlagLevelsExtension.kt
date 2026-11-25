@@ -20,6 +20,13 @@ open class FeatureFlagLevelsExtension {
     /** True when [buildType] has a camera flag above OFF and `cubentia.release` composes the camera into it. */
     fun isCameraEnabled(buildType: String?): Boolean = composesCamera && FeatureFlagLevels.isCameraEnabled(levels(buildType))
 
-    /** True when [buildType] enables a corner-detection feature eligible for the LiteRT 7-keypoint runtime. */
+    /** True when [buildType] enables continuous Quick Scan (`QUICK_SCAN`, LiteRT sticker-center detector). */
+    fun isContinuousModelEnabled(buildType: String?): Boolean =
+        composesCamera && FeatureFlagLevels.isContinuousModelEnabled(levels(buildType))
+
+    /** True when [buildType] enables legacy corner detection (`CASE_RECOGNITION`, LiteRT 7-keypoint detector). */
     fun isCornerModelEnabled(buildType: String?): Boolean = composesCamera && FeatureFlagLevels.isCornerModelEnabled(levels(buildType))
+
+    /** True when [buildType] enables any LiteRT-backed camera detector (`QUICK_SCAN` or `CASE_RECOGNITION`). */
+    fun isLiteRtEnabled(buildType: String?): Boolean = composesCamera && FeatureFlagLevels.isLiteRtEnabled(levels(buildType))
 }

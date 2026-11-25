@@ -20,9 +20,9 @@ import org.gradle.api.tasks.TaskAction
 import java.util.zip.ZipFile
 
 /**
- * Story 10.23: fails a non-debuggable variant (release, benchmark, `cornerR8`) whose merged assets hold a
- * `sticker_reader*.tflite` or whose compiled classes hold any `dev/cubentia/app/camera/sticker/` class, naming each
- * offending entry (see [ShadowReaderPolicy]).
+ * Story 10.23 / 10.31: fails any non-debuggable variant (release, benchmark, `cornerR8`, `release011`) whose merged
+ * assets hold a `sticker_reader*.tflite` or whose compiled classes hold any `dev/cubentia/app/camera/sticker/` class,
+ * naming each offending entry (see [ShadowReaderPolicy]).
  */
 @CacheableTask
 abstract class CheckShadowReaderTask : DefaultTask() {
@@ -62,7 +62,7 @@ abstract class CheckShadowReaderTask : DefaultTask() {
             .writeText(violations.joinToString("\n"))
         if (violations.isNotEmpty()) {
             throw GradleException(
-                "Story 10.23 shadow-reader check failed for variant ${variantName.get()} (the reader is debug-only):\n" +
+                "Story 10.23/10.31 shadow-reader guard failed for variant ${variantName.get()} (the shadow reader is retired):\n" +
                     violations.joinToString("\n") { "  - $it" },
             )
         }

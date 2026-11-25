@@ -78,4 +78,16 @@ class CameraSizePolicyTest {
         // Expect 55% (measured cornerR8 factor) of 100 KB jar + 100% of 5 MB arm64-v8a (NOT 7.5 MB x86_64).
         assertEquals(5_055_000L, CheckCameraSizeTask.artifactRuntimeBytes(aar))
     }
+
+    @Test
+    fun legacyCornerAndDebugOnlyGlobsAreExcludedFrom011Projection() {
+        assertEquals(
+            listOf("dev/cubentia/app/camera/recorder/**", "dev/cubentia/app/camera/sticker/**"),
+            CameraSizePolicy.debugOnlyClassGlobs,
+        )
+        assertEquals(
+            listOf("dev/cubentia/app/camera/corner/**"),
+            CameraSizePolicy.legacyCornerClassGlobs,
+        )
+    }
 }

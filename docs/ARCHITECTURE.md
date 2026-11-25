@@ -162,7 +162,7 @@ graph LR
 - **Pixel code stays in one adapter.** Only the CameraX adapter touches pixels; everything after it is pure, JVM-testable Kotlin. Recorded `FaceSample` fixtures let recognition accuracy be tested in CI (AD-9).
 - **The 6-face scan needs no computer-vision library.** It uses a fixed on-screen grid, so the adapter only reads colors from known positions.
 - **Images stay in memory and on the device.** A debug-only tool records samples, never images, for the device × lighting × cube test matrix.
-- **OFF means absent, not hidden.** The CameraX adapter lives in a separate `app/src/camera/` source set that the build adds only when a camera flag is above OFF, and Quick Scan's LiteRT 7-keypoint corner detector + `.tflite` model live in `app/src/camera/corner/` added only when `QUICK_SCAN` or `CASE_RECOGNITION` is above OFF; the rest of the app reaches scanning through `ScanLauncher`. A release with camera flags OFF has no camera code, no ML library and no camera permission (AD-9, AD-13, AD-18).
+- **OFF means absent, not hidden.** The CameraX adapter lives in a separate `app/src/camera/` source set that the build adds only when a camera flag is above OFF. Continuous Quick Scan's LiteRT v2 INT8 sticker-center detector + `sticker_centers_v2_int8.tflite` live in `app/src/camera/continuous/` added only when `QUICK_SCAN` is above OFF, while legacy 7-keypoint corner detection + `corner_keypoints.tflite` live in `app/src/camera/corner/` added only when `CASE_RECOGNITION` is above OFF; LiteRT is composed only when either flag is above OFF. The rest of the app reaches scanning through `ScanLauncher`. A release with camera flags OFF has no camera code, no ML library and no camera permission (AD-9, AD-13, AD-18).
 
 ## 9. Privacy, offline and quality are enforced by the build
 
@@ -191,13 +191,13 @@ graph LR
 
 ## 11. Stack (verified October 2026)
 
-Kotlin 2.4.21 · AGP 9.5 (built-in Kotlin) · Compose BOM 2026.09.00 · Material3 1.4 · Hilt 2.60 · Room 3.0 · CameraX 1.6.2 · LiteRT 2.3.2 (Quick Scan corner source set; debug-only shadow sticker reader) · kotlinx.serialization 1.12 · coroutines 1.11 · custom OpenGL ES 3.0 renderer (no 3D library) · Kotest 6.2 · JUnit Jupiter 6 · Kover · Spotless/ktlint · GitHub Actions · minSdk 29, targetSdk 36.
+Kotlin 2.4.21 · AGP 9.5 (built-in Kotlin) · Compose BOM 2026.09.00 · Material3 1.4 · Hilt 2.60 · Room 3.0 · CameraX 1.6.2 · LiteRT 2.3.2 (continuous Quick Scan source set `app/src/camera/continuous/` and legacy `CASE_RECOGNITION` source set `app/src/camera/corner/`) · kotlinx.serialization 1.12 · coroutines 1.11 · custom OpenGL ES 3.0 renderer (no 3D library) · Kotest 6.2 · JUnit Jupiter 6 · Kover · Spotless/ktlint · GitHub Actions · minSdk 29, targetSdk 36.
 
 ## 12. Open technical questions
 
 | Question | Resolved by |
 | --- | --- |
-| Quick Scan corner detection (Kotlin / OpenCV / LiteRT) | Resolved (OQ-7 + SCP 2026-11-20): Guided 6-face Scan stays pure Kotlin and the Kotlin sticker classifier stays the reader of record; Quick Scan 3D corner detection uses a tiny 7-keypoint LiteRT `.tflite` model behind `CornerDetector` in `app/src/camera/corner/` (within 30 MB NFR-11; OpenCV rejected on size). Since SCP 2026-11-22 quick-scan-sticker-reader, LiteRT is also allowed for Quick Scan sticker reading: Story 10.23 adds a shadow reader in debug builds only, which logs beside the Kotlin reads and decides nothing |
+| Quick Scan recognition (Kotlin / OpenCV / LiteRT) | Resolved (OQ-7 + SCP 2026-11-20 + SCP 2026-11-24 continuous-quick-scan): Guided 6-face Scan stays pure Kotlin. Continuous Quick Scan uses a clean-room LiteRT v2 INT8 sticker-center detector (`sticker_centers_v2_int8.tflite`, 369.4 KB) behind `@BindsOptionalOf StickerCenterDetector` in `app/src/camera/continuous/` feeding pure-JVM `FaceLatticeFitter` + `ContinuousFaceletMapper` in `:core:domain` (within 30 MB NFR-11; OpenCV rejected on size). Legacy `CASE_RECOGNITION` keeps the 7-keypoint corner detector in `app/src/camera/corner/` (`CASE_RECOGNITION=OFF` in 0.11.0 / v1.0.0). Story 10.23's debug shadow sticker reader is retired, while `ShadowReaderPolicy` stays as a non-debuggable release guard |
 | Performance on the reference devices (minimum Lenovo Tab M10 Plus 3rd Gen, mid Galaxy S24 FE; the Galaxy Tab S7 FE 5G, minimum until 2026-11-12, is an additional compatibility device, SCP 2026-11-12) | Story 1.10 benchmark; above 33.3 ms p90 per frame reopens the renderer choice. On the Lenovo the frame-interval p90 is 18.35 ms (face turns) and 19.66 ms (View Rotation) (Story 12.2 Macrobenchmark, `docs/benchmarks.md`) |
 | Solver internals (bundled or generated pruning tables) | solver epic, within the 3 s timeout and 30 MB app size |
 

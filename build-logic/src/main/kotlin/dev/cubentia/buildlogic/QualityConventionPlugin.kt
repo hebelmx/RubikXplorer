@@ -44,7 +44,7 @@ class QualityConventionPlugin : Plugin<Project> {
                             group = LifecycleBasePlugin.VERIFICATION_GROUP
                             variantName.set(variant.name)
                             cameraEnabled.set(flagLevels.isCameraEnabled(variant.buildType))
-                            cornerModelEnabled.set(flagLevels.isCornerModelEnabled(variant.buildType))
+                            liteRtEnabled.set(flagLevels.isLiteRtEnabled(variant.buildType))
                             runtimeCoordinates.set(
                                 variant.runtimeConfiguration.incoming.resolutionResult.rootComponent
                                     .map(CheckSdkDenylistTask::coordinates),
@@ -75,12 +75,13 @@ class QualityConventionPlugin : Plugin<Project> {
                             report.set(layout.buildDirectory.file("reports/cubentia/${variant.name}/elf-alignment.txt"))
                         }
                     if (!variant.debuggable) {
-                        // Story 10.23: the shadow sticker reader and its model are debug-only; every shipped-like variant
-                        // (release, benchmark, cornerR8) proves it carries neither.
+                        // Story 10.23 / 10.31: the shadow sticker reader is retired; every non-debuggable variant
+                        // (release, benchmark, cornerR8, release011) proves it carries neither the model nor any reader class.
                         val shadowReaderCheck =
                             tasks.register<CheckShadowReaderTask>("check${suffix}ShadowReader") {
                                 group = LifecycleBasePlugin.VERIFICATION_GROUP
-                                description = "Fails when ${variant.name} carries the debug-only shadow sticker reader or its model."
+                                description =
+                                    "Fails when ${variant.name} carries the retired Story 10.23 shadow sticker reader or its model."
                                 variantName.set(variant.name)
                                 mergedAssets.set(variant.artifacts.get(SingleArtifact.ASSETS))
                                 report.set(layout.buildDirectory.file("reports/cubentia/${variant.name}/shadow-reader.txt"))

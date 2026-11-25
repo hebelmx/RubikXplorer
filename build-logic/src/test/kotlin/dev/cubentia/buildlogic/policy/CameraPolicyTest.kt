@@ -16,27 +16,27 @@ class CameraPolicyTest {
                 "org.opencv:opencv:1",
             )
         assertEquals(coordinates.size, CameraClasspathPolicy.check(coordinates, cameraEnabled = false).size)
-        // Camera ON + corner model ON allows CameraX and LiteRT, while still forbidding ML Kit, TensorFlow and OpenCV.
+        // Camera ON + LiteRT ON allows CameraX and LiteRT, while still forbidding ML Kit, TensorFlow and OpenCV.
         assertEquals(
             3,
-            CameraClasspathPolicy.check(coordinates, cameraEnabled = true, cornerModelEnabled = true).size,
+            CameraClasspathPolicy.check(coordinates, cameraEnabled = true, liteRtEnabled = true).size,
         )
         assertTrue(
             CameraClasspathPolicy
                 .check(
                     listOf("androidx.camera:camera-core:1", "com.google.ai.edge.litert:litert:1"),
                     cameraEnabled = true,
-                    cornerModelEnabled = true,
+                    liteRtEnabled = true,
                 ).isEmpty(),
         )
-        // Camera ON + corner model OFF allows CameraX alone and rejects LiteRT.
+        // Camera ON + LiteRT OFF allows CameraX alone and rejects LiteRT.
         assertEquals(
             1,
             CameraClasspathPolicy
                 .check(
                     listOf("androidx.camera:camera-core:1", "com.google.ai.edge.litert:litert:1"),
                     cameraEnabled = true,
-                    cornerModelEnabled = false,
+                    liteRtEnabled = false,
                 ).size,
         )
         assertTrue(CameraClasspathPolicy.check(listOf("androidx.core:core:1"), cameraEnabled = false).isEmpty())

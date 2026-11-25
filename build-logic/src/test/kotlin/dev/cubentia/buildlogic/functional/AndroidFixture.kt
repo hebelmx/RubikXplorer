@@ -38,11 +38,17 @@ internal class AndroidFixture(
         publishAar(
             "com.google.ai.edge.litert",
             "litert",
-            mapOf(
-                "jni/arm64-v8a/libLiteRt.so" to
-                    dev.cubentia.buildlogic.policy.ElfAlignmentPolicyTest
-                        .elf64(listOf(0x4000L)),
-            ),
+            entries =
+                mapOf(
+                    "jni/arm64-v8a/libLiteRt.so" to
+                        dev.cubentia.buildlogic.policy.ElfAlignmentPolicyTest
+                            .elf64(listOf(0x4000L)),
+                ),
+            manifestPermissions =
+                listOf(
+                    "android.permission.FOREGROUND_SERVICE",
+                    "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
+                ),
         )
         write("gradle.properties", GRADLE_PROPERTIES)
         write("build.gradle.kts", buildScript(plugins, buildTypes, defaultConfig))
@@ -55,15 +61,23 @@ internal class AndroidFixture(
 </manifest>""",
         )
         write(
-            "src/camera/debug/AndroidManifest.xml",
-            """<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-<application><activity android:name="dev.cubentia.fixture.FixtureRecorderActivity" android:exported="false"/></application>
+            "src/camera/continuous/AndroidManifest.xml",
+            """<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE" tools:node="remove"/>
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" tools:node="remove"/>
 </manifest>""",
         )
         write(
-            "src/camera/debug/sticker/AndroidManifest.xml",
+            "src/camera/corner/AndroidManifest.xml",
+            """<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE" tools:node="remove"/>
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" tools:node="remove"/>
+</manifest>""",
+        )
+        write(
+            "src/camera/debug/AndroidManifest.xml",
             """<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-<application><receiver android:name="dev.cubentia.fixture.ShadowReaderToggleReceiver" android:exported="false"/></application>
+<application><activity android:name="dev.cubentia.fixture.FixtureRecorderActivity" android:exported="false"/></application>
 </manifest>""",
         )
         projectDir.resolve("local.properties").outputStream().use { output ->
@@ -96,6 +110,7 @@ internal class AndroidFixture(
         group: String,
         module: String,
         entries: Map<String, ByteArray> = emptyMap(),
+        manifestPermissions: List<String> = emptyList(),
     ) {
         val dir = "local-repo/${group.replace('.', '/')}/$module/1.0"
         write(
@@ -103,10 +118,12 @@ internal class AndroidFixture(
             """<project><modelVersion>4.0.0</modelVersion>
 <groupId>$group</groupId><artifactId>$module</artifactId><version>1.0</version><packaging>aar</packaging></project>""",
         )
+        val permsXml =
+            manifestPermissions.joinToString("") { """<uses-permission android:name="$it"/>""" }
         ZipOutputStream(projectDir.resolve("$dir/$module-1.0.aar").outputStream()).use { zip ->
             zip.putNextEntry(java.util.zip.ZipEntry("AndroidManifest.xml"))
             zip.write(
-                """<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="$group"><uses-sdk android:minSdkVersion="21"/></manifest>"""
+                """<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="$group"><uses-sdk android:minSdkVersion="21"/>$permsXml</manifest>"""
                     .toByteArray(),
             )
             zip.closeEntry()

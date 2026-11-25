@@ -4,17 +4,24 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.File
 
-/** Story 10.23 (AC7): the shadow sticker reader composes only into debuggable corner-model builds, and the check proves it. */
+/**
+ * Story 10.23 / Story 10.31: the debug shadow sticker reader is retired (no variant composes `src/camera/debug/sticker/`),
+ * while `check*ShadowReader` remains as a non-debuggable release guard against any `sticker_reader*.tflite` asset or
+ * `dev/cubentia/app/camera/sticker/` class (allowing `sticker_centers_v2_int8.tflite`).
+ */
 class ShadowReaderCompositionFunctionalTest {
     private fun fixture(name: String) =
         AndroidFixture("shadow-$name", plugins = listOf("cubentia.release", "cubentia.quality")).also {
-            it.write("src/camera/debug/sticker/assets/sticker_reader.tflite", "not a model")
+            it.write("src/camera/debug/sticker/assets/sticker_reader.tflite", "retired model")
+            it.write(
+                "src/camera/debug/sticker/AndroidManifest.xml",
+                """<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<application><receiver android:name="dev.cubentia.fixture.ShadowReaderToggleReceiver" android:exported="false"/></application>
+</manifest>""",
+            )
+            it.write("src/camera/continuous/assets/sticker_centers_v2_int8.tflite", "continuous model")
+            it.write("src/camera/corner/assets/corner_keypoints.tflite", "corner model")
         }
-
-    private fun append(
-        fixture: AndroidFixture,
-        script: String,
-    ) = fixture.write("build.gradle.kts", fixture.projectDir.resolve("build.gradle.kts").readText() + "\n" + script)
 
     private fun manifest(
         fixture: AndroidFixture,
@@ -39,36 +46,24 @@ class ShadowReaderCompositionFunctionalTest {
             .toList()
 
     @Test
-    fun `debug composes the sticker folder and release does not`() {
-        val f = fixture("today")
+    fun `neither debug nor release composes the retired sticker folder and continuous model passes guard`() {
+        val f = fixture("retired")
         f.build(
             "mergeDebugAssets",
             "checkDebugMergedManifest",
             "checkReleaseMergedManifest",
             "checkReleaseShadowReader",
             "checkBenchmarkShadowReader",
+            "-Pcubentia.release011=true",
+            "checkRelease011ShadowReader",
+            "-Pcubentia.cornerR8=true",
+            "checkCornerR8ShadowReader",
         )
-        assertTrue("ShadowReaderToggleReceiver" in manifest(f, "debug"), manifest(f, "debug"))
-        assertTrue("sticker_reader.tflite" in mergedAssets(f, "debug"), mergedAssets(f, "debug").toString())
+        assertTrue("ShadowReaderToggleReceiver" !in manifest(f, "debug"), manifest(f, "debug"))
+        assertTrue("sticker_reader.tflite" !in mergedAssets(f, "debug"), mergedAssets(f, "debug").toString())
+        assertTrue("sticker_centers_v2_int8.tflite" in mergedAssets(f, "debug"), mergedAssets(f, "debug").toString())
         assertTrue("ShadowReaderToggleReceiver" !in manifest(f, "release"), manifest(f, "release"))
         assertTrue("sticker_reader.tflite" !in mergedAssets(f, "release"), mergedAssets(f, "release").toString())
-    }
-
-    @Test
-    fun `debuggable without a corner-model flag does not compose it`() {
-        val f = fixture("no-corner")
-        append(
-            f,
-            """
-            cubentiaFeatureFlags {
-                byBuildType = byBuildType + ("debug" to (byBuildType.getValue("debug") + ("QUICK_SCAN" to "OFF") + ("CASE_RECOGNITION" to "OFF")))
-            }
-            """.trimIndent(),
-        )
-        f.build("mergeDebugAssets", "checkDebugMergedManifest")
-        val debug = manifest(f, "debug")
-        assertTrue("android.permission.CAMERA" in debug && "ShadowReaderToggleReceiver" !in debug, debug)
-        assertTrue("sticker_reader.tflite" !in mergedAssets(f, "debug"), mergedAssets(f, "debug").toString())
     }
 
     @Test

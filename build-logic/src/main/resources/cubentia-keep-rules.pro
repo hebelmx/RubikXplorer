@@ -5,9 +5,10 @@
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
 
-# LiteRT (com.google.ai.edge.litert) JNI bridges used by Quick Scan corner detection when corner flags are above OFF.
-# Kept inert in OFF builds where LiteRT is absent from the classpath. Proven on a device by running
-# LiteRtCornerDetectorDeviceTest against the opt-in R8 build type: -Pcubentia.cornerR8=true :app:connectedCornerR8AndroidTest.
+# LiteRT (com.google.ai.edge.litert) JNI bridges used by continuous Quick Scan (QUICK_SCAN) and legacy corner
+# detection (CASE_RECOGNITION) when either flag is above OFF. Kept inert in OFF builds where LiteRT is absent from
+# the classpath. Proven on a device by running LiteRtCornerDetectorDeviceTest and LiteRtStickerCenterDetectorDeviceTest
+# against the opt-in R8 build type: -Pcubentia.cornerR8=true :app:connectedCornerR8AndroidTest.
 -keepclasseswithmembernames,includedescriptorclasses class org.tensorflow.lite.** {
     native <methods>;
 }
