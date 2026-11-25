@@ -9,6 +9,7 @@ import dev.cubentia.domain.recognition.PhysicalObservation
 import dev.cubentia.domain.text.Text
 import dev.cubentia.domain.tutor.Certainty
 import dev.cubentia.domain.tutor.MoveFeedback
+import dev.cubentia.domain.tutor.ObservationCheck
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -255,11 +256,13 @@ class QuickCheckSessionTest {
         }
     }
 
-    @Test fun `empty partial clears pending without changing evidence or sync`() {
+    @Test fun `empty partial records unknown and clears pending without changing the physical cube`() {
         val state = physical().after(SessionEvent.PhysicalConfirmed(R, T0))
         val before = observed(requested(state), partial(state.expected.apply(R), setOf(Face.R, Face.U)))
         val next = observed(requested(before), PhysicalObservation.Partial(emptyMap()))
-        assertEquals(before.quickCheck, next.quickCheck)
+        assertEquals(ObservationCheck(Certainty.UNKNOWN, emptyList()), next.quickCheck)
+        assertEquals(before.touchedSinceVerified, next.touchedSinceVerified)
+        assertEquals(before.physicalSolveConfirmed, next.physicalSolveConfirmed)
         assertEquals(before.observed, next.observed)
         assertEquals(before.syncState, next.syncState)
     }

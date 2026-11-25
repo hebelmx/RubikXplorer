@@ -158,6 +158,109 @@ class FaceLocatorTest {
     }
 
     @Test
+    fun `an offset black-body face retains its sticker colors on black and light backgrounds`() {
+        for ((scale, dx, dy) in listOf(Triple(0.75, 0.3, -0.4), Triple(0.8, 0.4, -0.3), Triple(0.85, 0.5, 0.5))) {
+            for (background in listOf(BODY, LIGHT_BACKGROUND)) {
+                val name = "scale $scale offset ($dx, $dy) on $background"
+                val frame = face(scale = scale, dx = dx, dy = dy, background = background)
+                assertTrue(FrameQuality.assess(FrameReader.readAt(frame, grid)) != CaptureQuality.ACCEPTABLE, name)
+                val reading = FrameReader.locate(frame, grid)
+                assertCaptures(reading.stats, name)
+                assertColors(reading.stats, scrambled, name)
+            }
+        }
+    }
+
+    @Test
+    fun `rank spends its limited reads on clean candidates before higher scoring dark ones`() {
+        // Only the lower right sticker is black. Shrinking toward the upper left avoids it but loses its edge contrast.
+        val white = Triple(180, 180, 180)
+        val frame = face(colors = List(8) { white } + listOf(DARK), sticker = 1.0, background = white)
+        val map = FaceLocator.LumaMap(frame, grid)
+        val dark = Triple(1.0, 0.0, 0.0)
+        val clean = listOf(Triple(0.7, -0.5, -0.5), Triple(0.7, -0.4, -0.5))
+        val candidates = listOf(dark) + clean
+
+        fun scoreOf(candidate: Triple<Double, Double, Double>): Double {
+            val (scale, dx, dy) = candidate
+            return FaceLocator.score(map, scale, dx, dy)
+        }
+        assertTrue(clean.all { scoreOf(dark) > scoreOf(it) })
+        val expected = clean.sortedByDescending(::scoreOf) + dark
+        for (count in 1..candidates.size) {
+            val ranked = FaceLocator.rank(map, candidates, count)
+            assertEquals(expected.take(count), ranked.map { Triple(it.scale, it.dx, it.dy) })
+        }
+    }
+
+    @Test
+    fun `all dark candidates retain score order and ties retain input order`() {
+        val map = FaceLocator.LumaMap(frame(width, height, noise = 0) { _, _ -> DARK }, grid)
+        val candidates = listOf(Triple(0.7, 0.0, 0.0), Triple(1.0, -0.5, 0.0), Triple(1.0, 0.5, 0.0), Triple(1.0, 0.0, 0.0))
+        val ranked = FaceLocator.rank(map, candidates, count = 3)
+        assertEquals(listOf(candidates[3], candidates[1], candidates[2]), ranked.map { Triple(it.scale, it.dx, it.dy) })
+    }
+
+    @Test
+    fun `a dark drawn grid can contain an acceptable well-lit face`() {
+        val colors = List(9) { Triple(150, 20, 80) }
+        val frame = face(colors = colors, scale = 0.75, dx = 0.4, dy = -0.5, background = BODY)
+        assertEquals(CaptureQuality.LOW_LIGHT, FrameQuality.assess(FrameReader.readAt(frame, grid)))
+        val reading = FrameReader.locate(frame, grid)
+        assertCaptures(reading.stats, "dark drawn grid")
+        assertColors(reading.stats, colors, "located face")
+    }
+
+    @Test
+    fun `a well-lit face just outside the tolerance on a dark background coaches the move, not low light`() {
+        val frame = face(colors = List(9) { Triple(150, 20, 80) }, scale = 0.8, dx = 1.0, background = BODY)
+        assertEquals(CaptureQuality.LOW_LIGHT, FrameQuality.assess(FrameReader.readAt(frame, grid)))
+        val reading = FrameReader.locate(frame, grid)
+        val quality = FrameQuality.assess(reading.stats)
+        assertEquals(CaptureQuality.LOW_LIGHT, quality)
+        assertEquals(Framing.LEFT, reading.stats.framing, "outside ${reading.outside}")
+        assertEquals(Coaching.MOVE_LEFT, GuidedScanController.coachingFor(quality, reading.stats.framing))
+        val controller = GuidedScanController()
+        controller.onFrame(reading.stats, 0, 0)
+        assertEquals(Coaching.MOVE_LEFT, controller.coaching)
+    }
+
+    @Test
+    fun `rank does not treat a dim but saturated sticker as a dark cell`() {
+        // A dark blue in dim light: as dark as the black body, but far more chromatic.
+        val blue = Triple(10, 30, 110)
+        val lab = FrameReader.rgbToLab(blue.first, blue.second, blue.third)
+        assertTrue(lab.l <= FrameQuality.DARK_CELL_MAX_L && sqrt(lab.a * lab.a + lab.b * lab.b) > FrameQuality.DARK_CELL_MAX_CHROMA)
+        val white = Triple(180, 180, 180)
+        val frame = face(colors = List(8) { white } + listOf(blue), sticker = 1.0, background = white)
+        val map = FaceLocator.LumaMap(frame, grid)
+        val full = Triple(1.0, 0.0, 0.0)
+        val clean = listOf(Triple(0.7, -0.5, -0.5), Triple(0.7, -0.4, -0.5))
+        assertTrue(clean.all { (scale, dx, dy) -> FaceLocator.score(map, 1.0, 0.0, 0.0) > FaceLocator.score(map, scale, dx, dy) })
+        val ranked = FaceLocator.rank(map, listOf(full) + clean, count = 1)
+        assertEquals(listOf(full), ranked.map { Triple(it.scale, it.dx, it.dy) })
+        assertTrue(!ranked.single().promoted)
+    }
+
+    @Test
+    fun `a promoted inside fit that outscores every accepted outside fit is read without framing`() {
+        val frame = face(colors = paleScrambled, scale = 1.0, dx = -0.5, dy = -0.7, background = BODY)
+        val map = FaceLocator.LumaMap(frame, grid)
+
+        fun accepted(lattice: Lattice) = FrameQuality.assess(FrameReader.readAt(frame, lattice.square(grid))) == CaptureQuality.ACCEPTABLE
+        val inside = FaceLocator.rank(map, FaceLocator.tolerated).first(::accepted)
+        assertTrue(inside.promoted, "$inside")
+        // Outside fits read as a face too, but none outscores the inside fit: they must not take precedence.
+        val outside = FaceLocator.rank(map, FaceLocator.wide).filter(::accepted)
+        assertTrue(outside.isNotEmpty() && outside.all { it.score <= inside.score }, "$outside vs $inside")
+        val reading = FrameReader.locate(frame, grid)
+        assertEquals(inside, reading.lattice)
+        assertNull(reading.outside)
+        assertNull(reading.stats.framing)
+        assertCaptures(reading.stats, "promoted inside fit")
+    }
+
+    @Test
     fun `a gapless stickerless face, scrambled or solved, captures in and off the grid`() {
         mapOf("scrambled" to paleScrambled, "solved yellow" to List(9) { PALE_YELLOW }, "solved orange" to List(9) { PALE_ORANGE })
             .forEach { (kind, colors) ->

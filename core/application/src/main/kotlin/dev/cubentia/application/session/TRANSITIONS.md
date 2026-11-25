@@ -297,7 +297,9 @@ latest result, and any change of Expected clears the latest result. These events
 Diagnosis or Guided recovery.
 
 Story 10.7: Quick Check also applies in physical Solution Playback when started with tutor configuration.
-Full requests capture all six faces. Empty Partials clear pending only; Editor entry cancels pending,
+Full requests capture all six faces. Empty Partials clear pending and record an UNKNOWN result with no
+candidates (Story 10.29) that replaces the previous Quick Check result, so a later mismatch decision
+reads UNKNOWN; Sync State and observed evidence stay unchanged; Editor entry cancels pending,
 so a late result is discarded without a retry. Mismatch decisions use Quick Check certainty.
 AdoptObserved requires a Full mismatch in a moves-taking session; it replaces Expected and virtual,
 resets history and coverage, retains the previous Checkpoint and diagnoses against it, then plans

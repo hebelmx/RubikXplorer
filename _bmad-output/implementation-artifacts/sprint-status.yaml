@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-25-2026 05:06'
+last_updated: '11-25-2026 05:08'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -154,7 +154,7 @@ development_status:
   10-20-record-10-19-pipeline-corner-fixtures-and-check-the-corner-m: done
   10-21-quick-scan-keeps-the-side-faces-it-reads-well: done
   10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa: done
-  10-29-solution-playback-shows-the-same-quick-check-result-as-lesso: backlog
+  10-29-solution-playback-shows-the-same-quick-check-result-as-lesso: done
   10-30-port-continuous-facelet-lattice-fitter-and-cube-mapper-to-pu: review
   10-31-wire-litert-v2-int8-sticker-center-detector-split-continuous: backlog
   10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal: backlog
@@ -2798,3 +2798,59 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-24-continuous-quick-scan.md"
+  - id: "issue-247-deferred-in-grid-fit-overridden-outside"
+    epic: 10
+    action: "When dark-cell ranking promotes an acceptable in-tolerance lattice, a
+      higher-scoring acceptable fit outside the tolerance overrides it, so a correctly
+      framed face may get move coaching; count promoted-and-overridden frames on recorded
+      black-background device frames (medium, unverified; deferred from #247, app/src/camera/kotlin/dev/cubentia/app/camera/FrameReader.kt:199-207)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-247-guided-scan-dark-background-dark-cells.md"
+  - id: "epic-10-deferred-10.29-device-check-lenovo-galaxy"
+    epic: 10
+    action: "Run the Story 10.29 human-gate device check on the Lenovo Tab M10 Plus
+      3rd Gen and the Galaxy S24 FE (main app build): Solve-tab Physical mode and
+      a physical Lesson, a Quick Check returning match, probable mismatch and unreadable;
+      the result card fits at 200% font on the Lenovo and TalkBack announces the Certainty
+      once (PO 2026-11-25: merged with the check deferred, to be tested together with
+      other fixes) (medium; deferred from 10.29)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-29-solution-playback-shows-the-same-quick-check-result-as-lesso.md"
+  - id: "epic-10-deferred-10.29-experience-md-shared-card"
+    epic: 10
+    action: "Describe the shared Quick Check result card in EXPERIENCE.md (both hosts,
+      frame label, Certainty chip, unreadable copy, actions) and drop the line 255
+      note that the playback Quick Check arrives in v1.1 (medium; deferred from 10.29,
+      EXPERIENCE.md)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-29-solution-playback-shows-the-same-quick-check-result-as-lesso.md"
+  - id: "epic-10-deferred-10.29-unknown-after-mismatch-actions"
+    epic: 10
+    action: "Decide whether an Unknown Quick Check result after a mismatch should
+      hide the adopt / Use my cube as it is now re-solve, which still uses the earlier
+      observation (low; deferred from 10.29, SessionState.kt:181, LessonScreen.kt,
+      SolutionPlayback.kt)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-29-solution-playback-shows-the-same-quick-check-result-as-lesso.md"
+  - id: "epic-10-deferred-10.29-practice-gate-hides-card"
+    epic: 10
+    action: "In a stage practice the Quick Check slot, and so the result card, hides
+      once the Story 10.7 suggestion gate closes while the result stays in the session;
+      show the card while a result is held (low; deferred from 10.29, LessonScreen.kt:647)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-29-solution-playback-shows-the-same-quick-check-result-as-lesso.md"
+  - id: "epic-10-deferred-10.29-epic-context-dropped-rules"
+    epic: 10
+    action: "Compare the epic-10-context.md refresh from Story 10.29 against epics.md,
+      EXPERIENCE.md and the SCPs of 2026-11-24 and restore any rule still in force
+      (scan-review Discard this scan?, 20 dE likely-misread, side-face pre-fill, pastel
+      no-global-loosening, capture cue, TalkBack order, 10.28 before new corner fixtures)
+      (medium, unverified; deferred from 10.29)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-29-solution-playback-shows-the-same-quick-check-result-as-lesso.md"

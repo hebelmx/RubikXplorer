@@ -1334,8 +1334,10 @@ private fun quickObserved(
     }
     if (!quickAllowed(state)) return Transition(state.copy(pendingQuickCheck = null))
     val observation = event.observation
-    if (observation is PhysicalObservation.Partial && observation.faces.isEmpty()) return Transition(state.copy(pendingQuickCheck = null))
     val check = Assess.check(CandidateEnumerator.of(state.expected, checkNotNull(state.tutorConfig)), observation, state.mustCover)
+    if (observation is PhysicalObservation.Partial && observation.faces.isEmpty()) {
+        return Transition(state.copy(pendingQuickCheck = null, quickCheck = check))
+    }
     val consistent =
         observation is PhysicalObservation.Full ||
             (observation is PhysicalObservation.Partial && PartialConsistency.check(observation) is PartialCheck.Consistent)

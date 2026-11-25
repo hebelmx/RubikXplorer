@@ -155,6 +155,9 @@ internal class CameraXFrameSource
         /** The last analysed grid, as an AF/AE/AWB point on the analysis frame; null before the first frame. */
         @Volatile private var meteringGrid: MeteringGrid? = null
 
+        @get:VisibleForTesting
+        internal val meteringSquare: GridSquare? get() = meteringGrid?.square
+
         /** The last detected cube outline in analysis-frame pixels (corner mode); empty when none was detected. */
         @Volatile private var meteringQuads: List<List<CornerPoint>> = emptyList()
 
@@ -540,8 +543,8 @@ internal class CameraXFrameSource
             val crop = image.cropRect
             val (width, height) = viewSize
             val grid = ViewfinderGrid.inFrame(width.toDouble(), height.toDouble(), crop.left, crop.top, crop.right, crop.bottom, rotation)
-            meteringGrid = MeteringGrid(image.width, image.height, grid)
             if (corner) {
+                meteringGrid = MeteringGrid(image.width, image.height, grid)
                 val detector = cornerDetector.orElse(CornerLocator)
                 // Story 10.23: the unwarped faces are kept for the frame only when a captured-face observer is bound.
                 val reading =
@@ -577,14 +580,16 @@ internal class CameraXFrameSource
             // Story 10.21: the calibration phase keeps the torch as wanted (re-applied when it drifted after a reopen).
             if (calibrating) applyTorch(force = false)
             val reading = FrameReader.locate(image, grid, rotation)
+            val samplingSquare = reading.samplingSquare(grid)
+            meteringGrid = MeteringGrid(image.width, image.height, samplingSquare)
             val lattice = reading.lattice
             ScanDiagnostics.onFrame(reading.stats, SystemClock.elapsedRealtime(), lattice.scale, lattice.dx, lattice.dy, lattice.score)
-            deliver(ScanFrame(reading.stats, rotation) { FrameReader.centerRing(image, reading.samplingSquare(grid)) })
+            deliver(ScanFrame(reading.stats, rotation) { FrameReader.centerRing(image, samplingSquare) })
         }
 
         /**
-         * AF/AE/AWB on the analysed grid (the drawn grid's region of the analysis frame), not the whole frame, so a dark
-         * background cannot wash out the stickers. The point's size is a share of the frame's longer side, so the metered
+         * AF/AE/AWB on the accepted Guided face lattice, falling back to the drawn grid when the frame is rejected.
+         * Corner mode uses the drawn grid for centre metering. The point's size is a share of the frame's longer side, so the metered
          * region stays inside the grid. The lock cancels after [METERING_LOCK_SECONDS] so continuous AF resumes when the
          * cube moves nearer or farther (PO 2026-11-16).
          */
