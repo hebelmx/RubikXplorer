@@ -8,7 +8,7 @@ object CameraClasspathPolicy {
     fun check(
         coordinates: Collection<String>,
         cameraEnabled: Boolean,
-        cornerModelEnabled: Boolean = cameraEnabled,
+        liteRtEnabled: Boolean = cameraEnabled,
     ): List<String> =
         coordinates
             .sorted()
@@ -20,8 +20,8 @@ object CameraClasspathPolicy {
                         "Camera flags are OFF but runtime classpath contains $coordinate"
                     }
 
-                    cameraEnabled && !cornerModelEnabled && group.startsWith(liteRtGroup) -> {
-                        "Corner-detection flags are OFF but runtime classpath contains $coordinate"
+                    cameraEnabled && !liteRtEnabled && group.startsWith(liteRtGroup) -> {
+                        "LiteRT-backed camera flags are OFF but runtime classpath contains $coordinate"
                     }
 
                     cameraEnabled && alwaysForbiddenWhenCameraOn.any(group::startsWith) -> {

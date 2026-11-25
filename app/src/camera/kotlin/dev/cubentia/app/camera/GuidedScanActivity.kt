@@ -98,11 +98,6 @@ class GuidedScanActivity : ComponentActivity() {
 
     @Inject internal lateinit var frameSource: ScanFrameSource
 
-    /**
-     * Story 10.23: the debug shadow sticker reader, when the debug sticker source set binds one; it only observes captures.
-     * A var only so route tests can replace the binding with `Optional.empty()` (the unbound path).
-     */
-    @Inject internal lateinit var capturedFaceObserver: java.util.Optional<CapturedFaceObserver>
     private var cameraStarted = false
     private var previewReady by mutableStateOf(false)
 
@@ -399,8 +394,6 @@ class GuidedScanActivity : ComponentActivity() {
 
     override fun onDestroy() {
         frameSource.stop()
-        // Story 10.23: a scan that ends with its activity drops the shadow reader's queued crops (not on a config change).
-        if (!isChangingConfigurations) endShadowScan()
         shutterSound.release()
         super.onDestroy()
     }
@@ -565,14 +558,7 @@ class GuidedScanActivity : ComponentActivity() {
                 ScanFlowContract.encode(capture)
             }
         setResult(code, data)
-        endShadowScan()
         finish()
-    }
-
-    /** Story 10.23: the scan ended; the observer drops its queued work and crops, and the last frame's crops go too. */
-    private fun endShadowScan() {
-        scan.lastCornerCrops = null
-        capturedFaceObserver.ifPresent { it.onScanEnded(scan.shadowScanId) }
     }
 
     private fun cameraPhase() =
@@ -589,9 +575,6 @@ class GuidedScanActivity : ComponentActivity() {
             val entered = SystemClock.elapsedRealtime()
             analyzerExecutor.execute {
                 val quick = scan.quickScan ?: return@execute
-                // Story 10.23: hold 1's corner view opening starts a scan for the shadow reader (its state line).
-                // The start is queued here while the end comes on main: the scan id lets the reader drop a start that lands late.
-                if (quick.hold == 1) capturedFaceObserver.ifPresent { it.onScanStarted(scan.shadowScanId) }
                 quick.viewEntered(entered)
                 quick.drainEvents().forEach(ScanDiagnostics::onHoldEvent)
             }
@@ -671,8 +654,6 @@ class GuidedScanActivity : ComponentActivity() {
             val outline = GuidedScanFlow.outlineOf(corner)
             val quads = scan.cornerOverlaySmoother.update(corner.normalizedQuads)
             ContextCompat.getMainExecutor(this).execute { scan.detectedCornerQuads = quads }
-            // Story 10.23: the crops of the frame the domain reads now; a capture (auto or a later press) takes this frame.
-            scan.lastCornerCrops = corner.faceCrops
             // The light check runs in the domain over these faces (calibrated when a saved calibration exists).
             val measured = captureCorner { it.onFrame(corner.detected, corner.faces, now, settled, outline) }
             // Story 10.21 device session (debug only): why the few-confident wait held this frame, rate-limited.
@@ -738,12 +719,6 @@ class GuidedScanActivity : ComponentActivity() {
             scan.freeze.start(now)
             quick.lastCapture?.let(ScanDiagnostics::onCornerCapture)
             ScanDiagnostics.onCornerCaptureReads(quick)
-            // Story 10.23: the shadow reader reads the capturing frame's faces off this thread; it decides nothing.
-            val crops = scan.lastCornerCrops
-            scan.lastCornerCrops = null
-            capturedFaceObserver.ifPresent { observer ->
-                observer.onCornerCaptured(capture.hold, crops ?: List(3) { null }, quick.lastCapture?.faces.orEmpty())
-            }
             // Story 10.22: the exposure lock ends with the capture; hold 1's white balance is carried to hold 2.
             frameSource.releaseExposure()
         }
@@ -923,11 +898,6 @@ class GuidedScanActivity : ComponentActivity() {
     }
 }
 
-/** Story 10.23: source of [GuidedScanViewModel.shadowScanId]. */
-private val shadowScanIds =
-    java.util.concurrent.atomic
-        .AtomicLong()
-
 /**
  * What survives a configuration change: the controller (touched only on [analyzerExecutor]), its analyzer thread, the
  * shown phase, the rationale state before the last permission request and a finished result. Holds no frame, except the
@@ -935,9 +905,6 @@ private val shadowScanIds =
  */
 internal class GuidedScanViewModel : ViewModel() {
     val analyzerExecutor: ExecutorService = Executors.newSingleThreadExecutor()
-
-    /** Story 10.23: this scan's id for the shadow reader, increasing per process (one view model is one scan). */
-    val shadowScanId: Long = shadowScanIds.incrementAndGet()
 
     @Volatile var saved: CalibrationCenters? = null
     var calibrationLoaded by mutableStateOf(false)
@@ -963,9 +930,6 @@ internal class GuidedScanViewModel : ViewModel() {
     var caseResult by mutableStateOf<List<CornerView>?>(null)
 
     @Volatile var quickScan: QuickScanController? = null
-
-    /** Story 10.23: the unwarped faces of the last corner frame the domain read, only with a bound observer; analyzer thread. */
-    @Volatile var lastCornerCrops: List<YuvFrame?>? = null
 
     @Volatile var quickStartedAt: Long? = null
     var quickLogged = false
@@ -1211,7 +1175,6 @@ internal class GuidedScanViewModel : ViewModel() {
     }
 
     override fun onCleared() {
-        lastCornerCrops = null
         analyzerExecutor.shutdown()
     }
 }

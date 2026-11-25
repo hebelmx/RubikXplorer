@@ -1,21 +1,15 @@
 package dev.cubentia.buildlogic.policy
 
 /**
- * Story 10.23 (AD-9, AD-13, AD-18): the shadow sticker reader, its toggle receiver and `sticker_reader.tflite` live only in
- * `src/camera/debug/sticker/{kotlin,assets,AndroidManifest.xml}`, composed only into a build type that is debuggable and
- * has a corner-model flag above OFF (the reader needs LiteRT). A non-debuggable variant (release, benchmark, `cornerR8`)
- * must carry neither the model asset nor any reader class.
+ * Story 10.23 / Story 10.31 (AD-9, AD-13, AD-18): the Story 10.23 shadow sticker reader is retired and no longer
+ * composed into any variant, including debug. This policy remains as the non-debuggable release guard ensuring
+ * release, benchmark, `cornerR8`, and `release011` carry neither a `sticker_reader*.tflite` asset nor any
+ * `dev/cubentia/app/camera/sticker/` class.
  */
 object ShadowReaderPolicy {
-    const val SOURCE_DIR = "src/camera/debug/sticker"
     const val CLASS_PACKAGE = "dev/cubentia/app/camera/sticker/"
     private const val ASSET_PREFIX = "sticker_reader"
     private const val ASSET_SUFFIX = ".tflite"
-
-    fun composes(
-        debuggable: Boolean,
-        cornerModelEnabled: Boolean,
-    ): Boolean = debuggable && cornerModelEnabled
 
     fun isReaderAsset(path: String): Boolean {
         val name = path.substringAfterLast('/')

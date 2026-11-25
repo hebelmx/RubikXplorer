@@ -3,9 +3,15 @@ package dev.cubentia.buildlogic.policy
 object CameraSizePolicy {
     /**
      * Debug-only camera developer tools that never ship, so they stay out of the projected camera class sum: the fixture
-     * recorder (Story 10.10) and the shadow sticker reader (Story 10.23).
+     * recorder (Story 10.10) and the retired shadow sticker reader package guard (Story 10.23 / 10.31).
      */
     val debugOnlyClassGlobs: List<String> = listOf("dev/cubentia/app/camera/recorder/**", "dev/cubentia/app/camera/sticker/**")
+
+    /**
+     * Legacy 7-keypoint corner detector (`CASE_RECOGNITION`, OFF in 0.11.0 and v1.0.0; Story 10.31), excluded from
+     * `checkCameraSize`'s 0.11.0 continuous Quick Scan projection.
+     */
+    val legacyCornerClassGlobs: List<String> = listOf("dev/cubentia/app/camera/corner/**")
 
     data class Verdict(
         val estimatedBytes: Long,

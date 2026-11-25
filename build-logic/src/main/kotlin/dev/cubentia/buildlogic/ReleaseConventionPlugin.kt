@@ -7,7 +7,6 @@ import com.android.build.api.variant.HostTestBuilder
 import dev.cubentia.buildlogic.policy.CameraSizePolicy
 import dev.cubentia.buildlogic.policy.FeatureFlagLevels
 import dev.cubentia.buildlogic.policy.ReleaseInputs
-import dev.cubentia.buildlogic.policy.ShadowReaderPolicy
 import dev.cubentia.buildlogic.tasks.CheckCameraSizeTask
 import dev.cubentia.buildlogic.tasks.CheckReleaseSizeTask
 import dev.cubentia.buildlogic.tasks.GenerateKeepRulesTask
@@ -30,9 +29,11 @@ import org.gradle.kotlin.dsl.register
  * release (R8, shrinking, keep rules, release flag levels, release `DebugOptions`) that is
  * debug-signed so it installs, and profileable from shell only through its own manifest.
  *
- * With `-Pcubentia.cornerR8=true` only, also creates `cornerR8` (Story 10.18): release R8 + keep rules with the
- * corner flags raised, debug-signed, made the `testBuildType` so `LiteRtCornerDetectorDeviceTest` proves LiteRT
- * inference survives R8. It never ships and the default build never has it.
+ * With `-Pcubentia.cornerR8=true` only, also creates `cornerR8` (Story 10.18 / 10.31): release R8 + keep rules with
+ * the LiteRT flags raised, debug-signed, made the `testBuildType` so `LiteRtCornerDetectorDeviceTest` and
+ * `LiteRtStickerCenterDetectorDeviceTest` prove LiteRT inference survives R8. With `-Pcubentia.release011=true` only,
+ * also creates `release011` (Story 10.31): the opt-in minified 0.11.0 camera release profile without test keep rules.
+ * Neither opt-in build type ever ships in the default build.
  */
 class ReleaseConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) =
@@ -40,8 +41,9 @@ class ReleaseConventionPlugin : Plugin<Project> {
             pluginManager.withPlugin("com.android.application") {
                 val flagLevels = featureFlagLevels()
                 flagLevels.composesCamera = true
-                // Opt-in only (-Pcubentia.cornerR8=true): the default build never has the cornerR8 build type.
+                // Opt-in only (-Pcubentia.cornerR8=true / -Pcubentia.release011=true): absent from the default build.
                 val cornerR8 = providers.gradleProperty("cubentia.cornerR8").orNull == "true"
+                val release011 = providers.gradleProperty("cubentia.release011").orNull == "true"
                 val signing =
                     ReleaseInputs.signing(
                         ReleaseInputs.signingKeys
@@ -77,8 +79,9 @@ class ReleaseConventionPlugin : Plugin<Project> {
                     // Per-build-type sources (DebugOptions) come from release, so benchmark ships the same code.
                     sourceSets.getByName(BENCHMARK).kotlin.directories += "src/$RELEASE/kotlin"
                     if (cornerR8) {
-                        // Story 10.18: R8-minified like release, corner flags raised, debug-signed, and the
-                        // instrumented test build type so LiteRtCornerDetectorDeviceTest runs against R8 output.
+                        // Story 10.18 / 10.31: R8-minified like release, both LiteRT flags raised, debug-signed, and the
+                        // instrumented test build type so LiteRtCornerDetectorDeviceTest + LiteRtStickerCenterDetectorDeviceTest
+                        // run against R8 output.
                         buildTypes.create(CORNER_R8) {
                             initWith(release)
                             signingConfig = signingConfigs.getByName("debug")
@@ -87,6 +90,16 @@ class ReleaseConventionPlugin : Plugin<Project> {
                         sourceSets.getByName(CORNER_R8).kotlin.directories += "src/$RELEASE/kotlin"
                         sourceSets.getByName("androidTestCornerR8").kotlin.directories += "src/androidTestDebug/kotlin"
                         testBuildType = CORNER_R8
+                    }
+                    if (release011) {
+                        // Story 10.31: opt-in minified 0.11.0-profile build (CAMERA_SCAN=GA, PLACEMENT=BETA, QUICK_SCAN=BETA,
+                        // CASE_RECOGNITION=OFF) without test keep rules, for measuring real Play-delivered AAB/APK size and gates.
+                        buildTypes.create(RELEASE_011) {
+                            initWith(release)
+                            signingConfig = signingConfigs.getByName("debug")
+                            matchingFallbacks += RELEASE
+                        }
+                        sourceSets.getByName(RELEASE_011).kotlin.directories += "src/$RELEASE/kotlin"
                     }
                 }
 
@@ -110,9 +123,15 @@ class ReleaseConventionPlugin : Plugin<Project> {
                             val sourceSet = android.sourceSets.getByName(buildType.name)
                             sourceSet.kotlin.directories += "src/camera/kotlin"
                             sourceSet.assets.directories += "src/camera/assets"
+                            if (FeatureFlagLevels.isContinuousModelEnabled(levels)) {
+                                sourceSet.kotlin.directories += "src/camera/continuous/kotlin"
+                                sourceSet.assets.directories += "src/camera/continuous/assets"
+                            }
                             if (FeatureFlagLevels.isCornerModelEnabled(levels)) {
                                 sourceSet.kotlin.directories += "src/camera/corner/kotlin"
                                 sourceSet.assets.directories += "src/camera/corner/assets"
+                            }
+                            if (FeatureFlagLevels.isLiteRtEnabled(levels)) {
                                 dependencies.addProvider<MinimalExternalModuleDependency, ExternalModuleDependency>(
                                     "${buildType.name}Implementation",
                                     libs.library("litert"),
@@ -127,11 +146,6 @@ class ReleaseConventionPlugin : Plugin<Project> {
                             if (buildType.isDebuggable) {
                                 sourceSet.kotlin.directories += "src/camera/debug/kotlin"
                             }
-                            // Story 10.23: the shadow sticker reader needs LiteRT, so only debuggable + corner model.
-                            if (ShadowReaderPolicy.composes(buildType.isDebuggable, FeatureFlagLevels.isCornerModelEnabled(levels))) {
-                                sourceSet.kotlin.directories += "${ShadowReaderPolicy.SOURCE_DIR}/kotlin"
-                                sourceSet.assets.directories += "${ShadowReaderPolicy.SOURCE_DIR}/assets"
-                            }
                             listOf("camera2", "lifecycle", "view").forEach { component ->
                                 dependencies.add("${buildType.name}Implementation", libs.library("androidx-camera-$component"))
                             }
@@ -141,18 +155,18 @@ class ReleaseConventionPlugin : Plugin<Project> {
                 androidComponents.onVariants { variant ->
                     if (flagLevels.isCameraEnabled(variant.buildType)) {
                         variant.sources.manifests.addStaticManifestFile("src/camera/AndroidManifest.xml")
+                        if (flagLevels.isContinuousModelEnabled(variant.buildType)) {
+                            variant.sources.manifests.addStaticManifestFile("src/camera/continuous/AndroidManifest.xml")
+                        }
                         if (flagLevels.isCornerModelEnabled(variant.buildType)) {
                             variant.sources.manifests.addStaticManifestFile("src/camera/corner/AndroidManifest.xml")
                         }
                         if (variant.debuggable) {
                             variant.sources.manifests.addStaticManifestFile("src/camera/debug/AndroidManifest.xml")
                         }
-                        if (ShadowReaderPolicy.composes(variant.debuggable, flagLevels.isCornerModelEnabled(variant.buildType))) {
-                            variant.sources.manifests.addStaticManifestFile("${ShadowReaderPolicy.SOURCE_DIR}/AndroidManifest.xml")
-                        }
                     }
                 }
-                listOf(RELEASE, BENCHMARK, CORNER_R8).forEach { buildType ->
+                listOf(RELEASE, BENCHMARK, CORNER_R8, RELEASE_011).forEach { buildType ->
                     androidComponents.onVariants(androidComponents.selector().withBuildType(buildType)) { variant ->
                         variant.proguardFiles.add(keepRules.flatMap { it.outputFile })
                     }
@@ -175,6 +189,15 @@ class ReleaseConventionPlugin : Plugin<Project> {
                         versionCode?.let { output.versionCode.set(it) }
                         versionName?.let { output.versionName.set(it) }
                     }
+                    if (variant.buildType == RELEASE_011) {
+                        tasks.register<CheckReleaseSizeTask>("checkRelease011Size") {
+                            group = "verification"
+                            description = "Fails when the opt-in 0.11.0-profile release exceeds the 30 MB NFR-11 size budget."
+                            apk.set(variant.artifacts.get(SingleArtifact.APK_FROM_BUNDLE))
+                            bundle.set(variant.artifacts.get(SingleArtifact.BUNDLE))
+                            report.set(layout.buildDirectory.file("reports/cubentia/release011-size.txt"))
+                        }
+                    }
                     if (variant.buildType == RELEASE) {
                         val releaseSize =
                             tasks.register<CheckReleaseSizeTask>("checkReleaseSize") {
@@ -182,19 +205,30 @@ class ReleaseConventionPlugin : Plugin<Project> {
                                 bundle.set(variant.artifacts.get(SingleArtifact.BUNDLE))
                                 report.set(layout.buildDirectory.file("reports/cubentia/release-size.txt"))
                             }
+                        val releaseHasCamera = flagLevels.isCameraEnabled(RELEASE)
+                        val releaseHasContinuous = flagLevels.isContinuousModelEnabled(RELEASE)
                         tasks.register<CheckCameraSizeTask>("checkCameraSize") {
                             group = "verification"
                             releaseReport.set(releaseSize.flatMap { it.report })
-                            val compile = tasks.named("compileDebugKotlin")
-                            dependsOn(compile)
-                            cameraClasses.from(
-                                compile.map { task ->
-                                    task.outputs.files.asFileTree.matching {
-                                        include("dev/cubentia/app/camera/**/*.class")
-                                        exclude(CameraSizePolicy.debugOnlyClassGlobs)
+                            val excludedClasses = CameraSizePolicy.debugOnlyClassGlobs + CameraSizePolicy.legacyCornerClassGlobs
+                            if (!releaseHasContinuous) {
+                                val compile = tasks.named("compileDebugKotlin")
+                                dependsOn(compile)
+                                val classInclude =
+                                    if (!releaseHasCamera) {
+                                        "dev/cubentia/app/camera/**/*.class"
+                                    } else {
+                                        "dev/cubentia/app/camera/continuous/**/*.class"
                                     }
-                                },
-                            )
+                                cameraClasses.from(
+                                    compile.map { task ->
+                                        task.outputs.files.asFileTree.matching {
+                                            include(classInclude)
+                                            exclude(excludedClasses)
+                                        }
+                                    },
+                                )
+                            }
                             val debug = configurations.getByName("debugRuntimeClasspath").incoming
                             val release = variant.runtimeConfiguration.incoming
                             val cameraComponents =
@@ -207,11 +241,13 @@ class ReleaseConventionPlugin : Plugin<Project> {
                                     all.filter { it.id.componentIdentifier in included }.map { it.file }
                                 },
                             )
-                            cameraAssets.from(
-                                fileTree("src/camera/assets"),
-                                fileTree("src/camera/corner/assets"),
-                            )
-                            allowLiteRt.set(flagLevels.isCornerModelEnabled("debug"))
+                            if (!releaseHasCamera) {
+                                cameraAssets.from(fileTree("src/camera/assets"))
+                            }
+                            if (!releaseHasContinuous) {
+                                cameraAssets.from(fileTree("src/camera/continuous/assets"))
+                            }
+                            allowLiteRt.set(flagLevels.isLiteRtEnabled("debug"))
                             runtimeArtifacts.set(
                                 artifacts.map { all ->
                                     all.map { "${it.id.componentIdentifier.displayName}/${it.file.name}" }.sorted()
@@ -221,8 +257,8 @@ class ReleaseConventionPlugin : Plugin<Project> {
                         }
                     }
                 }
-                // The benchmark variant shares release code; running the Robolectric suite a third time adds nothing.
-                listOf(BENCHMARK, CORNER_R8).forEach { buildType ->
+                // The benchmark, cornerR8, and release011 variants share release code; running Robolectric again adds nothing.
+                listOf(BENCHMARK, CORNER_R8, RELEASE_011).forEach { buildType ->
                     androidComponents.beforeVariants(androidComponents.selector().withBuildType(buildType)) { variant ->
                         variant.hostTests[HostTestBuilder.UNIT_TEST_TYPE]?.enable = false
                     }
@@ -235,6 +271,7 @@ class ReleaseConventionPlugin : Plugin<Project> {
         const val RELEASE = "release"
         const val BENCHMARK = "benchmark"
         const val CORNER_R8 = "cornerR8"
+        const val RELEASE_011 = "release011"
         const val CORNER_R8_TEST_RULES =
             "-keep class dev.cubentia.** { *; }\n-keep class kotlin.** { *; }\n-keep class kotlinx.** { *; }\n" +
                 "-keep class androidx.tracing.** { *; }\n-keep class androidx.annotation.** { *; }\n"

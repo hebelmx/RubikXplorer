@@ -461,29 +461,23 @@ internal fun unwarp(
     return YuvFrame(plane(frame.y, 1), plane(frame.u, 2), plane(frame.v, 2), 0, 0, side, side)
 }
 
-/**
- * One corner frame's reading. Story 10.23: [faceCrops] holds the three unwarped faces (in [faces] order, null where a quad
- * could not be unwarped) only when a [CapturedFaceObserver] is bound; otherwise null, and no crop outlives the frame.
- */
+/** One corner frame's reading. */
 internal data class CornerFrame(
     val detected: Boolean,
     val faces: List<FrameStats?>,
     val score: Double = 0.0,
     val normalizedQuads: List<List<CornerPoint>> = emptyList(),
     val frameQuads: List<List<CornerPoint>> = emptyList(),
-    val faceCrops: List<YuvFrame?>? = null,
 )
 
 internal object CornerReader {
     /** Tighter cell ROI for oblique 3D unwarped faces to avoid bevel/border desaturation on Red/Orange side faces. */
     internal const val CORNER_CELL_ROI_FRACTION = 0.48
 
-    /** [keepCrops] (Story 10.23, a bound [CapturedFaceObserver] only): the unwarped faces ride along as [CornerFrame.faceCrops]. */
     fun read(
         frame: YuvFrame,
         guide: CornerGuide,
         detector: CornerDetector = CornerLocator,
-        keepCrops: Boolean = false,
     ): CornerFrame {
         val located = detector.locate(frame, guide) ?: return CornerFrame(false, List(3) { null })
         val crops = located.quads.map { quad -> unwarp(frame, quad) }
@@ -516,7 +510,7 @@ internal object CornerReader {
                 emptyList()
             }
         val frameQuads = if (detected) located.quads else emptyList()
-        return CornerFrame(detected, locatedFaces, located.score, normalized, frameQuads, crops.takeIf { keepCrops })
+        return CornerFrame(detected, locatedFaces, located.score, normalized, frameQuads)
     }
 }
 

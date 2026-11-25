@@ -3,8 +3,8 @@ package dev.cubentia.app.camera
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
+import dev.cubentia.app.camera.continuous.LiteRtStickerCenterDetector
 import dev.cubentia.app.camera.corner.LiteRtCornerDetector
-import dev.cubentia.app.camera.sticker.ShadowStickerReader
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -15,7 +15,7 @@ import org.robolectric.annotation.Config
 import java.util.Optional
 import javax.inject.Inject
 
-/** The debug graph (QUICK_SCAN above OFF) binds the LiteRT detector, so camera code never silently falls back to CornerLocator. */
+/** The debug graph (`QUICK_SCAN=BETA`, `CASE_RECOGNITION=GA`) binds both LiteRT detectors behind their optional seams. */
 @HiltAndroidTest
 @RunWith(RobolectricTestRunner::class)
 @Config(application = HiltTestApplication::class)
@@ -27,7 +27,7 @@ class CornerDetectorBindingTest {
     internal lateinit var cornerDetector: Optional<CornerDetector>
 
     @Inject
-    internal lateinit var capturedFaceObserver: Optional<CapturedFaceObserver>
+    internal lateinit var stickerCenterDetector: Optional<StickerCenterDetector>
 
     @Before
     fun setup() = hilt.inject()
@@ -38,10 +38,10 @@ class CornerDetectorBindingTest {
         assertTrue("Bound ${cornerDetector.get()::class}", cornerDetector.get() is LiteRtCornerDetector)
     }
 
-    /** Story 10.23: the debug graph (corner model on) binds the shadow sticker reader to the capture path's seam. */
+    /** Story 10.31: the debug graph (`QUICK_SCAN` above OFF) binds the LiteRT v2 INT8 sticker-center detector. */
     @Test
-    fun debugGraphBindsTheShadowStickerReader() {
-        assertTrue("Optional<CapturedFaceObserver> is empty in the debug graph", capturedFaceObserver.isPresent)
-        assertTrue("Bound ${capturedFaceObserver.get()::class}", capturedFaceObserver.get() is ShadowStickerReader)
+    fun debugGraphBindsTheLiteRtStickerCenterDetector() {
+        assertTrue("Optional<StickerCenterDetector> is empty in the debug graph", stickerCenterDetector.isPresent)
+        assertTrue("Bound ${stickerCenterDetector.get()::class}", stickerCenterDetector.get() is LiteRtStickerCenterDetector)
     }
 }

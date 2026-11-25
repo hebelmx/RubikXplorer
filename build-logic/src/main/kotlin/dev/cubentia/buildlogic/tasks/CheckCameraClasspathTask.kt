@@ -25,7 +25,7 @@ abstract class CheckCameraClasspathTask : DefaultTask() {
     abstract val cameraEnabled: Property<Boolean>
 
     @get:Input
-    abstract val cornerModelEnabled: Property<Boolean>
+    abstract val liteRtEnabled: Property<Boolean>
 
     @get:OutputFile
     abstract val report: RegularFileProperty
@@ -36,7 +36,7 @@ abstract class CheckCameraClasspathTask : DefaultTask() {
             CameraClasspathPolicy.check(
                 runtimeCoordinates.get(),
                 cameraEnabled.get(),
-                cornerModelEnabled.getOrElse(cameraEnabled.get()),
+                liteRtEnabled.getOrElse(cameraEnabled.get()),
             )
         report.get().asFile.writeText(violations.joinToString("\n"))
         if (violations.isNotEmpty()) {

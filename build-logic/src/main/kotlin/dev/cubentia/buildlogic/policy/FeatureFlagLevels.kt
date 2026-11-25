@@ -13,12 +13,20 @@ object FeatureFlagLevels {
 
     val cameraFlags = setOf("CAMERA_SCAN", "QUICK_SCAN", "PLACEMENT", "CASE_RECOGNITION")
     val cameraDependentFlags = cameraFlags - "CAMERA_SCAN"
-    val cornerModelFlags = setOf("QUICK_SCAN", "CASE_RECOGNITION")
+    val continuousModelFlags = setOf("QUICK_SCAN")
+    val cornerModelFlags = setOf("CASE_RECOGNITION")
+    val liteRtFlags = continuousModelFlags + cornerModelFlags
 
     fun isCameraEnabled(levels: Map<String, String>): Boolean = cameraFlags.any { levels[it] in setOf("BETA", "GA") }
 
-    /** True when any corner-detection feature that can use the LiteRT 7-keypoint model is above OFF. */
+    /** True when continuous Quick Scan (`QUICK_SCAN`, LiteRT v2 INT8 sticker-center detector) is above OFF. */
+    fun isContinuousModelEnabled(levels: Map<String, String>): Boolean = continuousModelFlags.any { levels[it] in setOf("BETA", "GA") }
+
+    /** True when legacy corner detection (`CASE_RECOGNITION`, LiteRT 7-keypoint corner detector) is above OFF. */
     fun isCornerModelEnabled(levels: Map<String, String>): Boolean = cornerModelFlags.any { levels[it] in setOf("BETA", "GA") }
+
+    /** True when any LiteRT-backed camera detector (`QUICK_SCAN` or `CASE_RECOGNITION`) is above OFF. */
+    fun isLiteRtEnabled(levels: Map<String, String>): Boolean = liteRtFlags.any { levels[it] in setOf("BETA", "GA") }
 
     fun cameraViolations(
         buildType: String,
@@ -61,8 +69,10 @@ object FeatureFlagLevels {
                 },
             "release" to releaseLevels,
             "benchmark" to releaseLevels,
-            // Opt-in R8 test build type (-Pcubentia.cornerR8=true, Story 10.18); never shipped.
-            "cornerR8" to releaseLevels + cornerModelFlags.plus("CAMERA_SCAN").associateWith { "BETA" },
+            // Opt-in R8 test build type (-Pcubentia.cornerR8=true, Story 10.18 / 10.31); composes both LiteRT models, never shipped.
+            "cornerR8" to releaseLevels + liteRtFlags.plus("CAMERA_SCAN").associateWith { "BETA" },
+            // Opt-in 0.11.0-profile minified size/gate verification build type (-Pcubentia.release011=true, Story 10.31); never shipped.
+            "release011" to releaseLevels + mapOf("CAMERA_SCAN" to "GA", "PLACEMENT" to "BETA", "QUICK_SCAN" to "BETA"),
         )
 
     /** Encodes [levelsByFlag] as `FLAG=LEVEL,...` in [flags] order, rejecting a missing or unknown entry. */

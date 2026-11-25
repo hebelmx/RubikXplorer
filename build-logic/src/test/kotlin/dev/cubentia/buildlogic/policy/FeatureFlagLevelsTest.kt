@@ -28,11 +28,46 @@ class FeatureFlagLevelsTest {
     }
 
     @Test
-    fun `the opt-in cornerR8 test build type raises only the corner flags over the release levels`() {
+    fun `the opt-in cornerR8 test build type raises both LiteRT flags over the release levels`() {
         assertEquals(
             "QUICK_SCAN=BETA,PLACEMENT=OFF,CASE_RECOGNITION=BETA,TEST_ME=BETA,CAMERA_SCAN=BETA,ADAPTIVE_ASSISTANCE=GA",
             FeatureFlagLevels.forBuildType("cornerR8"),
         )
+        val levels = FeatureFlagLevels.byBuildType.getValue("cornerR8")
+        assertEquals(true, FeatureFlagLevels.isContinuousModelEnabled(levels))
+        assertEquals(true, FeatureFlagLevels.isCornerModelEnabled(levels))
+        assertEquals(true, FeatureFlagLevels.isLiteRtEnabled(levels))
+    }
+
+    @Test
+    fun `the opt-in release011 build type enables continuous Quick Scan and keeps CASE_RECOGNITION OFF`() {
+        assertEquals(
+            "QUICK_SCAN=BETA,PLACEMENT=BETA,CASE_RECOGNITION=OFF,TEST_ME=BETA,CAMERA_SCAN=GA,ADAPTIVE_ASSISTANCE=GA",
+            FeatureFlagLevels.forBuildType("release011"),
+        )
+        val levels = FeatureFlagLevels.byBuildType.getValue("release011")
+        assertEquals(true, FeatureFlagLevels.isCameraEnabled(levels))
+        assertEquals(true, FeatureFlagLevels.isContinuousModelEnabled(levels))
+        assertEquals(false, FeatureFlagLevels.isCornerModelEnabled(levels))
+        assertEquals(true, FeatureFlagLevels.isLiteRtEnabled(levels))
+    }
+
+    @Test
+    fun `continuous and corner model flags split cleanly while LiteRT covers either`() {
+        val base = FeatureFlagLevels.byBuildType.getValue("release") + ("CAMERA_SCAN" to "GA")
+        assertEquals(false, FeatureFlagLevels.isContinuousModelEnabled(base))
+        assertEquals(false, FeatureFlagLevels.isCornerModelEnabled(base))
+        assertEquals(false, FeatureFlagLevels.isLiteRtEnabled(base))
+
+        val continuousOnly = base + ("QUICK_SCAN" to "BETA")
+        assertEquals(true, FeatureFlagLevels.isContinuousModelEnabled(continuousOnly))
+        assertEquals(false, FeatureFlagLevels.isCornerModelEnabled(continuousOnly))
+        assertEquals(true, FeatureFlagLevels.isLiteRtEnabled(continuousOnly))
+
+        val cornerOnly = base + ("CASE_RECOGNITION" to "BETA")
+        assertEquals(false, FeatureFlagLevels.isContinuousModelEnabled(cornerOnly))
+        assertEquals(true, FeatureFlagLevels.isCornerModelEnabled(cornerOnly))
+        assertEquals(true, FeatureFlagLevels.isLiteRtEnabled(cornerOnly))
     }
 
     @Test

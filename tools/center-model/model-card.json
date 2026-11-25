@@ -1,0 +1,93 @@
+{
+  "architecture": "MobileNetV2 inverted-residual FPN (256x256 -> 64x64 heatmap + sub-cell offset)",
+  "bytes": 378288,
+  "cleanRoom": true,
+  "dataset": {
+    "excludedLiveGroups": [
+      "live/sm-s721u1_stkb_studio-a"
+    ],
+    "holdoutSources": [
+      "tools/sticker-model/holdout.json",
+      "Fixtures/corner/groups.json"
+    ],
+    "holdoutUnion": [
+      "corner/lenovo-tb128xu_stka_cool",
+      "corner/lenovo-tb128xu_stla_bar-cool",
+      "corner/lenovo-tb128xu_stla_bar-warm",
+      "corner/lenovo-tb128xu_stla_ceilback",
+      "corner/lenovo-tb128xu_stla_cool",
+      "corner/sm-s721u1_stka_bar-cool-3",
+      "corner/sm-s721u1_stka_bar-warm-2",
+      "corner/sm-s721u1_stla_bar-cool",
+      "corner/sm-s721u1_stla_bar-warm",
+      "corner/sm-s721u1_stla_ceilback",
+      "live/sm-s721u1_stka_studio-a",
+      "live/sm-s721u1_stla_studio-a"
+    ],
+    "syntheticSamples": {
+      "train": 12000,
+      "val": 1000
+    },
+    "trainingCornerGroups": [],
+    "trainingLiveGroups": [
+      "live/lenovo-tb128xu_stka_studio",
+      "live/lenovo-tb128xu_stka_studio-a",
+      "live/lenovo-tb128xu_stkb_studio-a",
+      "live/lenovo-tb128xu_stla_studio",
+      "live/lenovo-tb128xu_stla_studio-a",
+      "live/lenovo-tb128xu_stlb_studio-a",
+      "live/sm-s721u1_stka_studio",
+      "live/sm-s721u1_stla_studio",
+      "live/sm-s721u1_stlb_studio-a"
+    ],
+    "tuningRoomBackgrounds": "Cube-free room frames sampled strictly from non-held-out tuning clips only"
+  },
+  "defaultThreshold": 0.45,
+  "heatmapSize": 64,
+  "heatmapStride": 4,
+  "input": [
+    1,
+    256,
+    256,
+    3
+  ],
+  "inputDtype": "uint8",
+  "inputSize": 256,
+  "maxPeaks": 36,
+  "model": "sticker_centers_v2_int8.tflite",
+  "numThreads": 2,
+  "output": [
+    1,
+    64,
+    64,
+    3
+  ],
+  "outputChannels": [
+    "heatmap_prob",
+    "offset_x",
+    "offset_y"
+  ],
+  "outputDtype": "float32",
+  "quant": "int8_weights_uint8_in_float32_out",
+  "recipe": {
+    "batchSize": 32,
+    "epochs": 24,
+    "initialLearningRate": 0.0025,
+    "loss": "CenterNet focal loss (alpha=2, beta=4) + 2.0 * masked L1 offset loss",
+    "optimizer": "AdamW (weight_decay=1e-4, CosineDecay alpha=0.02)",
+    "representativeCalibrationSamples": 256,
+    "seed": 20261124
+  },
+  "schemaVersion": 1,
+  "sha256": "d18fb2c2fe2bb975cf646877f811718c16775ce6bcde907f12547d143174be7c",
+  "story": "10.31",
+  "tools": {
+    "converter": "tf.lite.TFLiteConverter.from_keras_model (TFLITE_BUILTINS_INT8, uint8 input, float32 output)",
+    "gpu": true,
+    "numpy": "2.1.3",
+    "pillow": "11.3.0",
+    "platform": "Linux x86_64",
+    "python": "3.12.13",
+    "tensorflow": "2.19.1"
+  }
+}

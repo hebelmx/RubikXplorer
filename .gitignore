@@ -22,6 +22,8 @@ _bmad/config.user.toml
 # Python helper test caches
 __pycache__/
 .pytest_cache/
+tools/center-model/.venv/
+tools/center-model/artifacts/
 tools/corner-model/.venv/
 tools/corner-model/artifacts/
 tools/sticker-model/.venv/
