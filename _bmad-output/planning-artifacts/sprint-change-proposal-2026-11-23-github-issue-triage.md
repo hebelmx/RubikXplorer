@@ -1,6 +1,6 @@
 # Sprint Change Proposal — solver preparation, scan handoffs, and fixture recording
 
-**Status:** Draft for product-owner approval
+**Status:** Draft for product-owner approval — superseded. Recovered from a correct-course session that was cut short; the approved triage is [SCP 2026-11-24 github-issue-triage](sprint-change-proposal-2026-11-24-github-issue-triage.md). Kept as the record of the 2026-11-23 draft.
 
 **Date:** 2026-11-23 (America/Mexico_City)
 
