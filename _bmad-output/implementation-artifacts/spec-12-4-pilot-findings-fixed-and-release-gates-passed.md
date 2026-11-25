@@ -51,12 +51,12 @@ Severity-1/2 triage record (sources: the 2026-11-19 draft table and the device-s
 
 | Issue | Severity (source) | Resolution |
 | --- | --- | --- |
-| #206 gestures misfire | 1 (internal testing) | Fixed, PR #213 (Story 12.16, `aa0ef871943fe2aff440780d93c0b6dbf99e698e`); closed |
-| #207 view rotated / Reset view | 2 (internal testing) | Fixed, PR #214 (Story 12.17, `c2f56134eb52849efc698bb07a0e71431c696090`); closed |
+| #206 gestures misfire | 1 proposed (internal testing) | Fixed, PR #213 (Story 12.16, `aa0ef871943fe2aff440780d93c0b6dbf99e698e`); closed |
+| #207 view rotated / Reset view | 2 proposed (internal testing) | Fixed, PR #214 (Story 12.17, `c2f56134eb52849efc698bb07a0e71431c696090`); closed |
 | #354 editor Close discards without asking | 2 proposed (device session 6.8, F4) | Fixed, PR #357 (`3cf4307222fee4bc07f6bbe02823ad5ddbb2a2cd`); re-checked 6.9 (PR #359); closed |
-| #194 Quick Scan re-asked face merged 180° | 1 (device session C) | Fixed, PR #217 (`1bc07e41f00d3435db09f21ac7312e883969fcdb`); closed |
-| #195 Quick Scan corner guide can't be matched | 1 (device session C) | Open. Not reachable in this release: QUICK_SCAN is OFF in release (FeatureFlagLevels; PO call 2026-11-24). Must be fixed or re-triaged before a Story 10.11 run raises QUICK_SCAN |
-| #196 Quick Scan corners fail on dark glossy backgrounds | 2 (device session C) | Same as #195 |
+| #194 Quick Scan re-asked face merged 180° | 1 proposed (device session C) | Fixed, PR #217 (`1bc07e41f00d3435db09f21ac7312e883969fcdb`); closed |
+| #195 Quick Scan corner guide can't be matched | 1 proposed (device session C) | Open. Not reachable in this release: QUICK_SCAN is OFF in release (FeatureFlagLevels; PO call 2026-11-24). Must be fixed or re-triaged before a Story 10.11 run raises QUICK_SCAN |
+| #196 Quick Scan corners fail on dark glossy backgrounds | 2 proposed (device session C) | Same as #195 |
 
 ## Tasks & Acceptance
 
