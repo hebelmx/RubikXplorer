@@ -337,6 +337,20 @@ class ScanReviewTest {
         assertEquals(9, after.selected)
     }
 
+    @Test fun `a two-face uncalibrated Guided retake blanks both retaken faces and clears their evidence Labs`() {
+        val samples = Face.entries.map { shown(scrambled, it) }
+        val before = ScanReview.fromSamples(samples)
+        val blurredR = shown(scrambled, Face.R).copy(quality = CaptureQuality.BLURRED)
+        val okF = shown(scrambled, Face.F)
+        val after = ScanReview.retaken(before, listOf(blurredR, okF), samples, saved = null)
+        val expectedBlanks = (faceRange(Face.R).filter { it != 13 } + faceRange(Face.F).filter { it != 22 }).sorted()
+        assertEquals(expectedBlanks, after.blanks)
+        val evidence = requireNotNull(after.evidence)
+        (faceRange(Face.R) + faceRange(Face.F)).forEach { idx ->
+            assertNull(evidence.labs[idx], "Retaken slot $idx must clear Lab on NeedsCalibration")
+        }
+    }
+
     @Test fun `merged samples replace retaken faces in place`() {
         val samples = Face.entries.map { shown(scrambled, it) }
         val again = shown(scrambled, Face.F).copy(orientationDegrees = 180)

@@ -9,6 +9,7 @@ import dev.cubentia.domain.cube.PieceCheck
 import dev.cubentia.domain.cube.ReviewProblem
 import dev.cubentia.domain.cube.StickerOrder
 import dev.cubentia.domain.cube.ValidationResult
+import dev.cubentia.domain.recognition.continuous.ContinuousScanHandoff
 import java.util.Collections
 
 /**
@@ -108,6 +109,55 @@ class ScanReview(
             return preselected(colors, evidence)
         }
 
+        /**
+         * The review of a continuous scan [handoff]. Preserves all canonical `Orientation.HOME`
+         * confident stickers and carries the six self-calibrated center Labs plus 54 cell Labs as
+         * [evidence] for `#323` suspect ranking and Story 10.16 face retakes without requiring a
+         * saved FR-24 calibration.
+         */
+        fun from(handoff: ContinuousScanHandoff): ScanReview {
+            val colors =
+                List(Facelets.SIZE) { i ->
+                    if (!handoff.globalAnchored) {
+                        null
+                    } else {
+                        val face = Face.entries[i / 9]
+                        val cell = i % 9
+                        val fh = handoff.faces[face]
+                        if (fh == null || (cell != 4 && !fh.orientationLocked)) {
+                            null
+                        } else {
+                            fh.colors.getOrNull(cell)?.takeIf {
+                                fh.confidence.getOrNull(cell) == StickerConfidence.CONFIDENT
+                            }
+                        }
+                    }
+                }
+            val calibration = handoff.calibration?.takeIf(StickerClassifier::isValid)
+            val evidence =
+                calibration?.let { cal ->
+                    val labs =
+                        List(Facelets.SIZE) { i ->
+                            if (!handoff.globalAnchored) {
+                                null
+                            } else {
+                                val face = Face.entries[i / 9]
+                                val cell = i % 9
+                                val fh = handoff.faces[face]
+                                if (fh == null || (cell != 4 && !fh.orientationLocked)) {
+                                    null
+                                } else {
+                                    fh.labs
+                                        .getOrNull(cell)
+                                        ?.takeIf { it.isValid() }
+                                }
+                            }
+                        }
+                    ScanEvidence(labs, cal.centers)
+                }
+            return preselected(colors, evidence)
+        }
+
         /** Selects the first blank, else the top suspect, else the first sticker of the first problem naming stickers. */
         private fun preselected(
             colors: List<Color?>,
@@ -146,8 +196,14 @@ class ScanReview(
             val kept = Face.entries.filter { it !in faces }
             val keptColors = kept.associateWith { face -> before.stickers.subList(face.ordinal * 9, face.ordinal * 9 + 9) }
             val retakenIndices = faces.flatMap { face -> face.ordinal * 9 until face.ordinal * 9 + 9 }.toSet()
+            val fallbackSaved =
+                saved ?: before.evidence
+                    ?.takeIf { samples.size < Face.entries.size }
+                    ?.centers
+                    ?.let(::CalibrationCenters)
+                    ?.takeIf(StickerClassifier::isValid)
             val calibration =
-                (SelfCalibration.from(mergedSamples(samples, retaken), saved) as? SelfCalibration.Calibrated)?.calibration
+                (SelfCalibration.from(mergedSamples(samples, retaken), fallbackSaved) as? SelfCalibration.Calibrated)?.calibration
                     ?: return preselected(
                         before.stickers.mapIndexed { i, color -> color.takeUnless { i in retakenIndices } },
                         before.evidence?.without(retakenIndices),

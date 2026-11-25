@@ -7,6 +7,8 @@ import dev.cubentia.domain.cube.FaceletTables
 import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.ValidationResult
 import dev.cubentia.domain.lastlayer.LastLayerView
+import dev.cubentia.domain.recognition.continuous.ContinuousFaceHandoff
+import dev.cubentia.domain.recognition.continuous.ContinuousScanHandoff
 
 /** Why a face is absent from a [ScanResult.Partial]. */
 enum class ScanGap {
@@ -699,6 +701,199 @@ object ScanAssembler {
                 }
             }
         return ScanResult.Full(Facelets(readings.map { it.color }), readings.map { it.confidence }, labs)
+    }
+
+    /**
+     * Story 10.17: Guided Scan handover from a partial continuous scan [handoff]. Confirmed faces
+     * in [handoff] keep their colors untouched (never reclassified); faces with
+     * [ContinuousFaceHandoff.orientationLocked] stay fixed while unanchored/isolated faces search
+     * their 4 quarter turns alongside unposed [added] Guided samples. Returns [ScanResult.Full]
+     * when all six faces are placed, or [ScanResult.Partial] when gaps remain; never throws.
+     */
+    fun assembleHandover(
+        handoff: ContinuousScanHandoff,
+        added: List<FaceSample>,
+        saved: CalibrationCenters? = null,
+    ): ScanResult {
+        val keptByFace: Map<Face, ContinuousFaceHandoff> =
+            if (handoff.globalAnchored) handoff.faces else emptyMap()
+        val filteredAdded = added.filter { sample -> sample.centerColor?.let(HOME_FACE::getValue) !in keptByFace }
+        val fallbackCenters = buildHandoverFallbackCenters(handoff, saved)
+        val addedBySlot =
+            filteredAdded
+                .mapNotNull { sample -> sample.centerColor?.let { HOME_FACE.getValue(it) to sample } }
+                .groupBy({ it.first }, { it.second })
+        val unclaimed = filteredAdded.filter { it.centerColor == null }.map { it.face }.toSet()
+
+        val keptSamples =
+            keptByFace.mapNotNull { (face, fh) ->
+                val validLabs = fh.labs.takeIf { it.size == STICKERS && it.all { l -> l != null && l.isValid() } }
+                validLabs?.let { labs ->
+                    FaceSample(
+                        face = face,
+                        orientationDegrees = 0,
+                        stickers = labs.filterNotNull(),
+                        quality = CaptureQuality.ACCEPTABLE,
+                        centerColor = Color.home(face),
+                        centerPlain = true,
+                    )
+                }
+            }
+
+        val calibration: CalibrationCenters? =
+            if (keptByFace.size == Face.entries.size) {
+                fallbackCenters?.takeIf(StickerClassifier::isValid)
+            } else {
+                val derivedWithKept =
+                    if (saved == null && keptSamples.size == keptByFace.size &&
+                        keptSamples.size + filteredAdded.size >= Face.entries.size
+                    ) {
+                        (SelfCalibration.from(keptSamples + filteredAdded, saved = null) as? SelfCalibration.Calibrated)?.calibration
+                    } else {
+                        null
+                    }
+                derivedWithKept
+                    ?: (SelfCalibration.from(filteredAdded, fallbackCenters) as? SelfCalibration.Calibrated)?.calibration
+            }
+        val classifyUnclassified = handoff.calibration == null && keptByFace.size < Face.entries.size
+
+        val placedAdded = mutableMapOf<Face, Placement.Placed>()
+        val gaps = mutableMapOf<Face, ScanGap>()
+        for (slot in Face.entries) {
+            if (slot in keptByFace) continue
+            val claims = addedBySlot[slot].orEmpty()
+            when {
+                claims.isEmpty() -> {
+                    gaps[slot] = if (slot in unclaimed) ScanGap.NO_POSE else ScanGap.MISSING
+                }
+
+                claims.size > 1 -> {
+                    gaps[slot] = ScanGap.DUPLICATE
+                }
+
+                calibration == null -> {
+                    gaps[slot] = ScanGap.UNCALIBRATED
+                }
+
+                else -> {
+                    when (val placement = place(slot, claims.single(), calibration.centers)) {
+                        is Placement.Placed -> placedAdded[slot] = placement
+                        is Placement.Gap -> gaps[slot] = placement.gap
+                    }
+                }
+            }
+        }
+
+        if (gaps.isEmpty()) {
+            val options: List<List<List<StickerReading?>>> =
+                Face.entries.map { face ->
+                    val kept = keptByFace[face]
+                    if (kept != null) {
+                        val base = handoffFaceReadings(face, kept, calibration, classifyUnclassified)
+                        if (kept.orientationLocked) listOf(base) else List(TURNS) { rotateClockwise(base, it) }
+                    } else {
+                        val placed = placedAdded.getValue(face)
+                        if (placed.posed) listOf(placed.readings) else List(TURNS) { rotateClockwise(placed.readings, it) }
+                    }
+                }
+            val found = enumerate(options.map { face -> face.map(::gridOf) })
+            val resolved = found.valid.size == 1
+            val readings =
+                Face.entries.flatMap { face ->
+                    val kept = keptByFace[face]
+                    val chosen = options[face.ordinal][found.first.choice[face.ordinal]]
+                    chosen.mapIndexed { index, reading ->
+                        val canSpin = kept == null || !kept.orientationLocked
+                        val ambiguous = !resolved && canSpin && face in found.differing && index != FaceSample.CENTER_INDEX
+                        when {
+                            reading == null -> StickerReading(Color.home(face), StickerConfidence.UNCERTAIN)
+                            ambiguous -> reading.copy(confidence = StickerConfidence.UNCERTAIN)
+                            else -> reading
+                        }
+                    }
+                }
+            val labs: List<Lab>? =
+                calibration?.let { cal ->
+                    Face.entries.flatMap { face ->
+                        val kept = keptByFace[face]
+                        val turn = found.first.choice[face.ordinal]
+                        if (kept != null) {
+                            val alignedLabs = if (kept.orientationLocked) kept.labs else rotateClockwise(kept.labs, turn)
+                            List(STICKERS) { idx ->
+                                alignedLabs[idx]?.takeIf { it.isValid() }
+                                    ?: cal.centers.getValue(readings[face.ordinal * STICKERS + idx].color)
+                            }
+                        } else {
+                            val placed = placedAdded.getValue(face)
+                            if (placed.posed) placed.labs else rotateClockwise(placed.labs, turn)
+                        }
+                    }
+                }
+            return ScanResult.Full(Facelets(readings.map { it.color }), readings.map { it.confidence }, labs)
+        }
+
+        // Fewer than six faces: unposed added faces and unoriented kept faces cannot be oriented from validity.
+        placedAdded.filterValues { !it.posed }.keys.forEach { gaps[it] = ScanGap.NO_POSE }
+        keptByFace.filterValues { !it.orientationLocked }.keys.forEach { gaps[it] = ScanGap.NO_POSE }
+        val obsFaces = LinkedHashMap<Face, List<Color>>()
+        val confFaces = LinkedHashMap<Face, List<StickerConfidence>>()
+        for (face in Face.entries) {
+            if (face in gaps) continue
+            val kept = keptByFace[face]
+            if (kept != null) {
+                val readings = handoffFaceReadings(face, kept, calibration, classifyUnclassified)
+                obsFaces[face] = readings.map { it?.color ?: Color.home(face) }
+                confFaces[face] = readings.map { it?.confidence ?: StickerConfidence.UNCERTAIN }
+            } else {
+                val placed = placedAdded[face] ?: continue
+                obsFaces[face] = placed.readings.map { it.color }
+                confFaces[face] = placed.readings.map { it.confidence }
+            }
+        }
+        return ScanResult.Partial(
+            PhysicalObservation.Partial(obsFaces),
+            confFaces,
+            Face.entries.filter { it in gaps }.associateWith { gaps.getValue(it) },
+        )
+    }
+
+    private fun buildHandoverFallbackCenters(
+        handoff: ContinuousScanHandoff,
+        saved: CalibrationCenters?,
+    ): CalibrationCenters? {
+        val merged = LinkedHashMap<Color, Lab>()
+        // Prefer live continuous-scan centers over any older saved FR-24 calibration.
+        handoff.calibration?.centers?.forEach { (c, lab) -> if (lab.isValid()) merged[c] = lab }
+        if (handoff.globalAnchored) {
+            handoff.faces.forEach { (face, fh) ->
+                val color = Color.home(face)
+                val lab = fh.labs.getOrNull(FaceSample.CENTER_INDEX)
+                if (color !in merged && lab != null && lab.isValid()) merged[color] = lab
+            }
+        }
+        saved?.centers?.forEach { (c, lab) -> if (c !in merged && lab.isValid()) merged[c] = lab }
+        return if (merged.isEmpty()) null else CalibrationCenters(merged)
+    }
+
+    private fun handoffFaceReadings(
+        face: Face,
+        handoffFace: ContinuousFaceHandoff,
+        calibration: CalibrationCenters? = null,
+        classifyUnclassified: Boolean = false,
+    ): List<StickerReading?> {
+        val centers = if (classifyUnclassified) calibration?.takeIf(StickerClassifier::isValid)?.centers else null
+        return List(STICKERS) { index ->
+            if (index == FaceSample.CENTER_INDEX) {
+                StickerReading(Color.home(face), handoffFace.confidence[index])
+            } else {
+                val color = handoffFace.colors[index]
+                when {
+                    color != null -> StickerReading(color, handoffFace.confidence[index])
+                    centers != null -> handoffFace.labs[index]?.takeIf { it.isValid() }?.let { StickerClassifier.read(it, centers) }
+                    else -> null
+                }
+            }
+        }
     }
 
     /** A face held fixed in a retake: its [colors] (null stickers blank), or all blank but the center without any. */

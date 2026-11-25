@@ -844,5 +844,15 @@
   "msg.physical.mismatch.quick-check": "Check the faces you turned with the camera.",
   "msg.physical.frame-verified": "VERIFIED",
   "msg.quick-check.seen": "SEEN",
-  "msg.quick-check.seen-differs": "Differs from the expected cube"
+  "msg.quick-check.seen-differs": "Differs from the expected cube",
+  "msg.quick-scan.continuous.bring-into-view": "Bring the cube into view.",
+  "msg.quick-scan.continuous.turn-remaining": "Turn the cube to show {count, plural, one {the remaining # side} other {the remaining # sides}}.",
+  "msg.quick-scan.continuous.tilt-adjacent": "Tilt slightly to show an adjacent face.",
+  "msg.quick-scan.continuous.keep-turning-realign": "Keep turning to line up with the sides you already scanned.",
+  "msg.quick-scan.continuous.tilt-away-light": "Tilt slightly away from the light for a clearer view.",
+  "msg.quick-scan.continuous.tilt-away-light-remaining": "Tilt slightly away from the light — {count, plural, one {# side} other {# sides}} left.",
+  "msg.quick-scan.continuous.resolve-conflict": "Show the {color, select, white {white} yellow {yellow} green {green} blue {blue} red {red} orange {orange} other {conflicted}} face clearly to resolve a conflict.",
+  "msg.quick-scan.continuous.layer-twist": "A layer turned during the scan. Hold the layers steady and scan again.",
+  "msg.quick-scan.continuous.all-verified": "All 54 stickers verified.",
+  "msg.quick-scan.continuous.tilt-remaining-stickers": "Tilt the remaining faces toward the camera ({committed} of 54)."
 }
