@@ -419,13 +419,32 @@ internal fun cornerMissStatus(miss: CornerMiss): String =
         }
     }
 
-/** The status after a keypoint-only positive is saved as fixture [index], with an EV+ hint when the faces were too dark. */
+/**
+ * The status after a keypoint-only positive is saved as fixture [index] (GH-318). A deliberate keypoints-only save
+ * ([miss] null) keeps the plain status; after a corner [miss] the status leads with the fact that corner [hold]'s colors
+ * were not recorded and why (the status line is two lines at most), then offers Retake corner [hold].
+ */
 internal fun keypointsOnlySaved(
     index: Int,
+    hold: Int,
     miss: CornerMiss?,
-): String =
-    "Saved positive %04d (keypoints only).".format(index) +
-        (if (miss == CornerMiss.TOO_DARK) " Faces were too dark for colors: tap EV+ to record them." else "")
+): String {
+    if (miss == null) return "Saved positive %04d (keypoints only).".format(index)
+    val reason =
+        when (miss) {
+            CornerMiss.NO_CUBE -> "the detector found no cube"
+            CornerMiss.TOO_DARK -> "faces too dark, tap EV+ first"
+            CornerMiss.UNREAD_CELL -> "a face had an unread cell"
+        }
+    return "Corner $hold colors NOT recorded: $reason. Saved keypoints only as positive %04d; Retake corner $hold to record them."
+        .format(index)
+}
+
+/** The primary corner button's label (GH-318): Retake corner [hold] after a keypoints-only save that missed its colors. */
+internal fun cornerCaptureLabel(
+    hold: Int,
+    retake: Boolean,
+): String = if (retake) "Retake corner $hold" else "Capture corner $hold"
 
 /*
  * Story 10.19 corner-mode rules: keypoint labels on the model-input crop, never-overwrite group folders, the manifest.

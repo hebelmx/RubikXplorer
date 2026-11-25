@@ -2642,3 +2642,27 @@ action_items:
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-12-4-pilot-findings-fixed-and-release-gates-passed.md"
+  - id: "issue-318-deferred-missing-jpeg-says-no-cube"
+    epic: 10
+    action: "A keypoints-only save whose colour read worked but whose shot.jpeg was null still falls back to CornerMiss.NO_CUBE, so the status wrongly says the detector found no cube; give a missing JPEG its own reason (low; deferred from #318, FixtureRecorderScreen.kt:380)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-318-recorder-keypoints-only-save-explains.md"
+  - id: "issue-318-deferred-missed-hold-untested"
+    epic: 10
+    action: "The missedHold rule that turns the corner button into \"Retake corner N\" has no automated test; move the set/clear rule into a pure RecorderRules helper and test it, or confirm it in the next device session (low; deferred from #318, FixtureRecorderScreen.kt:181)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-318-recorder-keypoints-only-save-explains.md"
+  - id: "issue-318-deferred-missed-hold-reset-race"
+    epic: 10
+    action: "If newCondition or resetCorner runs while a keypoints-only save is in flight, missedHold is set afterwards and a fresh condition can show \"Retake corner 1\"; set it only when the hold and reset generation are unchanged (low; deferred from #318, FixtureRecorderScreen.kt:412)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-318-recorder-keypoints-only-save-explains.md"
+  - id: "issue-318-deferred-status-retake-clause-cut"
+    epic: 10
+    action: "The recorder status is capped at 2 lines with a coaching prefix, so the trailing \"Retake corner N\" clause can be cut off on narrow screens (the reason and the Retake button stay visible) (low; deferred from #318, FixtureRecorderScreen.kt:881)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-318-recorder-keypoints-only-save-explains.md"

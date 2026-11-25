@@ -727,13 +727,37 @@ class RecorderRulesTest {
         assertNull(cornerMiss(1, usable))
     }
 
-    @Test fun `a keypoint-only save after a too-dark miss adds the EV+ hint`() {
+    @Test fun `a keypoint-only save after an unread cell says the colors were not recorded`() {
         assertEquals(
-            "Saved positive 0003 (keypoints only). Faces were too dark for colors: tap EV+ to record them.",
-            keypointsOnlySaved(3, CornerMiss.TOO_DARK),
+            "Corner 2 colors NOT recorded: a face had an unread cell. Saved keypoints only as positive 0003; " +
+                "Retake corner 2 to record them.",
+            keypointsOnlySaved(3, 2, CornerMiss.UNREAD_CELL),
         )
-        assertEquals("Saved positive 0003 (keypoints only).", keypointsOnlySaved(3, CornerMiss.NO_CUBE))
-        assertEquals("Saved positive 0003 (keypoints only).", keypointsOnlySaved(3, null))
+    }
+
+    @Test fun `a keypoint-only save after a too-dark miss says the colors were not recorded and points to EV+`() {
+        assertEquals(
+            "Corner 2 colors NOT recorded: faces too dark, tap EV+ first. Saved keypoints only as positive 0003; " +
+                "Retake corner 2 to record them.",
+            keypointsOnlySaved(3, 2, CornerMiss.TOO_DARK),
+        )
+    }
+
+    @Test fun `a keypoint-only save after no cube says the colors were not recorded`() {
+        assertEquals(
+            "Corner 1 colors NOT recorded: the detector found no cube. Saved keypoints only as positive 0003; " +
+                "Retake corner 1 to record them.",
+            keypointsOnlySaved(3, 1, CornerMiss.NO_CUBE),
+        )
+    }
+
+    @Test fun `a deliberate keypoint-only save keeps the plain status`() {
+        assertEquals("Saved positive 0003 (keypoints only).", keypointsOnlySaved(3, 1, null))
+    }
+
+    @Test fun `the corner button offers Retake after a missed corner and Capture otherwise`() {
+        assertEquals("Retake corner 2", cornerCaptureLabel(2, retake = true))
+        assertEquals("Capture corner 2", cornerCaptureLabel(2, retake = false))
     }
 
     @Test fun `an undetected zero-score frame that still carries faces is too dark`() {
