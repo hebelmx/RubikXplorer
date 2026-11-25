@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-24-2026 19:27'
+last_updated: '11-24-2026 22:33'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -153,10 +153,10 @@ development_status:
   10-19-quick-scan-reads-the-side-faces-in-good-light: done
   10-20-record-10-19-pipeline-corner-fixtures-and-check-the-corner-m: done
   10-21-quick-scan-keeps-the-side-faces-it-reads-well: done
-  # 10-24..10-27 dropped by SCP 2026-11-24 continuous-quick-scan; replaced by 10-30..10-33
   10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa: done
   10-29-solution-playback-shows-the-same-quick-check-result-as-lesso: backlog
-  10-30-port-continuous-facelet-lattice-fitter-and-cube-mapper-to-pu: backlog
+  10-30-port-continuous-facelet-lattice-fitter-and-cube-mapper-to-pu: 
+    in-progress
   10-31-wire-litert-v2-int8-sticker-center-detector-split-continuous: backlog
   10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal: backlog
   10-33-continuous-quick-scan-physical-device-matrix-and-po-beta-cal: backlog
@@ -1113,8 +1113,8 @@ action_items:
     epic: 11
     action: "Device check on Lenovo + S24: a Quick Scan re-ask held off its named
       top merges in the corner frame (fix is proven only by domain tests that model
-      the grid turn) (medium; deferred from #194)
-      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the 2-corner Quick Scan"
+      the grid turn) (medium; deferred from #194) — superseded by SCP 2026-11-24 continuous-quick-scan
+      (#368); obsolete with the 2-corner Quick Scan"
     owner: "PO (hebelmx)"
     status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-194-quick-scan-reasked-face-rotated.md"
@@ -1124,8 +1124,8 @@ action_items:
       misread, Quick Scan falls back to the named-top merge, which can implicate more
       than 2 faces and skip the round-2 re-ask or show a rotated face in Review; pass
       the unposed result to involvedFaces in that case (medium; deferred from #194,
-      QuickScan.kt:119-128)
-      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the 2-corner Quick Scan"
+      QuickScan.kt:119-128) — superseded by SCP 2026-11-24 continuous-quick-scan (#368);
+      obsolete with the 2-corner Quick Scan"
     owner: "Dev (Amelia)"
     status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-194-quick-scan-reasked-face-rotated.md"
@@ -1679,8 +1679,8 @@ action_items:
     action: "No test (and no device check: corner auto-capture fires before an adb
       tap) covers tapping 'Scan face by face' during the 400 ms corner capture freeze
       (low; deferred from 10.17, app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt
-      switchToFaceByFace)
-      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the 2-corner Quick Scan"
+      switchToFaceByFace) — superseded by SCP 2026-11-24 continuous-quick-scan (#368);
+      obsolete with the 2-corner Quick Scan"
     owner: "Dev (Amelia)"
     status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-17-switch-from-quick-scan-to-the-guided-scan-and-keep-the-captured-faces.md"
@@ -1690,7 +1690,8 @@ action_items:
       the merged six-face calibration, not the reading judged at keep time; add a
       test pinning kept-face colour stability or carry the judged colours into review
       as reviewAfterRetake does (medium; deferred from 10.17, core/domain/src/main/kotlin/dev/cubentia/domain/recognition/QuickScan.kt:177)
-      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the 2-corner Quick Scan"
+      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the
+      2-corner Quick Scan"
     owner: "Dev (Amelia)"
     status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-17-switch-from-quick-scan-to-the-guided-scan-and-keep-the-captured-faces.md"
@@ -1699,7 +1700,8 @@ action_items:
     action: "'Scan face by face' stays visible but does nothing during the freeze
       after capture 2; hide it once the corner view is left or make the tap take effect
       (low, Learner-visible; deferred from 10.17, app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanFlow.kt:225)
-      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the 2-corner Quick Scan"
+      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the
+      2-corner Quick Scan"
     owner: "Dev (Amelia)"
     status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-17-switch-from-quick-scan-to-the-guided-scan-and-keep-the-captured-faces.md"
@@ -1722,8 +1724,8 @@ action_items:
       actually lit; if enableTorch fails (e.g. a hot S24 FE) a backlit cube captures
       with no light hold; skip only while the torch is applied (medium; deferred from
       10.19, core/domain/src/main/kotlin/dev/cubentia/domain/recognition/QuickScan.kt:199);
-      built in Story 10.21
-      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the 2-corner Quick Scan"
+      built in Story 10.21 — superseded by SCP 2026-11-24 continuous-quick-scan (#368);
+      obsolete with the 2-corner Quick Scan"
     owner: "Dev (Amelia)"
     status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-19-quick-scan-reads-the-side-faces-in-good-light.md"
@@ -1733,8 +1735,8 @@ action_items:
       check (session fix f7b0573f), while AC1 says pass about 0.5 s while steady;
       PO to confirm movement may be ignored in the light-clear window or restore the
       2-cells-per-face restart (medium; deferred from 10.19, core/domain/src/main/kotlin/dev/cubentia/domain/recognition/CornerHold.kt:278);
-      built in Story 10.21
-      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the 2-corner Quick Scan"
+      built in Story 10.21 — superseded by SCP 2026-11-24 continuous-quick-scan (#368);
+      obsolete with the 2-corner Quick Scan"
     owner: "PO (hebelmx)"
     status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-19-quick-scan-reads-the-side-faces-in-good-light.md"
@@ -1743,8 +1745,8 @@ action_items:
     action: "Backing out of calibration opened from the Quick Scan corner view shows
       the calibration offer again at once from the stale light hold; clear the hold
       or offer on return (low, Learner-visible; deferred from 10.19, app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt:173);
-      built in Story 10.21
-      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the 2-corner Quick Scan"
+      built in Story 10.21 — superseded by SCP 2026-11-24 continuous-quick-scan (#368);
+      obsolete with the 2-corner Quick Scan"
     owner: "Dev (Amelia)"
     status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-19-quick-scan-reads-the-side-faces-in-good-light.md"
@@ -1799,7 +1801,8 @@ action_items:
     action: "'Scan face by face' accepts a tap before the corner camera delivers its
       first frame, which can hand over all six faces at once; gate switchToFaceByFace
       on the camera having started (low, Learner-visible, existing before #276; app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt:454)
-      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the 2-corner Quick Scan"
+      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the
+      2-corner Quick Scan"
     owner: "Dev (Amelia)"
     status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-276-quick-scan-reopen-fresh-corner-view.md"
@@ -2191,8 +2194,8 @@ action_items:
       on one Fixtures/corner JPEG and compares it with a tensor or cell-mean fixture
       exported by tools/sticker-model/assemble.py, so a flip, rotation or colour mismatch
       between training and on-device input is caught (medium; deferred from 10.23,
-      StickerModelContract.kt:46)
-      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the 2-corner Quick Scan"
+      StickerModelContract.kt:46) — superseded by SCP 2026-11-24 continuous-quick-scan
+      (#368); obsolete with the 2-corner Quick Scan"
     owner: "Dev (Amelia)"
     status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads.md"
@@ -2201,7 +2204,8 @@ action_items:
     action: "Run the tools/sticker-model Python unittests (assembly determinism, crop
       orientation, tau choice, size limit) in CI, or a CPU-only subset of them; they
       need TensorFlow and the corner model (medium; deferred from 10.23, tools/sticker-model/test_*.py)
-      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the 2-corner Quick Scan"
+      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the
+      2-corner Quick Scan"
     owner: "Dev (Amelia)"
     status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads.md"
@@ -2212,8 +2216,8 @@ action_items:
       with the shadow reader on and 10 off, recording inference time per capture and
       the 10.22 per-hold capture times (H2), plus extra fixture captures where the
       inventory is thin (H1); fill docs/evidence/10-23/human-gate.md (high; PO-deferred
-      human gate from 10.23, AC8 and AC1)
-      — superseded by SCP 2026-11-24 continuous-quick-scan (#368); obsolete with the 2-corner Quick Scan"
+      human gate from 10.23, AC8 and AC1) — superseded by SCP 2026-11-24 continuous-quick-scan
+      (#368); obsolete with the 2-corner Quick Scan"
     owner: "PO (hebelmx)"
     status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads.md"
@@ -2483,8 +2487,7 @@ action_items:
       (each re-running SelfCalibration) on every settled frame on the analyzer thread
       with the frame-time cost unmeasured; compute self-calibration and match once
       per frame or log analyzer frame time on the S24 FE and Lenovo (medium, unverified;
-      deferred from 10.21, QuickScan.kt:252; done: superseded by SCP 2026-11-24
-      continuous-quick-scan)"
+      deferred from 10.21, QuickScan.kt:252; done: superseded by SCP 2026-11-24 continuous-quick-scan)"
     owner: "Dev (Amelia)"
     status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
@@ -2655,91 +2658,144 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/spec-10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa.md"
   - id: "epic-12-deferred-12.4-green-release-device-run"
     epic: 12
-    action: "Gate 3: record v0.10.1's green Release pilot run 45531395685 (versionCode 3, signed tag v0.10.1 at f53f676ef58a92e0727daccd72bcd2e1af270631, uploaded to internal testing 2026-11-25 02:46 UTC; v0.10.0 run 45514196023 failed and its tag was deleted) in docs/release-gates-v1.0.md, then re-run gate 3 on the v1.0.0 tag and record that green run before Story 12.5 promotes to production (SCP 2026-11-24 camera-release-timeline) (medium; deferred from 12.4, docs/release-gates-v1.0.md)"
+    action: "Gate 3: record v0.10.1's green Release pilot run 45531395685 (versionCode
+      3, signed tag v0.10.1 at f53f676ef58a92e0727daccd72bcd2e1af270631, uploaded
+      to internal testing 2026-11-25 02:46 UTC; v0.10.0 run 45514196023 failed and
+      its tag was deleted) in docs/release-gates-v1.0.md, then re-run gate 3 on the
+      v1.0.0 tag and record that green run before Story 12.5 promotes to production
+      (SCP 2026-11-24 camera-release-timeline) (medium; deferred from 12.4, docs/release-gates-v1.0.md)"
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-12-4-pilot-findings-fixed-and-release-gates-passed.md"
   - id: "epic-12-deferred-12.4-pilot-sm-baselines"
     epic: 12
-    action: "Gate 4: run the #127 beginner pilot sessions on 0.11.0 (0.10.1 is install and smoke only) and write the SM-1 to SM-9 baselines, SM-8 included, and the pilot record into docs/release-gates-v1.0.md, triaging any new severity-1/2 issue; the 0.11.0 pilot record is what clears Story 12.5's production promotion (SCP 2026-11-24 camera-release-timeline); see epic-7-retro-item-66 for the tag and install part (medium; deferred from 12.4, docs/release-gates-v1.0.md)"
+    action: "Gate 4: run the #127 beginner pilot sessions on 0.11.0 (0.10.1 is install
+      and smoke only) and write the SM-1 to SM-9 baselines, SM-8 included, and the
+      pilot record into docs/release-gates-v1.0.md, triaging any new severity-1/2
+      issue; the 0.11.0 pilot record is what clears Story 12.5's production promotion
+      (SCP 2026-11-24 camera-release-timeline); see epic-7-retro-item-66 for the tag
+      and install part (medium; deferred from 12.4, docs/release-gates-v1.0.md)"
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-12-4-pilot-findings-fixed-and-release-gates-passed.md"
   - id: "epic-12-deferred-12.4-release-order-10-11-vs-12-5"
     epic: 12
-    action: "Decide the release order: Story 10.11 (raises camera flags, checks gate 6) depends on 12.5, whose last AC promotes to production, so production could ship before gate 6 and the data-safety re-check for raised camera flags; settle it with bmad-correct-course (medium; deferred from 12.4, epic-12-context.md)"
+    action: "Decide the release order: Story 10.11 (raises camera flags, checks gate
+      6) depends on 12.5, whose last AC promotes to production, so production could
+      ship before gate 6 and the data-safety re-check for raised camera flags; settle
+      it with bmad-correct-course (medium; deferred from 12.4, epic-12-context.md)"
     owner: "PO (BMad)"
     status: done
     ref: "_bmad-output/implementation-artifacts/spec-12-4-pilot-findings-fixed-and-release-gates-passed.md"
   - id: "issue-318-deferred-missing-jpeg-says-no-cube"
     epic: 10
-    action: "A keypoints-only save whose colour read worked but whose shot.jpeg was null still falls back to CornerMiss.NO_CUBE, so the status wrongly says the detector found no cube; give a missing JPEG its own reason (low; deferred from #318, FixtureRecorderScreen.kt:380)"
+    action: "A keypoints-only save whose colour read worked but whose shot.jpeg was
+      null still falls back to CornerMiss.NO_CUBE, so the status wrongly says the
+      detector found no cube; give a missing JPEG its own reason (low; deferred from
+      #318, FixtureRecorderScreen.kt:380)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-318-recorder-keypoints-only-save-explains.md"
   - id: "issue-318-deferred-missed-hold-untested"
     epic: 10
-    action: "The missedHold rule that turns the corner button into \"Retake corner N\" has no automated test; move the set/clear rule into a pure RecorderRules helper and test it, or confirm it in the next device session (low; deferred from #318, FixtureRecorderScreen.kt:181)"
+    action: "The missedHold rule that turns the corner button into \"Retake corner
+      N\" has no automated test; move the set/clear rule into a pure RecorderRules
+      helper and test it, or confirm it in the next device session (low; deferred
+      from #318, FixtureRecorderScreen.kt:181)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-318-recorder-keypoints-only-save-explains.md"
   - id: "issue-318-deferred-missed-hold-reset-race"
     epic: 10
-    action: "If newCondition or resetCorner runs while a keypoints-only save is in flight, missedHold is set afterwards and a fresh condition can show \"Retake corner 1\"; set it only when the hold and reset generation are unchanged (low; deferred from #318, FixtureRecorderScreen.kt:412)"
+    action: "If newCondition or resetCorner runs while a keypoints-only save is in
+      flight, missedHold is set afterwards and a fresh condition can show \"Retake
+      corner 1\"; set it only when the hold and reset generation are unchanged (low;
+      deferred from #318, FixtureRecorderScreen.kt:412)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-318-recorder-keypoints-only-save-explains.md"
   - id: "issue-318-deferred-status-retake-clause-cut"
     epic: 10
-    action: "The recorder status is capped at 2 lines with a coaching prefix, so the trailing \"Retake corner N\" clause can be cut off on narrow screens (the reason and the Retake button stay visible) (low; deferred from #318, FixtureRecorderScreen.kt:881)"
+    action: "The recorder status is capped at 2 lines with a coaching prefix, so the
+      trailing \"Retake corner N\" clause can be cut off on narrow screens (the reason
+      and the Retake button stay visible) (low; deferred from #318, FixtureRecorderScreen.kt:881)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-318-recorder-keypoints-only-save-explains.md"
   - id: "scp-2026-11-24-quick-scan-port-stories"
     epic: 10
-    action: "The continuous facelet scan spike session writes the Quick Scan port stories through correct-course (Android port behind QUICK_SCAN, device benchmark on the Lenovo TB128XU, Galaxy S24 FE and Galaxy Tab S7 FE 5G with the Lenovo as gating minimum, BETA call) and replaces or drops 10.24-10.27 (high; SCP 2026-11-24 camera-release-timeline; done: Stories 10.30-10.33 authored and 10.24-10.27 dropped by SCP 2026-11-24 continuous-quick-scan; 3-device R8 benchmark closed in PR #366)"
+    action: "The continuous facelet scan spike session writes the Quick Scan port
+      stories through correct-course (Android port behind QUICK_SCAN, device benchmark
+      on the Lenovo TB128XU, Galaxy S24 FE and Galaxy Tab S7 FE 5G with the Lenovo
+      as gating minimum, BETA call) and replaces or drops 10.24-10.27 (high; SCP 2026-11-24
+      camera-release-timeline; done: Stories 10.30-10.33 authored and 10.24-10.27
+      dropped by SCP 2026-11-24 continuous-quick-scan; 3-device R8 benchmark closed
+      in PR #366)"
     owner: "PO (BMad)"
     status: done
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-24-continuous-quick-scan.md"
   - id: "scp-2026-11-24-quick-scan-raise-preconditions"
     epic: 10
-    action: "Before Story 10.11 raises QUICK_SCAN in 0.11.0: complete Stories 10.30-10.33 (pure-JVM continuous core, LiteRT v2 INT8 continuous source-set split + shadow reader retirement, continuous Quick Scan live UI + 2-corner cleanup, physical-device matrix), confirm :app:checkCameraSize and minified 0.11.0-profile size < 30 MB, and record Story 10.33's PO BETA call in PRD .memlog.md (spine/PRD/UX amendments already applied by SCP 2026-11-24 continuous-quick-scan; 3-device R8 benchmark closed in PR #366) (high; SCP 2026-11-24 camera-release-timeline & continuous-quick-scan)"
+    action: "Before Story 10.11 raises QUICK_SCAN in 0.11.0: complete Stories 10.30-10.33
+      (pure-JVM continuous core, LiteRT v2 INT8 continuous source-set split + shadow
+      reader retirement, continuous Quick Scan live UI + 2-corner cleanup, physical-device
+      matrix), confirm :app:checkCameraSize and minified 0.11.0-profile size < 30
+      MB, and record Story 10.33's PO BETA call in PRD .memlog.md (spine/PRD/UX amendments
+      already applied by SCP 2026-11-24 continuous-quick-scan; 3-device R8 benchmark
+      closed in PR #366) (high; SCP 2026-11-24 camera-release-timeline & continuous-quick-scan)"
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-24-continuous-quick-scan.md"
   - id: "scp-2026-11-24-site-order-0-11-0"
     epic: 10
-    action: "For the 0.11.0 camera release, follow docs/release.md:25: merge the site privacy PR (camera sentence) before the flag-raise PR, or keep APP_REF pinned to v0.10.1 (it is as of 2026-11-24) until the tag; push v0.11.0; move APP_REF to v0.11.0 only after its release run passes (medium; SCP 2026-11-24 camera-release-timeline)"
+    action: "For the 0.11.0 camera release, follow docs/release.md:25: merge the site
+      privacy PR (camera sentence) before the flag-raise PR, or keep APP_REF pinned
+      to v0.10.1 (it is as of 2026-11-24) until the tag; push v0.11.0; move APP_REF
+      to v0.11.0 only after its release run passes (medium; SCP 2026-11-24 camera-release-timeline)"
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-24-camera-release-timeline.md"
   - id: "scp-2026-11-24-release-gates-on-camera-build"
     epic: 12
-    action: "Before Story 12.5 promotes to production, re-run the docs/release-gates-v1.0.md checklist on the camera build: gate 3 a green Release pilot run, gate 4 with SM-8 from the 0.11.0 pilot, gate 6 checked per raised feature; replace the gate 6 and SM-8 N/A lines recorded on the camera-OFF builds (medium; SCP 2026-11-24 camera-release-timeline, review #5)"
+    action: "Before Story 12.5 promotes to production, re-run the docs/release-gates-v1.0.md
+      checklist on the camera build: gate 3 a green Release pilot run, gate 4 with
+      SM-8 from the 0.11.0 pilot, gate 6 checked per raised feature; replace the gate
+      6 and SM-8 N/A lines recorded on the camera-OFF builds (medium; SCP 2026-11-24
+      camera-release-timeline, review #5)"
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-24-camera-release-timeline.md"
   - id: "scp-2026-11-24-redo-12-3-po-items-camera-build"
     epic: 12
-    action: "Before Story 12.5, redo the Story 12.3 PO items for the camera build's versionCode (Play vitals before production, the offline device check, docs/release.md:37-41), since 12.3 was accepted on camera-free builds (medium; SCP 2026-11-24 camera-release-timeline, review #6)"
+    action: "Before Story 12.5, redo the Story 12.3 PO items for the camera build's
+      versionCode (Play vitals before production, the offline device check, docs/release.md:37-41),
+      since 12.3 was accepted on camera-free builds (medium; SCP 2026-11-24 camera-release-timeline,
+      review #6)"
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-24-camera-release-timeline.md"
   - id: "issue-314-deferred-release-docs-old-300s-limit"
     epic: 12
-    action: "docs/release-gates-v1.0.md (gate 3 row) and docs/evidence/release-device-session/README.md:69 still describe the fixed 300 s render-sync limit and the 15-minute workaround; update them after the PO device run (low; deferred from #314)"
+    action: "docs/release-gates-v1.0.md (gate 3 row) and docs/evidence/release-device-session/README.md:69
+      still describe the fixed 300 s render-sync limit and the 15-minute workaround;
+      update them after the PO device run (low; deferred from #314)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-314-render-sync-test-tiered-timeout.md"
   - id: "issue-314-deferred-high-tier-unmeasured"
     epic: 12
-    action: "The HIGH tier (10 GiB RAM and up) keeps the 300 s render-sync limit with no measured device behind it; raise it to 450-600 s or measure one such device (low; deferred from #314, app/src/sharedTest/kotlin/dev/cubentia/app/render/DeviceSpeedTier.kt:16)"
+    action: "The HIGH tier (10 GiB RAM and up) keeps the 300 s render-sync limit with
+      no measured device behind it; raise it to 450-600 s or measure one such device
+      (low; deferred from #314, app/src/sharedTest/kotlin/dev/cubentia/app/render/DeviceSpeedTier.kt:16)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-314-render-sync-test-tiered-timeout.md"
   - id: "scp-2026-11-24-pastel-plausibility-guided-followup"
     epic: 10
-    action: "Follow-up after dropping Story 10.27: resolve ColorCalibrationTest.KNOWN_PASTEL_PROBLEMS (lenovo-tb128xu_stlb_bar-warm hold 2 L[8] pastel Blue, #166 / FR-24) for Guided 6-face Scan ColorPlausibility without blocking 0.11.0 Guided GA or continuous Quick Scan Stories 10.30-10.33 (low; SCP 2026-11-24 continuous-quick-scan)"
+    action: "Follow-up after dropping Story 10.27: resolve ColorCalibrationTest.KNOWN_PASTEL_PROBLEMS
+      (lenovo-tb128xu_stlb_bar-warm hold 2 L[8] pastel Blue, #166 / FR-24) for Guided
+      6-face Scan ColorPlausibility without blocking 0.11.0 Guided GA or continuous
+      Quick Scan Stories 10.30-10.33 (low; SCP 2026-11-24 continuous-quick-scan)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-24-continuous-quick-scan.md"
