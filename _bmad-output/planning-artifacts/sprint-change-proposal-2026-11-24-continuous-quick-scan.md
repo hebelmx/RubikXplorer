@@ -430,10 +430,10 @@ So that I can make an informed BETA call for Story 10.11's `0.11.0` camera relea
 
 - Remove dropped 2-corner backlog keys `10-24..10-27` (with a comment noting dropped by SCP 2026-11-24 continuous-quick-scan) and add:
   ```yaml
-  10-30-port-continuous-facelet-lattice-fitter-and-cube-mapper-to-p: backlog
-  10-31-wire-litert-v2-int8-sticker-center-detector-split-continuou: backlog
-  10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fa: backlog
-  10-33-continuous-quick-scan-physical-device-matrix-and-po-beta-ca: backlog
+  10-30-port-continuous-facelet-lattice-fitter-and-cube-mapper-to-pu: backlog
+  10-31-wire-litert-v2-int8-sticker-center-detector-split-continuous: backlog
+  10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal: backlog
+  10-33-continuous-quick-scan-physical-device-matrix-and-po-beta-cal: backlog
   ```
 - Mark `scp-2026-11-24-quick-scan-port-stories` → `status: done` (Stories `10.30–10.33` authored, `10.24–10.27` dropped, 3-device R8 benchmark closed in PR #366).
 - Rewrite `scp-2026-11-24-quick-scan-raise-preconditions` (stays `open`) so it tracks only the remaining gates before Story `10.11` raises `QUICK_SCAN`: Stories `10.30–10.33` done, minified `0.11.0`-profile size `< 30 MB` confirmed, and `10.33` PO BETA call recorded in PRD `.memlog.md`.
