@@ -2666,7 +2666,7 @@ So that two corner photos usually finish the scan instead of sending me face by 
 **When** the PO compares two-corner completion before (Story 10.20 baseline) and after
 **Then** the PO records whether Quick Scan is viable as `BETA` (10.19 AC8). If it is, a later Story 10.11 run (`10.11-n`) raises `QUICK_SCAN`; the level itself still follows the recognition matrix (Story 10.8). If it is not, Quick Scan stays OFF and the reasons go to a new issue. *(SCP 2026-11-24 camera-release-timeline: the PO's call on 2026-11-24 was "not viable", so `QUICK_SCAN` stays OFF on this pipeline (action item `epic-10-deferred-10-21-po-beta-quick-scan-off-pipeline-rethink`). Quick Scan returns through the continuous facelet scan approach (PR #363) and its own BETA call, not through 10.24–10.27.)*
 
-### Story 10.24: Retake a corner in Quick Scan
+**Dropped (SCP 2026-11-24, #368): Story 10.24 — Retake a corner in Quick Scan**
 
 *(SCP 2026-11-24 camera-release-timeline / continuous-quick-scan: superseded and **dropped**; replaced by Stories 10.30–10.33. Do not start. For 10.27's non-corner-model `ColorCalibrationTest.KNOWN_PASTEL_PROBLEMS` `#166`, see tracked follow-up action item `scp-2026-11-24-pastel-plausibility-guided-followup`.)*
 
@@ -2704,7 +2704,7 @@ So that one bad photo doesn't make me restart the scan or go face by face.
 **When** it runs
 **Then** it covers: capture corner 1, retake it by the control and by Back, and capture corner 1 again with better and with worse readings, then corner 2, and the scan keeps the better read per face; a retake from the face-by-face viewfinder after a hand-over that kept a hold-1 face; a retake of each corner from review; and a back-out of each retake that changes nothing
 
-### Story 10.25: Quick Scan starts from whichever corner it is shown
+**Dropped (SCP 2026-11-24, #368): Story 10.25 — Quick Scan starts from whichever corner it is shown**
 
 *(SCP 2026-11-24 camera-release-timeline / continuous-quick-scan: superseded and **dropped**; replaced by Stories 10.30–10.33. Do not start. For 10.27's non-corner-model `ColorCalibrationTest.KNOWN_PASTEL_PROBLEMS` `#166`, see tracked follow-up action item `scp-2026-11-24-pastel-plausibility-guided-followup`.)*
 
@@ -2742,7 +2742,7 @@ So that a fast capture never mislabels my cube and I never get stuck at the seco
 **When** the replay runs
 **Then** **0** corners are named wrongly (a wrongly named corner would be a wrong cube), and the share of corners left unnamed is reported per device, light and torch state
 
-### Story 10.26: Quick Scan fills a few unread stickers from the cube's rules
+**Dropped (SCP 2026-11-24, #368): Story 10.26 — Quick Scan fills a few unread stickers from the cube's rules**
 
 *(SCP 2026-11-24 camera-release-timeline / continuous-quick-scan: superseded and **dropped**; replaced by Stories 10.30–10.33. Do not start. For 10.27's non-corner-model `ColorCalibrationTest.KNOWN_PASTEL_PROBLEMS` `#166`, see tracked follow-up action item `scp-2026-11-24-pastel-plausibility-guided-followup`.)*
 
@@ -2772,7 +2772,7 @@ So that a handful of doubtful stickers doesn't send whole faces to face-by-face 
 **When** it runs per device, light and torch state
 **Then** 0 confidently wrong stickers are added, and faces kept and stickers filled are reported against the 10.21 baseline
 
-### Story 10.27: Clean the corner fixture labels and judge pastel stickers against the cube's own colours
+**Dropped (SCP 2026-11-24, #368): Story 10.27 — Clean the corner fixture labels and judge pastel stickers against the cube's own colours**
 
 *(SCP 2026-11-24 camera-release-timeline / continuous-quick-scan: superseded and **dropped**; replaced by Stories 10.30–10.33. Do not start. For 10.27's non-corner-model `ColorCalibrationTest.KNOWN_PASTEL_PROBLEMS` `#166`, see tracked follow-up action item `scp-2026-11-24-pastel-plausibility-guided-followup`.)*
 
