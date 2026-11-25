@@ -154,8 +154,7 @@ development_status:
   10-20-record-10-19-pipeline-corner-fixtures-and-check-the-corner-m: done
   10-21-quick-scan-keeps-the-side-faces-it-reads-well: done
   10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa: done
-  10-29-solution-playback-shows-the-same-quick-check-result-as-lesso: 
-    in-progress
+  10-29-solution-playback-shows-the-same-quick-check-result-as-lesso: review
   10-30-port-continuous-facelet-lattice-fitter-and-cube-mapper-to-pu: backlog
   10-31-wire-litert-v2-int8-sticker-center-detector-split-continuous: backlog
   10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal: backlog
