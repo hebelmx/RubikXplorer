@@ -13,7 +13,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.annotation.VisibleForTesting
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -22,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewModelScope
@@ -40,6 +43,8 @@ import dev.cubentia.app.scan.ScanOutcome
 import dev.cubentia.app.ui.scan.ScanCoachMarkRecord
 import dev.cubentia.app.ui.scan.ScanReviewScreen
 import dev.cubentia.app.ui.theme.CubentiaTheme
+import dev.cubentia.app.ui.theme.RubikTheme
+import dev.cubentia.app.ui.theme.isDarkTheme
 import dev.cubentia.application.port.CalibrationLoad
 import dev.cubentia.application.port.CalibrationRepository
 import dev.cubentia.application.port.CalibrationWrite
@@ -119,6 +124,7 @@ class GuidedScanActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.enableEdgeToEdge(window)
         // MediaActionSound.load reads the disk: off the main thread (GH #158).
         lifecycleScope.launch(Dispatchers.IO) { shutterSound.loadOrSkip() }
         // Back and a destroyed task read as Cancelled.
@@ -239,6 +245,14 @@ class GuidedScanActivity : ComponentActivity() {
                 onDiscardCancel = { scan.confirmDiscard = false },
             )
         setContent {
+            val prefs by preferenceStore.preferences.collectAsState()
+            val dark = isDarkTheme(prefs.theme, isSystemInDarkTheme())
+            LaunchedEffect(dark) {
+                WindowCompat.getInsetsController(window, window.decorView).apply {
+                    isAppearanceLightStatusBars = !dark
+                    isAppearanceLightNavigationBars = !dark
+                }
+            }
             val catalog by lessonCatalog.state.collectAsState()
             // Content loads in a moment; until then show nothing rather than raw keys.
             val strings =
@@ -248,7 +262,7 @@ class GuidedScanActivity : ComponentActivity() {
                     CatalogState.Loading -> null
                 }
             PreferenceProvider(preferenceStore) {
-                CubentiaTheme {
+                CubentiaTheme(darkTheme = dark) {
                     androidx.activity.compose.BackHandler(enabled = phase is GuidedScanPhase.Calibration) {
                         val calibration = phase as? GuidedScanPhase.Calibration
                         if (!scan.saving) {
@@ -271,7 +285,10 @@ class GuidedScanActivity : ComponentActivity() {
                             else -> closeOrConfirm()
                         }
                     }
-                    if (strings == null) return@CubentiaTheme
+                    if (strings == null) {
+                        Surface(Modifier.fillMaxSize(), color = RubikTheme.tokens.surfaceBase) {}
+                        return@CubentiaTheme
+                    }
                     LaunchedEffect(scan.caseResult) {
                         scan.caseResult?.let { views ->
                             val (code, data) = CaseCaptureContract.encode(views)

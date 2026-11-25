@@ -9,14 +9,17 @@ import android.os.Looper
 import android.os.SystemClock
 import android.view.View
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.ViewModelProvider
 import dagger.Module
 import dagger.Provides
@@ -35,16 +38,21 @@ import dev.cubentia.app.camera.GuidedScanViewModel
 import dev.cubentia.app.camera.ScanFrame
 import dev.cubentia.app.camera.ScanFrameSource
 import dev.cubentia.app.di.SolverModule
+import dev.cubentia.app.preferences.PreferenceStore
 import dev.cubentia.app.scan.ScanLauncher
 import dev.cubentia.app.solver.SolverLoad
 import dev.cubentia.app.solver.SolverSource
 import dev.cubentia.app.ui.scan.ScanCoachMarkRecord
 import dev.cubentia.app.ui.solve.SolveFlowViewModel
 import dev.cubentia.app.ui.solve.SolvePhase
+import dev.cubentia.app.ui.theme.DarkTokens
+import dev.cubentia.app.ui.theme.LightTokens
 import dev.cubentia.application.port.CalibrationLoad
 import dev.cubentia.application.port.CalibrationRepository
 import dev.cubentia.application.port.CubeSolver
 import dev.cubentia.application.port.SolveResult
+import dev.cubentia.application.preference.Preference
+import dev.cubentia.application.preference.ThemeChoice
 import dev.cubentia.application.session.SessionKind
 import dev.cubentia.domain.content.ContentLoadResult
 import dev.cubentia.domain.content.ContentLoader
@@ -75,6 +83,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 import org.robolectric.shadows.ShadowLog
 import java.util.concurrent.ExecutorService
 import javax.inject.Inject
@@ -91,6 +100,8 @@ class ScanRouteTest {
     val rule = createComposeRule()
 
     @Inject lateinit var repository: CalibrationRepository
+
+    @Inject lateinit var preferenceStore: PreferenceStore
 
     private val scramble =
         listOf(
@@ -317,6 +328,34 @@ class ScanRouteTest {
         rule.waitForIdle()
     }
 
+    @Test
+    @Config(qualifiers = "w411dp-h891dp-notnight")
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun placementScanReviewUsesLightThemeWhenSystemIsLight() {
+        assertPlacementScanReviewTheme(ThemeChoice.SYSTEM, expectLightTheme = true)
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h891dp-night")
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun placementScanReviewUsesDarkThemeWhenSystemIsDark() {
+        assertPlacementScanReviewTheme(ThemeChoice.SYSTEM, expectLightTheme = false)
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h891dp-night")
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun placementScanReviewUsesLightThemeOverrideWhenSystemIsDark() {
+        assertPlacementScanReviewTheme(ThemeChoice.LIGHT, expectLightTheme = true)
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h891dp-notnight")
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun placementScanReviewUsesDarkThemeOverrideWhenSystemIsLight() {
+        assertPlacementScanReviewTheme(ThemeChoice.DARK, expectLightTheme = false)
+    }
+
     @Test fun cameraStopsInReviewAndStaysStoppedAfterRotation() {
         val scan = Robolectric.buildActivity(GuidedScanActivity::class.java).setup()
         try {
@@ -535,6 +574,48 @@ class ScanRouteTest {
         // The retake starts through the analyzer thread; the camera starts only after the recompositions that follow.
         awaitCameraStart { vm.phase is GuidedScanPhase.Viewfinder }
         return review
+    }
+
+    private fun assertPlacementScanReviewTheme(
+        preference: ThemeChoice,
+        expectLightTheme: Boolean,
+    ) {
+        preferenceStore.update(Preference.Theme(preference))
+        val main = Robolectric.buildActivity(MainActivity::class.java).setup()
+        try {
+            rule.waitForIdle()
+            rule.waitUntil(10_000) { rule.onAllNodesWithTag("welcome:imNew").fetchSemanticsNodes().isNotEmpty() }
+            rule.onNodeWithTag("welcome:imNew").performClick()
+            rule.onNodeWithTag("stageDetail:back").performClick()
+            rule.onNodeWithTag("learn:findMyPlace").performClick()
+            rule.onNodeWithTag("findMyPlace:scan").performClick()
+            val mainShadow = shadowOf(main.get())
+            rule.waitUntil(10_000) {
+                shadowOf(Looper.getMainLooper()).idle()
+                mainShadow.peekNextStartedActivityForResult() != null
+            }
+            val started = mainShadow.nextStartedActivityForResult
+            assertEquals(GuidedScanActivity::class.java.name, started.intent.component?.className)
+            val scan = Robolectric.buildActivity(GuidedScanActivity::class.java, started.intent).setup()
+            try {
+                awaitCameraStart { true }
+                captureFaces(ViewModelProvider(scan.get())[GuidedScanViewModel::class.java], logo = false)
+                val review = rule.onNodeWithTag("review:screen").assertIsDisplayed()
+                val surface = if (expectLightTheme) LightTokens.surfaceBase else DarkTokens.surfaceBase
+                assertEquals("Review surface", surface, review.captureToImage().toPixelMap()[2, 2])
+                val window = scan.get().window
+                assertEquals(
+                    "Status bar uses the review's theme",
+                    expectLightTheme,
+                    WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars,
+                )
+            } finally {
+                scan.pause().stop().destroy()
+            }
+        } finally {
+            main.pause().stop().destroy()
+            rule.waitForIdle()
+        }
     }
 
     private fun withScan(test: (GuidedScanActivity, GuidedScanViewModel) -> Unit) {
