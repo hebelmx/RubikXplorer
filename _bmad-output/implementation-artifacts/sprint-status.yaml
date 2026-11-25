@@ -156,7 +156,7 @@ development_status:
   10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa: done
   10-29-solution-playback-shows-the-same-quick-check-result-as-lesso: done
   10-30-port-continuous-facelet-lattice-fitter-and-cube-mapper-to-pu: done
-  10-31-wire-litert-v2-int8-sticker-center-detector-split-continuous: review
+  10-31-wire-litert-v2-int8-sticker-center-detector-split-continuous: done
   10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal: backlog
   10-33-continuous-quick-scan-physical-device-matrix-and-po-beta-cal: backlog
   10-22-quick-scan-captures-promptly-once-the-cube-is-in-view: done
@@ -2854,3 +2854,57 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-29-solution-playback-shows-the-same-quick-check-result-as-lesso.md"
+  - id: "epic-10-deferred-10.31-seam-has-no-production-caller"
+    epic: 10
+    action: "Story 10.32 must inject Optional<StickerCenterDetector>, run ContinuousScanPipeline.processFrame on analyzerExecutor and add a debug main-thread check in detect(); today the off-main path is shown only by tests (medium; deferred from 10.31, ContinuousScanPipeline.kt:38)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-31-wire-litert-v2-int8-sticker-center-detector-split-continuous.md"
+  - id: "epic-10-deferred-10.31-detector-unavailable-looks-empty"
+    epic: 10
+    action: "Expose an unavailable state on the StickerCenterDetector seam (sealed result or isAvailable) so a detector disabled by a failed load or inference is not read as no cube in view and Quick Scan can fall back to Guided Scan (medium; deferred from 10.31, LiteRtStickerCenterDetector.kt:160)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-31-wire-litert-v2-int8-sticker-center-detector-split-continuous.md"
+  - id: "epic-10-deferred-10.31-parity-test-skips-and-1px-tolerance"
+    epic: 10
+    action: "Tighten LiteRtStickerCenterDetectorDeviceTest parity tolerance from 1.0 px to about 0.01 px and fail on physical devices when the tuning stills are absent unless an explicit opt-out argument is given (medium; deferred from 10.31, LiteRtStickerCenterDetectorDeviceTest.kt:62)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-31-wire-litert-v2-int8-sticker-center-detector-split-continuous.md"
+  - id: "epic-10-deferred-10.31-lenovo-p50-under-1ms-margin"
+    epic: 10
+    action: "Lenovo TB128XU end-to-end p50 is 49.36/49.28 ms against the 50 ms budget on synthetic frames (p90 62-67 ms); in the Story 10.33 device matrix gate on the median of several runs with real frames and record the result (medium; deferred from 10.31, docs/evidence/10-31/litert-v2-int8-benchmark.md:22)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-31-wire-litert-v2-int8-sticker-center-detector-split-continuous.md"
+  - id: "epic-10-deferred-10.31-model-bytes-not-reproducible"
+    epic: 10
+    action: "Commit or hash-manifest the room-background frames used to train sticker_centers_v2_int8.tflite, or state in tools/center-model/model-card.json that the recipe does not reproduce the shipped bytes (medium; deferred from 10.31, tools/center-model/README.md:21)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-31-wire-litert-v2-int8-sticker-center-detector-split-continuous.md"
+  - id: "epic-10-deferred-10.31-ci-skips-release011-and-model-tests"
+    epic: 10
+    action: "Run :app:checkCameraSize, the release011 gates and the tools/center-model Python tests in CI (or make check depend on checkCameraSize) so the 0.11.0 size projection is not a by-hand check (medium; deferred from 10.31, .github/workflows/ci.yml:81)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-31-wire-litert-v2-int8-sticker-center-detector-split-continuous.md"
+  - id: "epic-10-deferred-10.31-sampler-drops-faces-at-frame-edge"
+    epic: 10
+    action: "Confirm in the Story 10.32 live UI that ContinuousFaceSampler dropping a whole face when any sampled cell leaves the frame reads well for a cube held against the frame edge (medium; deferred from 10.31)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-31-wire-litert-v2-int8-sticker-center-detector-split-continuous.md"
+  - id: "epic-10-deferred-10.31-archived-sticker-model-default-path"
+    epic: 10
+    action: "tools/sticker-model evaluate.py and test_model.py default to the deleted sticker_reader.tflite and fail without --model; fix the default or mark the folder as not runnable (low; deferred from 10.31)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-31-wire-litert-v2-int8-sticker-center-detector-split-continuous.md"
+  - id: "epic-10-deferred-10.31-fill-yuv-input-uncaught"
+    epic: 10
+    action: "Catch exceptions from fillYuvInput and decode in LiteRtStickerCenterDetector.detect() and return EMPTY, so a short plane buffer cannot crash the analyzer thread (low; deferred from 10.31, LiteRtStickerCenterDetector.kt:73)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-31-wire-litert-v2-int8-sticker-center-detector-split-continuous.md"
