@@ -101,3 +101,8 @@ The documents were only partly updated. A read-only sweep at `2088c43f` found 11
   - CI is green.
   - The PR body lists every AC and NFR line touched, old and new.
 - **#104 stays open.** It closes when Story 3.9 meets a PO target, or is re-triaged with a reason.
+
+## Implementation notes
+
+- 2026-11-25: PR #375 applied §4 (merged `fd5958fa`).
+- 2026-11-25: the two code comments listed as out of scope in §2 (`FeatureFlagLevels.kt`, `KeyFlowRotationTest.kt`) were reworded in a follow-up comment-only PR (PO: change right away, no separate issue). No behaviour change.
