@@ -157,30 +157,32 @@ FR-5: Epic 2 — four Teaching Modes
 FR-6: Epic 2 (explained Demonstrations on the net) · Epic 5 (3D arrows and highlights)
 FR-7: Epic 8 — confirm physical Moves, Expected label
 FR-8: Epic 8 — switch modes mid-Lesson
-FR-9: Epic 8 (honest mismatch, no-camera ladder) · Epic 10 (Quick Check rung, v1.1, flag-gated)
+FR-9: Epic 8 (honest mismatch, no-camera ladder) · Epic 10 (Quick Check rung, v1.0, flag-gated)
 FR-10: Epic 4 — Diagnosis of Error Categories
 FR-11: Epic 4 — Hint Ladder
 FR-12: Epic 4 — retry, undo, Guided recovery
 FR-13: Epic 4 — rule-based adaptive assistance
 FR-14: Epic 1 (`CubeValidator` rules) · Epic 3 (Manual Cube Editor)
 FR-15: Epic 3 — offline Solver
-FR-16: Epic 3 (Solution Playback) · Epic 8 (physical follow-along) · Epic 10 (Quick Check in playback, v1.1, flag-gated) · Epic 12 (3D/2D view switch, move pictures and Move strip; Stories 12.14–12.15)
+FR-16: Epic 3 (Solution Playback) · Epic 8 (physical follow-along) · Epic 10 (Quick Check in playback, v1.0, flag-gated) · Epic 12 (3D/2D view switch, move pictures and Move strip; Stories 12.14–12.15)
 FR-17: Epic 9 — 2-look LL mini-Course
 FR-18: Epic 9 — Algorithm Library · Epic 14 (practice on a real cube, Story 14.2)
-FR-19: Epic 6 (snapshots, Checkpoints, attempts, preferences) · Epic 7 (progress reset) · Epic 9 (Algorithm Status) · Epic 10 (calibration reset, v1.1, flag-gated) · Epic 12 (playback view and Move pictures preferences)
+FR-19: Epic 6 (snapshots, Checkpoints, attempts, preferences) · Epic 7 (progress reset) · Epic 9 (Algorithm Status) · Epic 10 (calibration reset, v1.0, flag-gated) · Epic 12 (playback view and Move pictures preferences)
 FR-20: Epic 7 — Independent practice, mastery, trend
-FR-21: Epic 10 — Guided 6-face Scan (v1.1, flag-gated)
-FR-22: Epic 11 — Quick Scan (v1.1, flag-gated) · Epic 10 (switch to the Guided Scan, Story 10.17)
-FR-23: Epic 10 — validate and correct a Scan Result (v1.1, flag-gated)
-FR-24: Epic 10 — Color Calibration (v1.1, flag-gated)
-FR-25: Epic 10 — scan to solve (v1.1, flag-gated)
-FR-26: Epic 10 — Quick Check (v1.1, flag-gated) · Epic 14 (any step, Stories 14.2–14.3)
-FR-27: Epic 11 — Placement (v1.1, flag-gated)
-FR-28: Epic 11 — Case recognition (v1.1, flag-gated)
+FR-21: Epic 10 — Guided 6-face Scan (v1.0, flag-gated)
+FR-22: Epic 11 — Quick Scan (v1.0, flag-gated) · Epic 10 (switch to the Guided Scan, Story 10.17)
+FR-23: Epic 10 — validate and correct a Scan Result (v1.0, flag-gated)
+FR-24: Epic 10 — Color Calibration (v1.0, flag-gated)
+FR-25: Epic 10 — scan to solve (v1.0, flag-gated)
+FR-26: Epic 10 — Quick Check (v1.0, flag-gated) · Epic 14 (any step, Stories 14.2–14.3)
+FR-27: Epic 11 — Placement (v1.0, flag-gated)
+FR-28: Epic 11 — Case recognition (v1.0, flag-gated)
 FR-29: not covered — P1, out of MVP scope (deferred in PRD §6.2 and spine Deferred)
 FR-30: Epic 15 — method-aware solutions (v1.0, SCP 2026-11-20)
 
 NFRs: NFR-1/2 Epics 5, 12 · NFR-3 Epic 3 · NFR-4 Epics 1, 2, 5, 8 · NFR-5/8 Epic 1 (build checks), Epic 12, Epic 13 (privacy facts and public policy) · NFR-6 Epic 6 · NFR-7 Epics 1, 5, 12 (+ every UI story) · NFR-9/11 Epics 7, 12 · NFR-10 Epic 2 · NFR-12 Epic 1 (gates), all `:core:*` stories · NFR-13 Epic 12 (+ every UI story).
+
+*(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope.)*
 
 ## Epic List
 
@@ -198,7 +200,7 @@ A Learner can open a data-defined Lesson, see its Objective, watch an explained 
 A Learner can enter any cube's colors, get a verified Solution from the in-house Solver, and step through it with a plain note per Move.
 **Absorbs:** E02 (Solver), E08 (Solution Playback).
 **FRs covered:** FR-14 (editor), FR-15, FR-16. **Also:** NFR-3, NFR-11, AR-12, AR-20, UX-DR16, UX-DR25.
-*(SCP 2026-11-24 github-issue-triage: Story 3.9, cold solver preparation, #104, is v1.1 scope and reopens the epic; it never gates the v1.0 release.)*
+*(SCP 2026-11-24 github-issue-triage: Story 3.9, cold solver preparation, #104, is v1.1 scope and reopens the epic; it never gates the v1.0 release.)* *(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope. Story 3.9 is v1.0 scope; it does not gate the v1.0.0 tag; Epic 3 is in-progress until 3.9 is done or re-triaged. This supersedes the 2026-11-24 "v1.1 scope" wording.)*
 
 ### Epic 4: Get help when I go wrong (P0.2, weeks 4–5)
 When a Learner makes a mistake, the tutor names what happened with honest Certainty, offers the next hint rung, and leads back by undo or the shortest Guided recovery, with assistance adapting to their history.
@@ -230,23 +232,27 @@ A Learner can browse and watch all 78 verified OLL/PLL Algorithms, track their o
 **Absorbs:** E11.
 **FRs covered:** FR-17, FR-18, FR-19 (Algorithm Status). **Also:** AR-19, AR-23, UX-DR17.
 
-### Epic 10: Scan my cube (v1.1, flag-gated)
+### Epic 10: Scan my cube (v1.0, flag-gated)
 A Learner can scan a cube face by face, correct and calibrate it, solve it from the scan, and verify physical Moves with a Quick Check. Built on `main` with every camera flag OFF in release; each feature reaches users only when the PO raises its flag at a release (Story 10.11). Restored from `post-launch/v1.1-camera-recognition.md` by `sprint-change-proposal-2026-11-14-v1-1-camera.md`. *(SCP 2026-11-20: moves into v1.0 as the dependency of #198, #208, #249, #251, #252; Story 10.11 raises `CAMERA_SCAN` for the v1.0 release.)*
 **FRs covered:** FR-21 – FR-26, plus the Quick Check rung of FR-9 and FR-16, and the calibration reset of FR-19. **Also:** recognition NFRs, NFR-5, NFR-8, NFR-11, NFR-12, AD-9, AD-13, AD-18, AR-13, UX-DR15, UX-DR16, UX-DR19 – UX-DR22, UX-DR25.
 **Order:** 10.9 → 10.10 → UX pass → 10.12 → 10.13 → 10.1 → (10.6 ∥ 10.2 → 10.3 → 10.14 → 10.4 → 10.5 → 10.15 → 10.7) → Epic 11 → 10.8 → 10.11; 10.16 after 10.14; 11.1 → 10.18 (Quick Scan finds the cube's real edges and corners, #195) → 10.17 (after 10.16 too) → 10.19 → 10.22 → (10.20 ∥ 10.23) → 10.21 *(SCP 2026-11-22 quick-scan-reliability: 10.22 before the fixture session)* *(SCP 2026-11-22 quick-scan-sticker-reader: 10.23, the shadow sticker reader, after 10.22; it does not block 10.20, 10.21 or 10.11)* *(SCP 2026-11-22 quick-scan-corners-and-solver-copy: 10.21 → 10.24 (retake a corner, #299) → 10.25 (start from whichever corner is shown, #302); 10.26 (fill a few unread stickers from cube rules, #301) only after the 10.21 BETA call. PO Q-h: the 10.11-n run that raises `QUICK_SCAN` does not wait for 10.25, and no new story is added to its dependencies.)* *(SCP 2026-11-21 quick-scan-side-face-accuracy, #274: 10.20 and 10.21 do not block Story 10.11, which raises `CAMERA_SCAN` and `PLACEMENT` with `QUICK_SCAN` OFF; Quick Scan is raised in a later 10.11-n after 10.21's BETA call)* *(SCP 2026-11-24 camera-release-timeline: 10.21's BETA call (2026-11-24) left `QUICK_SCAN` OFF on this pipeline; 10.24–10.27 are superseded by the continuous facelet scan approach (PR #363) and do not start. The new Quick Scan port stories, written by the spike session's SCP, come before the 10.11 run that raises `QUICK_SCAN`. 10.11 no longer waits for 12.5: its first run, release 0.11.0, raises `CAMERA_SCAN` to GA and `PLACEMENT` to BETA, and `QUICK_SCAN` to BETA only when its preconditions hold (Story 10.11); 12.5 then promotes a new v1.0.0 tag with the same levels.)* *(SCP 2026-11-24 continuous-quick-scan: 10.24–10.27 are dropped; the continuous Quick Scan port chain **10.30 → 10.31 → 10.32 → 10.33** replaces them and runs before the Story 10.11 run that raises `QUICK_SCAN`.)*; all v1.0 scope (SCP 2026-11-20) *(SCP 2026-11-15; 10.14 added by SCP 2026-11-16; 10.5 split into 10.5 and 10.15 by SCP 2026-11-16 main-app entry points)*. *(SCP 2026-11-24 github-issue-triage: 10.28 (the recorder's count check, #337) after 10.20, independent of 10.27, before any new corner-fixture recording; it blocks neither 10.21 nor 10.11. 10.29 (Solution Playback shows the Lesson's Quick Check result, #326) is v1.1 scope, after 10.7. #321, #323, #325 and #313 are v1.0 issue fixes against Stories 10.15, 10.3 and 10.2.)* Device sessions: A = 10.10; A2 = 10.12; B = 10.2 and 10.4 acceptance (10.4 partial); B2 = 10.14; B3 = 10.5 (main app; re-runs the 10.4 checks not done on a device, #166); C = 11.1, 11.3 capture and 10.8.
 **Main-app rule (SCP 2026-11-16 main-app entry points):** a camera story is accepted on the main app build, reached from its real entry point. A debug-only launcher is never a story's device-session gate, and debug raises a flag above OFF only once that flag's entry point is wired in the main app (AD-15, AD-18).
 **Never blocks** tester-feedback fixes or Stories 12.3, 12.4, 12.5 and 13.6: camera stories merge only with release camera flags OFF, and Story 10.9's gate keeps the release free of camera code and permissions. *(Superseded by SCP 2026-11-20: for v1.0, Story 10.11 raises `CAMERA_SCAN`, `QUICK_SCAN` and `PLACEMENT` before Stories 12.3–12.5, and the Story 10.9 gate then checks the flags-ON release instead.)* *(SCP 2026-11-21 quick-scan-side-face-accuracy: `QUICK_SCAN` leaves this first raise and follows Story 10.21.)* *(SCP 2026-11-24 camera-release-timeline: Story 10.11 now runs after Stories 12.3, 12.4 and 13.6 and before 12.5. Its first run is release 0.11.0, and Story 12.5 promotes a v1.0.0 tag cut from main with the same flag levels.)*
 
-### Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition (v1.1, flag-gated)
+*(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope.)*
+
+### Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition (v1.0, flag-gated)
 First on the PRD cut order (Quick Scan → beta, then Case recognition, then Placement). Each ships behind its AD-18 flag and can be turned OFF without dead UI. *(SCP 2026-11-20: Quick Scan and Placement move into v1.0 with #198, #251 and #252.)*
 **FRs covered:** FR-22, FR-27, FR-28. **Also:** recognition NFRs, NFR-11, AD-6, AD-9, AD-10, AD-18, AD-19, UX-DR19, UX-DR25.
+
+*(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope.)*
 
 ### Epic 12: Release-ready for learners and reviewers (P0.6, weeks 15–16)
 The app meets every release gate. It is accessible, fast and stable on the reference devices, the pilot's findings are fixed, and the store listing and public repo are ready for a hiring manager's five-minute look.
 **Absorbs:** E09, PRD §7.
 **FRs covered:** none new (verifies all), plus FR-16 and FR-19 additions in 12.14–12.15, and FR-1/FR-2 gesture and view changes in 12.16–12.17. **Also:** NFR-1, NFR-2, NFR-7, NFR-8, NFR-9, NFR-11, NFR-13, AR-3, AR-5, AR-16, UX-DR4, UX-DR6, UX-DR14, UX-DR28, UX-DR5, UX-DR26, UX-DR29, UX-DR32, UX-DR33, UX-DR34, Flow 6.
 **Also carries** the pre-pilot stories 12.6–12.10 (Cubentia rebrand; Epic 8 retrospective fixes), which run before Story 7.8 (`sprint-change-proposal-2026-11-08-cubentia-and-pre-pilot.md`), and 12.11–12.12 (Epic 9 seams; 2-look rules), also before 7.8 (`sprint-change-proposal-2026-11-10-two-look-rules-and-epic-9-seams.md`), and 12.13 (durable session end; Story 12.11 deferrals), also before 7.8 (`sprint-change-proposal-2026-11-10-session-end-deferrals.md`). It also carries 12.14 (Solution Playback in 3D or on the 2D net, #175) and then 12.15 (Move pictures and the Move strip, #176), v1 release scope that runs before Story 12.3 and the store screenshots of Story 12.5 (`sprint-change-proposal-2026-11-17-playback-view-and-move-glyphs.md`). It also carries 12.16 (drag preview, #206) and 12.17 (view-rotated badge, #207), which run before 12.3 (`sprint-change-proposal-2026-11-18-drag-preview-and-view-rotated.md`).
-**Epic 13** (public website and privacy policy, `sprint-change-proposal-2026-11-13-cubentia-site.md`) runs before Stories 12.3, 12.4 and 12.5. Story 12.3 depends on 13.6, and Story 12.5 on 13.4 and 13.5. Epics 10 and 11 (v1.1 camera, flag-gated) run in parallel with Epics 12 and 13 and never gate them (`sprint-change-proposal-2026-11-14-v1-1-camera.md`). *(Superseded by SCP 2026-11-20: Stories 10.11, 10.17, 10.18 and Epics 14–15, plus the #249/#251/#252/#253 fixes, are v1.0 scope and run before Stories 12.3, 12.4 and 12.5.)* *(SCP 2026-11-24 camera-release-timeline: Story 10.11 runs after 12.3, 12.4 and 13.6 and before 12.5; 12.5's production promotion carries the camera build as a v1.0.0 tag.)*
+**Epic 13** (public website and privacy policy, `sprint-change-proposal-2026-11-13-cubentia-site.md`) runs before Stories 12.3, 12.4 and 12.5. Story 12.3 depends on 13.6, and Story 12.5 on 13.4 and 13.5. Epics 10 and 11 (v1.1 camera, flag-gated) run in parallel with Epics 12 and 13 and never gate them (`sprint-change-proposal-2026-11-14-v1-1-camera.md`). *(Superseded by SCP 2026-11-20: Stories 10.11, 10.17, 10.18 and Epics 14–15, plus the #249/#251/#252/#253 fixes, are v1.0 scope and run before Stories 12.3, 12.4 and 12.5.)* *(SCP 2026-11-24 camera-release-timeline: Story 10.11 runs after 12.3, 12.4 and 13.6 and before 12.5; 12.5's production promotion carries the camera build as a v1.0.0 tag.)* *(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope.)*
 **Device batch** (reference devices connected after the device-free stories; `sprint-change-proposal-2026-11-10-session-end-deferrals.md`): Stories 3.8, 1.11 and 12.2, plus the Story 12.1 physical pass in `docs/accessibility-manual-check.md`. Story 3.7 stays in `review` until 3.8 passes (its last AC), and Story 12.1 stays in `review` until that physical pass is recorded.
 **Reference devices (SCP 2026-11-12, `sprint-change-proposal-2026-11-12-lenovo-minimum-reference.md`):** minimum Lenovo Tab M10 Plus 3rd Gen (TB128XU, Android 13 / API 33), mid Samsung Galaxy S24 FE. The Galaxy Tab S7 FE 5G, the minimum until 2026-11-12, is kept as an additional compatibility device, and its 3.8, 1.11 and 12.2 results stay as dated evidence. The Lenovo was measured with the 3.8 and 12.2 methods and meets every threshold (`docs/benchmarks.md` § Additional device: Lenovo Tab M10 Plus 3rd Gen); its limitations are tracked in #119.
 
@@ -906,7 +912,7 @@ So that I don't have to take a course first.
 
 **Given** the Solve tab in the bottom bar
 **When** it opens
-**Then** it offers *Enter colors* (and *Scan my cube* only once v1.1 camera recognition lands, hidden while absent), and an open Lesson shows "Starting a solve pauses your lesson." before the Lesson session is suspended
+**Then** it offers *Enter colors* (and *Scan my cube* only when its flag is raised (Story 10.11), hidden while absent), and an open Lesson shows "Starting a solve pauses your lesson." before the Lesson session is suspended
 
 **Given** a valid entry
 **When** the Solver runs
@@ -915,6 +921,8 @@ So that I don't have to take a course first.
 **Given** the last Playback step
 **When** the cube is solved
 **Then** a quiet offer "Want to learn how to do this yourself?" links to Learn, and solves are not resumed after the app closes
+
+*(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope.)*
 
 ### Story 3.8: Reference-device pruning-table delivery decision and production integration
 
@@ -966,7 +974,7 @@ So that I am not left waiting on "Preparing the solver."
 
 **Refs:** FR-15 · NFR-3, NFR-11 · AD-8, AD-16 · Stories 3.3, 3.8, 12.2 · #104
 
-**Depends on** Story 3.8. **v1.1 scope** (#104 stays a later-release item; it never gates the v1.0 release). **Human gate:** a measurement session on the physical Lenovo Tab M10 Plus 3rd Gen (TB128XU), the minimum reference device. *(SCP 2026-11-24 github-issue-triage, #104: the cold-preparation follow-up to Story 3.8; bundled pruning tables did not remove the per-process move-table build, 12.6 s debug median and ≤ 10.5 s release-equivalent on the Lenovo.)*
+**Depends on** Story 3.8. **v1.0 scope; does not gate the v1.0.0 tag**. **Human gate:** a measurement session on the physical Lenovo Tab M10 Plus 3rd Gen (TB128XU), the minimum reference device. *(SCP 2026-11-24 github-issue-triage, #104: the cold-preparation follow-up to Story 3.8; bundled pruning tables did not remove the per-process move-table build, 12.6 s debug median and ≤ 10.5 s release-equivalent on the Lenovo.)* *(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope. This supersedes the 2026-11-24 "v1.1 scope" wording.)*
 
 **Acceptance Criteria:**
 
@@ -1528,7 +1536,7 @@ So that I'm not forced through Stages I've mastered elsewhere.
 
 **Given** first launch with no profile
 **When** Welcome shows
-**Then** it offers *I'm new* (Stage 1) and *I can already solve it*; *Start from my cube* stays hidden until v1.1 enables `PLACEMENT`; color-blind glyphs are offered
+**Then** it offers *I'm new* (Stage 1) and *I can already solve it*; *Start from my cube* stays hidden until its flag (`PLACEMENT`) is raised (Story 10.11); color-blind glyphs are offered
 
 **Given** *I already know this* on a Stage, or *I can already solve it* for the whole Course
 **When** the Learner solves that Objective from a fresh Scramble with hints off and no time limit
@@ -1539,6 +1547,8 @@ So that I'm not forced through Stages I've mastered elsewhere.
 **Then** "Let's do this Stage together — it'll be quick." (or "Let's find where to start" from Welcome) shows, with no record against them
 
 *SCP 2026-11-20 v1.1 promotion (#209): Welcome's* I can already solve it *now opens the entry-level picker of Story 14.1; this story's whole-Course check stays as its* Check me with a scramble instead *choice.*
+
+*(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope.)*
 
 ### Story 7.8: Ship a pilot build to closed testing
 
@@ -1568,7 +1578,7 @@ So that their results come back in time for fixes.
 
 ## Epic 8: Use my real cube
 
-A Learner can follow Lessons and Solution Playback on a physical cube, with the app honestly tracking the Expected State and handling mismatches without a camera. The camera rungs arrive with v1.1 camera recognition (Epics 10–11, flag-gated; SCP 2026-11-14).
+A Learner can follow Lessons and Solution Playback on a physical cube, with the app honestly tracking the Expected State and handling mismatches without a camera. The camera rungs arrive when their flags are raised (Story 10.11; Epics 10–11, flag-gated; SCP 2026-11-14). *(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope.)*
 
 ### Story 8.1: Physical-mode transitions in the reducer
 
@@ -1604,7 +1614,7 @@ So that I learn on the real thing.
 
 **Given** the *Physical mode* toggle in a Lesson
 **When** switched on
-**Then** a Confirm-your-cube card offers *It matches* / *Enter it* (*Scan it* hidden until v1.1 camera recognition), and the frame turns to dashed EXPECTED with no Certainty chip
+**Then** a Confirm-your-cube card offers *It matches* / *Enter it* (*Scan it* hidden until its flag is raised (Story 10.11)), and the frame turns to dashed EXPECTED with no Certainty chip
 
 **Given** a step
 **When** the Learner taps **Done** (always primary) or *I did something else* then a Move key
@@ -1613,6 +1623,8 @@ So that I learn on the real thing.
 **Given** the Objective is met on the Expected State
 **When** the panel updates
 **Then** it reads "If your cube matches the picture, this step is done.", keeps EXPECTED, enables *Next*, and shows no celebration
+
+*(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope.)*
 
 ### Story 8.3: Report a mismatch honestly without a camera
 
@@ -1684,11 +1696,13 @@ So that the moment means something.
 
 **Given** the end of Stage 6 in physical mode
 **When** the Objective is met on the Expected State
-**Then** "Your cube should be solved now. Check it with the camera, or tell me if it is." shows, and the milestone plays only after *Yes, it's solved* (or a Quick Check, once v1.1 camera recognition lands)
+**Then** "Your cube should be solved now. Check it with the camera, or tell me if it is." shows, and the milestone plays only after *Yes, it's solved* (or a Quick Check, when its flag is raised (Story 10.11))
 
 **Given** an end-to-end instrumented suite
 **When** it runs virtual and physical flows with Moves, confirmations, undo, mode switches, pause, kill and resume
 **Then** there is zero silent desync between `virtual`, `expected` and the rendered cube
+
+*(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope.)*
 
 ### Story 8.7: Camera-free Stage 6 prompt
 
@@ -2860,7 +2874,7 @@ So that I understand what the check saw and how to recover, wherever I run it.
 
 **Refs:** FR-26, FR-16, FR-9 · AD-3, AD-5, AD-20 · UX-DR12, UX-DR13, UX-DR20 · UX Flow 3 · Stories 10.6, 10.7, 14.3 · #326, #200
 
-**Depends on** Story 10.7. **v1.1 scope** (PO 2026-11-24: stays a later-release story, as labelled on #326). **Human gate:** a device check on the Lenovo Tab M10 Plus 3rd Gen and the Galaxy S24 FE, main app build, Solve tab and a physical Lesson. The EXPERIENCE.md update for the shared result card is made when this story is created. *(SCP 2026-11-24 github-issue-triage, #326.)*
+**Depends on** Story 10.7. Done in v1.0; its deferred device check is an open action item, not a v1.0.0 tag gate. **Human gate:** a device check on the Lenovo Tab M10 Plus 3rd Gen and the Galaxy S24 FE, main app build, Solve tab and a physical Lesson. The EXPERIENCE.md update for the shared result card is made when this story is created. *(SCP 2026-11-24 github-issue-triage, #326.)* *(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope.)*
 
 **Acceptance Criteria:**
 
@@ -3412,7 +3426,7 @@ So that I can continue instead of being stuck.
 
 **Given** rung 2 (the one-face question)
 **When** it is answered
-**Then** it guides to re-entry (rung 3), and no `PhysicalObservation.Partial` is produced in v1.0 (partial observations arrive with v1.1 camera recognition)
+**Then** it guides to re-entry (rung 3), and no `PhysicalObservation.Partial` is produced while every camera flag is OFF (partial observations arrive when a camera flag is raised (Story 10.11))
 
 **Given** a full state entered in the Manual Cube Editor from physical mode
 **When** it is accepted
@@ -3421,6 +3435,8 @@ So that I can continue instead of being stuck.
 **Given** the cases above
 **When** reducer tests run
 **Then** each case has a test, and `TRANSITIONS.md` matches the reducer for every case
+
+*(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope.)*
 
 ### Story 12.9: One source for physical copy; skip-check needs the virtual cube
 

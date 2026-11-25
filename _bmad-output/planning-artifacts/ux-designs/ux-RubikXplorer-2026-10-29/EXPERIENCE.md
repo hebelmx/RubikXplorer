@@ -32,21 +32,23 @@ sources:
 | **Lesson** | Continue, Stage detail | Split cube + lesson panel: Teaching Modes, Demonstration, hints, recovery. | FR-1–FR-13 |
 | Physical-cube Mode | Lesson toggle | The same Lesson with the Expected State, *Done*, *Report a mismatch* and Quick Check. | FR-7–FR-9, FR-26 |
 | Independent practice | Stage detail, end of Course | A fresh Scramble, assistance reduced. | FR-20 |
-| **Solve** (tab) | Bottom nav | *Scan my cube* and *Enter colors*. If `CAMERA_SCAN` is BETA (the spike-failure fallback), *Enter colors* becomes the primary action. **Any release with `CAMERA_SCAN` OFF:** *Enter colors* is the only action, and *Scan my cube* arrives in v1.1, flag-gated. Solves are not resumed after the app closes (AD-10). | FR-14, FR-25 |
+| **Solve** (tab) | Bottom nav | *Scan my cube* and *Enter colors*. If `CAMERA_SCAN` is BETA (the spike-failure fallback), *Enter colors* becomes the primary action. **Any release with `CAMERA_SCAN` OFF:** *Enter colors* is the only action, and *Scan my cube* arrives when its flag is raised (Story 10.11). Solves are not resumed after the app closes (AD-10). | FR-14, FR-25 |
 | Manual Cube Editor | Solve, scan fallback, mode switch, Placement, Recognize | Paint the 54 stickers, each face in any rotation; specific validation feedback (SCP 2026-11-20, #253). | FR-14 |
-| Scan (sub-flow) *(v1.1, flag-gated: hidden while the flag is OFF, UX-DR19)* | Solve, Physical mode, Welcome, Recognize | Guided 6-face Scan, or Quick Scan, then sticker review and correction. Returns a result to its caller. | FR-21–FR-23 |
+| Scan (sub-flow) *(v1.0, flag-gated: hidden while the flag is OFF, UX-DR19)* | Solve, Physical mode, Welcome, Recognize | Guided 6-face Scan, or Quick Scan, then sticker review and correction. Returns a result to its caller. | FR-21–FR-23 |
 | Solution Playback | After a valid scan or entry | Step through the Solution on the 3D cube or the 2D net, with optional physical confirmation. *(FR-30, SCP 2026-11-20 #210, v1.0:* a *Solution style* control offers *Shortest* (the default on the Solve tab) or a method: *Beginner*, *2-look* or *Full OLL + PLL*; a method solution shows its segments by Stage or Case.) | FR-15, FR-16, FR-30 |
 | **Library** (tab) | Bottom nav | 78 Algorithms grouped by OLL and PLL family, with filters by family and Algorithm Status. The letter families use shape names (*P-shape*, *T-shape*, *C-shape*, *W-shape*, *L-shape*), the same names the Recognize result uses. | FR-18 |
 | Algorithm detail | Library tile, 2-look Lesson, Recognize | Demonstration, recognition diagram, Notation, Algorithm Status, and *I'm doing it on my cube* (Algorithm practice on a real cube, SCP 2026-11-20, #208). | FR-18 |
 | Algorithm practice *(SCP 2026-11-20, #208)* | Algorithm detail → *I'm doing it on my cube* | Solution Playback in Physical-cube Mode over the set-up Moves then the Algorithm: *Done* advances, Quick Check at any step (camera flag). | FR-18, FR-26 |
-| Recognize case *(v1.1, flag-gated: hidden while the flag is OFF, UX-DR19)* | Library top bar | Capture two opposite top corners, with yellow on top, and get the Case or candidates. | FR-28 |
+| Recognize case *(v1.0, flag-gated: hidden while the flag is OFF, UX-DR19)* | Library top bar | Capture two opposite top corners, with yellow on top, and get the Case or candidates. | FR-28 |
 | **You** (tab) | Bottom nav | Progress: Stage states, a trend row per Stage (hints and errors per attempt), and Algorithm Status counts shown as plain counts, not achievements. Also holds Settings. | FR-19, FR-20 |
 | Settings | You | Theme, color-blind glyphs, *Move pictures* (default on; next to color-blind glyphs, SCP 2026-11-17), animation speed, haptics, reduce motion, the separate resets, about/licences. | FR-19, NFR-7 |
-| Color Calibration *(v1.1, flag-gated: hidden while the flag is OFF, UX-DR19)* | Settings, scan prompt ("Colors look off — calibrate?"), first scan of a stickerless cube | Show each of the six centers in turn and confirm the swatch, then save. Each swatch is sampled from the ring around the center sticker's middle, so a logo is left out; if that ring isn't one even color, or the swatch is implausible for its color, the Learner is asked to put a plain sticker of that color in the middle square instead (SCP 2026-11-15). A swatch is captured automatically once the cube is held steady, as a face is in the scan; the Learner still confirms it with *Keep*, and *Capture* stays available (SCP 2026-11-16 main-app entry points, Story 10.5). A separate reset is available. | FR-24 **Torch (SCP 2026-11-21 quick-scan-side-face-accuracy, Story 10.21):** on a device with a flash, the calibration screen shows the same torch control as the Quick Scan corner view, on by default; Quick Scan uses a calibration only under the same torch state, and otherwise offers to calibrate again. |
+| Color Calibration *(v1.0, flag-gated: hidden while the flag is OFF, UX-DR19)* | Settings, scan prompt ("Colors look off — calibrate?"), first scan of a stickerless cube | Show each of the six centers in turn and confirm the swatch, then save. Each swatch is sampled from the ring around the center sticker's middle, so a logo is left out; if that ring isn't one even color, or the swatch is implausible for its color, the Learner is asked to put a plain sticker of that color in the middle square instead (SCP 2026-11-15). A swatch is captured automatically once the cube is held steady, as a face is in the scan; the Learner still confirms it with *Keep*, and *Capture* stays available (SCP 2026-11-16 main-app entry points, Story 10.5). A separate reset is available. | FR-24 **Torch (SCP 2026-11-21 quick-scan-side-face-accuracy, Story 10.21):** on a device with a flash, the calibration screen shows the same torch control as the Quick Scan corner view, on by default; Quick Scan uses a calibration only under the same torch state, and otherwise offers to calibrate again. |
 
 - **Navigation:** a bottom navigation bar with four tabs: Learn, Solve, Library, You. Medium and expanded widths switch to a navigation rail.
 - **Full-screen task flows:** Lesson, Scan and Playback hide the bottom bar and use a top app bar with back.
 - **Modal depth:** never more than one modal level. The Scan sub-flow is a full-screen task that returns to its caller, not a stacked modal.
+
+*(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope.)*
 
 ## Voice and Tone
 
@@ -73,10 +75,12 @@ Some UI labels differ from their Glossary terms:
 | "I can't tell what happened on your cube yet. Can you scan the front and right faces?" | "You turned the wrong face." (without evidence) |
 | "Verified: you turned R instead of R'." | "Probably you turned R instead of R'" labeled as fact |
 | "This corner shows two whites. Check these two stickers." | "Invalid cube state." |
-| "Your cube should be solved now. Compare it with the picture, then tell me if it is." (physical, before evidence, v1.0). With `CAMERA_SCAN` on (v1.1): "Your cube should be solved now. Check it with the camera, or tell me if it is." | "Solved!" on the strength of a *Done* tap |
+| "Your cube should be solved now. Compare it with the picture, then tell me if it is." (physical, before evidence, while `CAMERA_SCAN` is OFF). With `CAMERA_SCAN` on (v1.0, flag-gated): "Your cube should be solved now. Check it with the camera, or tell me if it is." | "Solved!" on the strength of a *Done* tap |
 | "Solved. That's your first solve — on your own cube." (after evidence) | Streak counters, points, leaderboards |
 
 **Certainty wording is fixed.** Only *Verified*, *Likely* and *Unknown* are used, and each comes with the action available next. Solution Playback notes use the generated template only, for example "Turn the Right face clockwise: the right column moves up". They never claim a purpose (AD-20).
+
+*(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope.)*
 
 ## Component Patterns
 
@@ -113,7 +117,7 @@ These are behavioral rules. Visual specs are in DESIGN.md Components.
 | Resume after kill (physical) | Lesson | Shows the **Confirm your cube** card with three options: *It matches* / *Scan it* / *Enter it*. The cube frame shows EXPECTED (AD-10). |
 | Content changed since save | Lesson | "This lesson was updated. We've restarted it with your cube as it was." |
 | Expected only | Physical mode | Dashed EXPECTED frame. No certainty chip until there's evidence: the EXPECTED frame is itself the honest label (decision logged). Solution Playback has no frame label, so it shows no Certainty until there's evidence (SCP 2026-11-19). |
-| Objective met, physical (expected) | Physical mode | "If your cube matches the picture, this step is done." The frame stays EXPECTED, a Quick Check is offered, and *Next* is enabled. No celebration. The Quick Check offer appears only when `CAMERA_SCAN` ≠ OFF (v1.1). |
+| Objective met, physical (expected) | Physical mode | "If your cube matches the picture, this step is done." The frame stays EXPECTED, a Quick Check is offered, and *Next* is enabled. No celebration. The Quick Check offer appears only when `CAMERA_SCAN` ≠ OFF (v1.0, flag-gated). |
 | Mismatch ladder | Physical mode | The tutor asks for information in this order: (1) a Quick Check of the named faces; (2) "Which turn did you make?" with the Move key bar; (3) "Look at the front face — which corner is white?" with a one-face picker; (4) "Let's re-enter your cube" with a Guided Scan or the Editor. Each rung stays at ? *Unknown* until it yields evidence. |
 | Adopt observed | Mismatch, Full observation | *Use my cube as it is now* replaces the Expected State and starts a Guided recovery. A Partial observation must first be completed by a Guided Scan or the Editor. |
 | Verified | Physical mode | A ✓ *Verified* chip and a VERIFIED frame (Solution Playback shows the chip only, SCP 2026-11-19). It reverts to EXPECTED on the next *Done*. |
@@ -147,6 +151,8 @@ These are behavioral rules. Visual specs are in DESIGN.md Components.
 | Recognize: last layer solved | Recognize | "Your last layer is already solved." Offers *Back to Library*. |
 | Library filter empty | Library | "No algorithms marked Learning yet." Links to 2-look. |
 | Progress reset | Settings | A confirmation sheet names exactly what is erased. Calibration and preferences are untouched. |
+
+*(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope.)*
 
 ## Interaction Primitives
 
@@ -252,7 +258,7 @@ The flows mirror the PRD's user journeys UJ-1 to UJ-6.
 
 ### Flow 3 — Lucía just wants it solved (UJ-3)
 
-*While `CAMERA_SCAN` is OFF: Solve → *Enter colors* replaces steps 1–2 (Manual Cube Editor); Quick Scan and the Quick Check in playback arrive in v1.1, flag-gated.*
+*While `CAMERA_SCAN` is OFF: Solve → *Enter colors* replaces steps 1–2 (Manual Cube Editor); Quick Scan and the Quick Check in playback appear when their flags are raised (Story 10.11).*
 
 1. Solve tab → **Scan my cube** → Quick Scan (BETA) → two corner photos.
 2. The review net opens with 2 uncertain stickers pre-selected. She fixes them, and Accept enables.
@@ -261,14 +267,14 @@ The flows mirror the PRD's user journeys UJ-1 to UJ-6.
 
 **Failure path:** glare spoils the bottom face. The app asks for a Guided Scan of that face only, with *Enter colors instead* always visible.
 
-### Flow 4 — Marco starts from his own cube (UJ-4) *(v1.1, flag-gated)*
+### Flow 4 — Marco starts from his own cube (UJ-4) *(v1.0, flag-gated)*
 
 1. Welcome → **Start from my cube** → Guided 6-face Scan → review → Accept.
 2. Placement: "Start at *First-layer corners*?" He can also tap *Choose another Stage*, but he accepts. Stages 1–2 show ◇ *Skipped by placement*.
 3. In Physical mode he makes a mistake. A Quick Check gives ≈ *Likely*: "You probably turned R instead of R'." He takes the *Scan all 6 faces* offer, the Guided 6-face Scan gives ✓ *Verified*, and the fix is shown. Only a full scan verifies a mismatch (SCP 2026-11-17).
 4. **Climax:** the layer is complete, Stage 3 is marked *Completed*, and Stages 1–2 remain open to visit.
 
-### Flow 5 — Diego asks which OLL this is (UJ-5) *(v1.1, flag-gated)*
+### Flow 5 — Diego asks which OLL this is (UJ-5) *(v1.0, flag-gated)*
 
 1. Library → **Recognize case** (BETA) → a photo of one top corner, then of the opposite corner, with yellow on top ("1 / 2").
 2. **Climax:** "OLL 45 · T-shape". He taps it, and the Algorithm detail opens with its Demonstration playing.
@@ -284,7 +290,7 @@ The flows mirror the PRD's user journeys UJ-1 to UJ-6.
 1. She installs the app and opens it, offline and with no sign-up. Welcome → *I'm new*.
 2. She turns the cube with gestures, then rotates the view.
 3. Library → an OLL tile → she scrubs the Demonstration back and forth.
-4. Solve → *Scan my cube*, and she accepts the camera permission. *(v1.1, flag-gated; while `CAMERA_SCAN` is OFF she opens* Enter colors *and solves.)*
+4. Solve → *Scan my cube*, and she accepts the camera permission. *(v1.0, flag-gated; while `CAMERA_SCAN` is OFF she opens* Enter colors *and solves.)*
 5. **Climax:** smooth 60 FPS turns, an honest scan review, and a clean, consistent visual system in both themes. Nothing crashes and nothing asks for an account.
 
 ### Flow 7 — Ana practices to mastery (FR-20)
@@ -321,12 +327,14 @@ The flows mirror the PRD's user journeys UJ-1 to UJ-6.
 
 ### Flow 9 — Calibration and resets (FR-19, FR-24)
 
-*Steps 1–3 (calibration) are v1.1, flag-gated. Step 4 (resets) ships while `CAMERA_SCAN` is OFF, without a calibration reset.*
+*Steps 1–3 (calibration) are v1.0, flag-gated. Step 4 (resets) ships while `CAMERA_SCAN` is OFF, without a calibration reset.*
 
 1. On Lucía's stickerless cube the scan flags many uncertain stickers, and the scan offers "Colors look off — calibrate?"
 2. Calibration shows each of the six centers in turn: "Show the white center." The app reads the ring around the logo, not the logo. When her white center's print fills too much of it, the prompt changes to "Put a plain white sticker in the middle square." She sees each swatch, confirms it, then taps *Save*.
 3. **Climax:** her rescan reads every sticker confidently.
 4. Later, in Settings → *Reset progress*, the sheet lists exactly what is erased: Stages, attempts and Algorithm Statuses. Any Lesson or practice in progress also ends, so the Continue card is cleared. Calibration and preferences have their own resets.
+
+*(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope.)*
 
 ## Surface Coverage
 
@@ -362,10 +370,12 @@ These mockups show composition only. Where a mockup and this spine disagree, the
 | --- | --- |
 | `mockups/key-lesson-phone.html` | Compact Lesson, *Guide me* before the Move, light and dark |
 | `mockups/key-lesson-tablet.html` | Expanded Lesson, Objective met |
-| `mockups/key-physical-and-scan.html` | **v1.1 reference.** Physical-cube Mode after a Guided 6-face Scan (Verified mismatch, recovery prompt; a Quick Check verifies only a match, SCP 2026-11-17) with an inset of the Unknown state; Quick Scan sticker review with glyphs on |
+| `mockups/key-physical-and-scan.html` | **v1.0, flag-gated reference.** Physical-cube Mode after a Guided 6-face Scan (Verified mismatch, recovery prompt; a Quick Check verifies only a match, SCP 2026-11-17) with an inset of the Unknown state; Quick Scan sticker review with glyphs on |
 | `mockups/key-library.html` | Library (dark) and Algorithm detail with the playback transport |
 
 The mockups predate the finalize edits, so they don't show a few of them: the cube-stage toolbar (Undo / Redo / Reset), the Assistance line and the SEEN strip. The tablet mockup also shows the virtual Objective-met state; the physical variant uses the "If your cube matches…" wording. [NOTE FOR UX: re-render them if a visual reference is needed for these.]
+
+*(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope.)*
 
 ## Open Questions
 
