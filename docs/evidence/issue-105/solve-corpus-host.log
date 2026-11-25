@@ -1,0 +1,53 @@
+> Task :build-logic:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :build-logic:compileKotlin UP-TO-DATE
+> Task :build-logic:compileJava NO-SOURCE
+> Task :build-logic:pluginDescriptors UP-TO-DATE
+> Task :build-logic:processResources UP-TO-DATE
+> Task :build-logic:classes UP-TO-DATE
+> Task :build-logic:jar UP-TO-DATE
+> Task :core:application:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:domain:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:solver:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:solver:checkModuleBoundaries UP-TO-DATE
+> Task :core:domain:checkModuleBoundaries UP-TO-DATE
+> Task :core:application:checkModuleBoundaries UP-TO-DATE
+> Task :core:solver:processResources NO-SOURCE
+> Task :core:application:processResources NO-SOURCE
+> Task :core:solver:processBenchmarkResources NO-SOURCE
+> Task :core:domain:compileKotlin UP-TO-DATE
+> Task :core:domain:compileJava NO-SOURCE
+> Task :core:domain:processResources UP-TO-DATE
+> Task :core:domain:classes UP-TO-DATE
+> Task :core:domain:jar UP-TO-DATE
+> Task :core:application:compileKotlin UP-TO-DATE
+> Task :core:application:compileJava NO-SOURCE
+> Task :core:application:classes UP-TO-DATE
+> Task :core:application:jar UP-TO-DATE
+> Task :core:solver:compileKotlin UP-TO-DATE
+> Task :core:solver:compileJava NO-SOURCE
+> Task :core:solver:classes UP-TO-DATE
+> Task :core:solver:compileBenchmarkKotlin UP-TO-DATE
+> Task :core:solver:compileBenchmarkJava NO-SOURCE
+> Task :core:solver:benchmarkClasses UP-TO-DATE
+> Task :core:solver:solveCorpusBenchmark
+Solve corpus benchmark: two-phase; 10000 uniform legal states + solved + 100 deep Scrambles; seed 20261031
+  cases          10101
+  median         3.032 ms
+  p95            17.841 ms
+  max            206.409 ms
+  within budget  100.0% (10101/10101 at or under 3000.000 ms)
+  failures       0 (0.0%)
+  peak heap      300.9 MiB
+  profile        OpenJDK 64-Bit Server VM 17.0.21; Linux amd64; CPUs=20; maxHeap=16777216000; uncalibrated JVM host
+
+[Incubating] Problems report is available at: file:///mnt/e/Dynamic/IndFun/RubikXplorer-issue-105/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.8.2/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 1m
+15 actionable tasks: 1 executed, 14 up-to-date
+Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.8.2/userguide/configuration_cache_enabling.html
