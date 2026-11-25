@@ -1683,6 +1683,67 @@ class PhysicalLessonScreenTest {
         assertTrue(last.top > first.top)
     }
 
+    @Test fun quickCheckResultsAtANormalLessonStep() = checkLessonResults(atCompletion = false)
+
+    @Test fun quickCheckResultsAtLessonCompletion() = checkLessonResults(atCompletion = true)
+
+    private fun checkLessonResults(atCompletion: Boolean) {
+        val host = SessionHost(TickingClock())
+        val captured = mutableListOf<Effect.QuickCheck>()
+        setLessonContent(host, quickCheck = QuickCheckCapture { captured += it })
+        enterPhysicalMode(host)
+        if (atCompletion) {
+            node("lesson:done").performScrollTo().performClick()
+            rule.waitUntil(5_000) { host.state.value.objectiveMet }
+        }
+        assertEquals(atCompletion, host.state.value.objectiveMet)
+        val expected = host.state.value.expected
+
+        fun observe(observation: PhysicalObservation) {
+            val effect = requestFromIcon(captured)
+            runBlocking { host.dispatch { SessionEvent.QuickCheckObserved(effect.effectId, effect.revision, observation, it) } }
+            rule.waitForIdle()
+        }
+
+        node("quickCheck:result").assertDoesNotExist()
+        for (unreadable in listOf(PhysicalObservation.Partial(emptyMap()), PhysicalObservation.Partial(mapOf(Face.U to emptyList())))) {
+            observe(PhysicalObservation.Full(expected))
+            rule.assertQuickCheckResult("VERIFIED", "Verified")
+            node("mismatch:adopt").assertDoesNotExist()
+            node("mismatch:scanAll").assertDoesNotExist()
+            observe(unreadable)
+            rule.assertQuickCheckResult("EXPECTED", "Unknown", "I can't tell what changed.")
+            node("mismatch:adopt").assertDoesNotExist()
+            node("mismatch:scanAll").assertDoesNotExist()
+        }
+
+        observe(quickCheckPartial(expected.apply(FaceTurn(Face.R, Turn.CLOCKWISE))))
+        rule.assertQuickCheckResult("EXPECTED", "Likely", "That turn probably moved something else.")
+        rule.onNodeWithText("Candidate: R").assertExists()
+        node("mismatch:adopt").assertDoesNotExist()
+        // An unreadable result in a mismatch replaces the Likely result but keeps the mismatch offers.
+        observe(PhysicalObservation.Partial(emptyMap()))
+        rule.assertQuickCheckResult("EXPECTED", "Unknown", "I can't tell what changed.")
+        rule.onNodeWithText("Candidate: R").assertDoesNotExist()
+        node("mismatch:scanAll").assertExists()
+        observe(quickCheckPartial(expected.apply(FaceTurn(Face.R, Turn.CLOCKWISE))))
+        rule.assertQuickCheckResult("EXPECTED", "Likely", "That turn probably moved something else.")
+        val count = captured.size
+        node("mismatch:scanAll").performScrollTo().performClick()
+        rule.waitUntil(5_000) { captured.size > count }
+        assertEquals(Face.entries.toSet(), captured.last().faces)
+        assertEquals(
+            Face.entries.toSet(),
+            host.state.value.pendingQuickCheck
+                ?.faces,
+        )
+        rule.assertQuickCheckResult("EXPECTED", "Likely", "That turn probably moved something else.")
+        // The next ladder question hides the card and returns the announcement to the stage.
+        node("mismatch:nextQuestion").performScrollTo().performClick()
+        node("quickCheck:result").assertDoesNotExist()
+        rule.onAllNodesWithTag("certainty:chip").assertCountEquals(1)
+    }
+
     @Test fun quickCheckRungShowsLikelyPartialSeenFacesAndFullScanThenAdopt() {
         val host = SessionHost(TickingClock())
         var captured: Effect.QuickCheck? = null
@@ -1752,8 +1813,10 @@ class PhysicalLessonScreenTest {
         }
         rule.waitForIdle()
         node("mismatch:scanAll").assertDoesNotExist()
+        rule.assertQuickCheckResult("EXPECTED", "Verified")
         node("mismatch:adopt").performScrollTo().performClick()
         rule.waitUntil(5_000) { host.state.value.expected == actual }
+        node("quickCheck:result").assertDoesNotExist()
         assertEquals(SyncState.PHYSICAL_PREDICTED, host.state.value.syncState)
     }
 
@@ -1792,6 +1855,7 @@ class PhysicalLessonScreenTest {
         setLessonContent(host)
         enterPhysicalMode(host)
         node("lesson:quickCheck").assertDoesNotExist()
+        node("quickCheck:result").assertDoesNotExist()
         reportMismatch(host)
         node("mismatch:quickCheck").assertDoesNotExist()
         node("mismatch:question").assertExists()
