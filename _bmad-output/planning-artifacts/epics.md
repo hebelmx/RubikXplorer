@@ -200,7 +200,7 @@ A Learner can open a data-defined Lesson, see its Objective, watch an explained 
 A Learner can enter any cube's colors, get a verified Solution from the in-house Solver, and step through it with a plain note per Move.
 **Absorbs:** E02 (Solver), E08 (Solution Playback).
 **FRs covered:** FR-14 (editor), FR-15, FR-16. **Also:** NFR-3, NFR-11, AR-12, AR-20, UX-DR16, UX-DR25.
-*(SCP 2026-11-24 github-issue-triage: Story 3.9, cold solver preparation, #104, is v1.1 scope and reopens the epic; it never gates the v1.0 release.)* *(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope. Story 3.9 is v1.0 scope; it does not gate the v1.0.0 tag; Epic 3 is in-progress until 3.9 is done or re-triaged. This supersedes the 2026-11-24 "v1.1 scope" wording.)*
+*(SCP 2026-11-24 github-issue-triage: Story 3.9, cold solver preparation, #104, is v1.1 scope and reopens the epic; it never gates the v1.0 release.)* *(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope. Story 3.9 is v1.0 scope; it does not gate the v1.0.0 tag; Epic 3 is in-progress until 3.9 is done or re-triaged. This supersedes the 2026-11-24 "v1.1 scope" wording.)* *(SCP 2026-11-25 close-104: Story 3.9 is done (PO accepted the 3.51 s baseline, no mitigation); Epic 3 is done again.)*
 
 ### Epic 4: Get help when I go wrong (P0.2, weeks 4–5)
 When a Learner makes a mistake, the tutor names what happened with honest Certainty, offers the next hint rung, and leads back by undo or the shortest Guided recovery, with assistance adapting to their history.
@@ -974,7 +974,7 @@ So that I am not left waiting on "Preparing the solver."
 
 **Refs:** FR-15 · NFR-3, NFR-11 · AD-8, AD-16 · Stories 3.3, 3.8, 12.2 · #104
 
-**Depends on** Story 3.8. **v1.0 scope; does not gate the v1.0.0 tag**. **Human gate:** a measurement session on the physical Lenovo Tab M10 Plus 3rd Gen (TB128XU), the minimum reference device. *(SCP 2026-11-24 github-issue-triage, #104: the cold-preparation follow-up to Story 3.8; bundled pruning tables did not remove the per-process move-table build, 12.6 s debug median and ≤ 10.5 s release-equivalent on the Lenovo.)* *(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope. This supersedes the 2026-11-24 "v1.1 scope" wording.)*
+**Depends on** Story 3.8. **v1.0 scope; does not gate the v1.0.0 tag**. **Human gate:** a measurement session on the physical Lenovo Tab M10 Plus 3rd Gen (TB128XU), the minimum reference device. *(SCP 2026-11-24 github-issue-triage, #104: the cold-preparation follow-up to Story 3.8; bundled pruning tables did not remove the per-process move-table build, 12.6 s debug median and ≤ 10.5 s release-equivalent on the Lenovo.)* *(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope. This supersedes the 2026-11-24 "v1.1 scope" wording.)* *(SCP 2026-11-25 close-104: Story 3.9 closed without a mitigation. The PO accepted the measured baseline, cold Accept → Solution median 3.51 s (3.39–5.76 s, 5 runs, `benchmark` build, Lenovo TB128XU; `docs/benchmarks.md` § Story 3.9 baseline), as the target. AC1's separate preparation/search timing is waived (search for the measured cube is negligible); AC3–AC4 do not apply because no mitigation is made. #104 closed.)*
 
 **Acceptance Criteria:**
 
