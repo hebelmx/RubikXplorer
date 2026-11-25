@@ -232,8 +232,8 @@ A Learner can browse and watch all 78 verified OLL/PLL Algorithms, track their o
 
 ### Epic 10: Scan my cube (v1.1, flag-gated)
 A Learner can scan a cube face by face, correct and calibrate it, solve it from the scan, and verify physical Moves with a Quick Check. Built on `main` with every camera flag OFF in release; each feature reaches users only when the PO raises its flag at a release (Story 10.11). Restored from `post-launch/v1.1-camera-recognition.md` by `sprint-change-proposal-2026-11-14-v1-1-camera.md`. *(SCP 2026-11-20: moves into v1.0 as the dependency of #198, #208, #249, #251, #252; Story 10.11 raises `CAMERA_SCAN` for the v1.0 release.)*
-**FRs covered:** FR-21, FR-23 – FR-26, plus the Quick Check rung of FR-9 and FR-16, and the calibration reset of FR-19. **Also:** recognition NFRs, NFR-5, NFR-8, NFR-11, NFR-12, AD-9, AD-13, AD-18, AR-13, UX-DR15, UX-DR16, UX-DR19 – UX-DR22, UX-DR25.
-**Order:** 10.9 → 10.10 → UX pass → 10.12 → 10.13 → 10.1 → (10.6 ∥ 10.2 → 10.3 → 10.14 → 10.4 → 10.5 → 10.15 → 10.7) → Epic 11 → 10.8 → 10.11; 10.16 after 10.14; 11.1 → 10.18 (Quick Scan finds the cube's real edges and corners, #195) → 10.17 (after 10.16 too) → 10.19 → 10.22 → (10.20 ∥ 10.23) → 10.21 *(SCP 2026-11-22 quick-scan-reliability: 10.22 before the fixture session)* *(SCP 2026-11-22 quick-scan-sticker-reader: 10.23, the shadow sticker reader, after 10.22; it does not block 10.20, 10.21 or 10.11)* *(SCP 2026-11-22 quick-scan-corners-and-solver-copy: 10.21 → 10.24 (retake a corner, #299) → 10.25 (start from whichever corner is shown, #302); 10.26 (fill a few unread stickers from cube rules, #301) only after the 10.21 BETA call. PO Q-h: the 10.11-n run that raises `QUICK_SCAN` does not wait for 10.25, and no new story is added to its dependencies.)* *(SCP 2026-11-21 quick-scan-side-face-accuracy, #274: 10.20 and 10.21 do not block Story 10.11, which raises `CAMERA_SCAN` and `PLACEMENT` with `QUICK_SCAN` OFF; Quick Scan is raised in a later 10.11-n after 10.21's BETA call)* *(SCP 2026-11-24 camera-release-timeline: 10.21's BETA call (2026-11-24) left `QUICK_SCAN` OFF on this pipeline; 10.24–10.27 are superseded by the continuous facelet scan approach (PR #363) and do not start. The new Quick Scan port stories, written by the spike session's SCP, come before the 10.11 run that raises `QUICK_SCAN`. 10.11 no longer waits for 12.5: its first run, release 0.11.0, raises `CAMERA_SCAN` to GA and `PLACEMENT` to BETA, and `QUICK_SCAN` to BETA only when its preconditions hold (Story 10.11); 12.5 then promotes a new v1.0.0 tag with the same levels.)*; all v1.0 scope (SCP 2026-11-20) *(SCP 2026-11-15; 10.14 added by SCP 2026-11-16; 10.5 split into 10.5 and 10.15 by SCP 2026-11-16 main-app entry points)*. *(SCP 2026-11-24 github-issue-triage: 10.28 (the recorder's count check, #337) after 10.20, independent of 10.27, before any new corner-fixture recording; it blocks neither 10.21 nor 10.11. 10.29 (Solution Playback shows the Lesson's Quick Check result, #326) is v1.1 scope, after 10.7. #321, #323, #325 and #313 are v1.0 issue fixes against Stories 10.15, 10.3 and 10.2.)* Device sessions: A = 10.10; A2 = 10.12; B = 10.2 and 10.4 acceptance (10.4 partial); B2 = 10.14; B3 = 10.5 (main app; re-runs the 10.4 checks not done on a device, #166); C = 11.1, 11.3 capture and 10.8.
+**FRs covered:** FR-21 – FR-26, plus the Quick Check rung of FR-9 and FR-16, and the calibration reset of FR-19. **Also:** recognition NFRs, NFR-5, NFR-8, NFR-11, NFR-12, AD-9, AD-13, AD-18, AR-13, UX-DR15, UX-DR16, UX-DR19 – UX-DR22, UX-DR25.
+**Order:** 10.9 → 10.10 → UX pass → 10.12 → 10.13 → 10.1 → (10.6 ∥ 10.2 → 10.3 → 10.14 → 10.4 → 10.5 → 10.15 → 10.7) → Epic 11 → 10.8 → 10.11; 10.16 after 10.14; 11.1 → 10.18 (Quick Scan finds the cube's real edges and corners, #195) → 10.17 (after 10.16 too) → 10.19 → 10.22 → (10.20 ∥ 10.23) → 10.21 *(SCP 2026-11-22 quick-scan-reliability: 10.22 before the fixture session)* *(SCP 2026-11-22 quick-scan-sticker-reader: 10.23, the shadow sticker reader, after 10.22; it does not block 10.20, 10.21 or 10.11)* *(SCP 2026-11-22 quick-scan-corners-and-solver-copy: 10.21 → 10.24 (retake a corner, #299) → 10.25 (start from whichever corner is shown, #302); 10.26 (fill a few unread stickers from cube rules, #301) only after the 10.21 BETA call. PO Q-h: the 10.11-n run that raises `QUICK_SCAN` does not wait for 10.25, and no new story is added to its dependencies.)* *(SCP 2026-11-21 quick-scan-side-face-accuracy, #274: 10.20 and 10.21 do not block Story 10.11, which raises `CAMERA_SCAN` and `PLACEMENT` with `QUICK_SCAN` OFF; Quick Scan is raised in a later 10.11-n after 10.21's BETA call)* *(SCP 2026-11-24 camera-release-timeline: 10.21's BETA call (2026-11-24) left `QUICK_SCAN` OFF on this pipeline; 10.24–10.27 are superseded by the continuous facelet scan approach (PR #363) and do not start. The new Quick Scan port stories, written by the spike session's SCP, come before the 10.11 run that raises `QUICK_SCAN`. 10.11 no longer waits for 12.5: its first run, release 0.11.0, raises `CAMERA_SCAN` to GA and `PLACEMENT` to BETA, and `QUICK_SCAN` to BETA only when its preconditions hold (Story 10.11); 12.5 then promotes a new v1.0.0 tag with the same levels.)* *(SCP 2026-11-24 continuous-quick-scan: 10.24–10.27 are dropped; the continuous Quick Scan port chain **10.30 → 10.31 → 10.32 → 10.33** replaces them and runs before the Story 10.11 run that raises `QUICK_SCAN`.)*; all v1.0 scope (SCP 2026-11-20) *(SCP 2026-11-15; 10.14 added by SCP 2026-11-16; 10.5 split into 10.5 and 10.15 by SCP 2026-11-16 main-app entry points)*. *(SCP 2026-11-24 github-issue-triage: 10.28 (the recorder's count check, #337) after 10.20, independent of 10.27, before any new corner-fixture recording; it blocks neither 10.21 nor 10.11. 10.29 (Solution Playback shows the Lesson's Quick Check result, #326) is v1.1 scope, after 10.7. #321, #323, #325 and #313 are v1.0 issue fixes against Stories 10.15, 10.3 and 10.2.)* Device sessions: A = 10.10; A2 = 10.12; B = 10.2 and 10.4 acceptance (10.4 partial); B2 = 10.14; B3 = 10.5 (main app; re-runs the 10.4 checks not done on a device, #166); C = 11.1, 11.3 capture and 10.8.
 **Main-app rule (SCP 2026-11-16 main-app entry points):** a camera story is accepted on the main app build, reached from its real entry point. A debug-only launcher is never a story's device-session gate, and debug raises a flag above OFF only once that flag's entry point is wired in the main app (AD-15, AD-18).
 **Never blocks** tester-feedback fixes or Stories 12.3, 12.4, 12.5 and 13.6: camera stories merge only with release camera flags OFF, and Story 10.9's gate keeps the release free of camera code and permissions. *(Superseded by SCP 2026-11-20: for v1.0, Story 10.11 raises `CAMERA_SCAN`, `QUICK_SCAN` and `PLACEMENT` before Stories 12.3–12.5, and the Story 10.9 gate then checks the flags-ON release instead.)* *(SCP 2026-11-21 quick-scan-side-face-accuracy: `QUICK_SCAN` leaves this first raise and follows Story 10.21.)* *(SCP 2026-11-24 camera-release-timeline: Story 10.11 now runs after Stories 12.3, 12.4 and 13.6 and before 12.5. Its first run is release 0.11.0, and Story 12.5 promotes a v1.0.0 tag cut from main with the same flag levels.)*
 
@@ -266,7 +266,7 @@ A Learner can see a solution shaped by the method they are learning instead of t
 **FRs covered:** FR-30. **Also:** AD-8 (unchanged), AD-19, AD-20, AD-21, NFR-3, NFR-12. GitHub #210.
 **Order:** 15.1 → 15.2 → 15.3. **v1.0 scope** (PO, 2026-11-20): runs before release Stories 12.3, 12.4 and 12.5.
 
-**SCP 2026-11-20 v1.1 promotion** (`sprint-change-proposal-2026-11-20-v1-1-promotion.md`): #249, #251, #252 and #253 are built as issue fixes (`/bmad-orchestrate-issues`) against the amended Stories 10.3, 11.2 and 3.5; #198 is Story 10.17; #208 and #209 are Epic 14; #210 is Epic 15. The Lenovo Tab M10 Plus 3rd Gen (TB128XU) camera is the minimum camera spec for every device gate. **Scope move v1.1 → v1.0 (PO, 2026-11-20, ahead of schedule):** all of these ship in v1.0, together with what they depend on: the camera scan and review (`CAMERA_SCAN`, Epic 10), Placement (`PLACEMENT`, Story 11.2), Quick Scan (`QUICK_SCAN`, Story 11.1) and its corner-guide rework (Story 10.18, which detects the cube's real edges and corners in the frame, #195–#197), and Story 10.11, which raises those flags for the v1.0 release from the test-matrix evidence (BETA or GA). Release Stories 12.3, 12.4 and 12.5 run before Story 10.11, which depends on them and is the last PR before the tag. *(SCP 2026-11-24 camera-release-timeline: 12.5 now runs after 10.11. 10.11's flag-raise PR is the last PR before the `v0.11.0` tag; production is a new `v1.0.0` tag cut from main with the same flag levels, gates 3 and 6 are re-run on it, and 12.5 records the gates on the 1.0.0 build.)* *(SCP 2026-11-21 quick-scan-front-light: `QUICK_SCAN` reaches 10.11 only through Stories 10.17 and 10.19 and Story 10.8's matrix; if it stays OFF, 10.11 raises `CAMERA_SCAN` and `PLACEMENT` without it.)* `CASE_RECOGNITION` (Story 11.3) is not a dependency and keeps its own release decision at 10.11. *(SCP 2026-11-24 camera-release-timeline, PO: `CASE_RECOGNITION` stays OFF in 0.11.0.)*
+**SCP 2026-11-20 v1.1 promotion** (`sprint-change-proposal-2026-11-20-v1-1-promotion.md`): #249, #251, #252 and #253 are built as issue fixes (`/bmad-orchestrate-issues`) against the amended Stories 10.3, 11.2 and 3.5; #198 is Story 10.17; #208 and #209 are Epic 14; #210 is Epic 15. The Lenovo Tab M10 Plus 3rd Gen (TB128XU) camera is the minimum camera spec for every device gate. **Scope move v1.1 → v1.0 (PO, 2026-11-20, ahead of schedule):** all of these ship in v1.0, together with what they depend on: the camera scan and review (`CAMERA_SCAN`, Epic 10), Placement (`PLACEMENT`, Story 11.2), Quick Scan (`QUICK_SCAN`, Story 11.1) and its corner-guide rework (Story 10.18, which detects the cube's real edges and corners in the frame, #195–#197), and Story 10.11, which raises those flags for the v1.0 release from the test-matrix evidence (BETA or GA). Release Stories 12.3, 12.4 and 12.5 run before Story 10.11, which depends on them and is the last PR before the tag. *(SCP 2026-11-24 camera-release-timeline: 12.5 now runs after 10.11. 10.11's flag-raise PR is the last PR before the `v0.11.0` tag; production is a new `v1.0.0` tag cut from main with the same flag levels, gates 3 and 6 are re-run on it, and 12.5 records the gates on the 1.0.0 build.)* *(SCP 2026-11-21 quick-scan-front-light: `QUICK_SCAN` reaches 10.11 only through Stories 10.17 and 10.19 and Story 10.8's matrix; if it stays OFF, 10.11 raises `CAMERA_SCAN` and `PLACEMENT` without it.)* *(SCP 2026-11-24 continuous-quick-scan: superseded — `QUICK_SCAN` now reaches 10.11 through Stories 10.30–10.33 and Story 10.33's PO BETA call; if it stays OFF, 10.11 raises `CAMERA_SCAN` and `PLACEMENT` without it.)* `CASE_RECOGNITION` (Story 11.3) is not a dependency and keeps its own release decision at 10.11. *(SCP 2026-11-24 camera-release-timeline, PO: `CASE_RECOGNITION` stays OFF in 0.11.0.)*
 
 ## Epic 1: Turn and verify a cube
 
@@ -2242,9 +2242,9 @@ So that the app, the public privacy policy, Play Console and the store listing a
 
 **Refs:** NFR-5, NFR-8, NFR-11 · AD-13, AD-15, AD-18 · PRD §7 gate 6 · Stories 10.8, 12.3, 12.4, 13.3, 13.4, 13.6 · `docs/release.md`, `docs/play-first-publish.md`
 
-**Runs** once per release in which at least one camera flag leaves OFF; it is reopened (or copied as 10.11-n) for each such release. **Depends on** Story 10.8's recommendation, or a PO level decision recorded in the PRD memlog with its evidence, for every raised feature, and on Stories 12.3, 12.4 and 13.6 being done. *(SCP 2026-11-24 camera-release-timeline: 12.5 removed, superseding §6 Q5. A run may ship to the internal, closed and open testing tracks before 12.5. Production stays in 12.5, as a new `v1.0.0` tag cut from main with the same flag levels. A run that raises `QUICK_SCAN` also depends on: the new Quick Scan port stories being done with their BETA call recorded, the Lenovo TB128XU staying the gating minimum unless a separate PO decision changes it; the spike session's SCP amending the architecture spine and PRD (AD-9 reader of record, AD-18 composition, `ShadowReaderPolicy`, `CameraSizePolicy`, FR-22 and §4.8's out-of-scope "continuous video"); and `:app:checkCameraSize` and `:app:checkReleaseSize` headroom measured with the new models in (the research estimate is about 2.0–2.5 MB).)* **Human gates:** the PO's per-feature level decision; the site-repository PR; Play Console.
+**Runs** once per release in which at least one camera flag leaves OFF; it is reopened (or copied as 10.11-n) for each such release. **Depends on** Story 10.8's recommendation, or a PO level decision recorded in the PRD memlog with its evidence, for every raised feature, and on Stories 12.3, 12.4 and 13.6 being done. *(SCP 2026-11-24 camera-release-timeline: 12.5 removed, superseding §6 Q5. A run may ship to the internal, closed and open testing tracks before 12.5. Production stays in 12.5, as a new `v1.0.0` tag cut from main with the same flag levels. A run that raises `QUICK_SCAN` also depends on: the new Quick Scan port stories being done with their BETA call recorded, the Lenovo TB128XU staying the gating minimum unless a separate PO decision changes it; the spike session's SCP amending the architecture spine and PRD (AD-9 reader of record, AD-18 composition, `ShadowReaderPolicy`, `CameraSizePolicy`, FR-22 and §4.8's out-of-scope "continuous video"); and `:app:checkCameraSize` and `:app:checkReleaseSize` headroom measured with the new models in (the research estimate is about 2.0–2.5 MB).)* *(SCP 2026-11-24 continuous-quick-scan: the spine/PRD/UX amendments are applied and the 3-device R8 benchmark is closed in PR #366 with Lenovo TB128XU kept as gating minimum (`33.74 ms`, ~30 FPS). Raising `QUICK_SCAN` now depends specifically on Stories **10.30–10.33** being done, including Story 10.31/10.33's minified `0.11.0`-profile size check (`< 30 MB`) and Story 10.33's PO BETA call recorded in the PRD memlog.)* **Human gates:** the PO's per-feature level decision; the site-repository PR; Play Console.
 
-*(SCP 2026-11-21 quick-scan-side-face-accuracy: the first run raises `CAMERA_SCAN` and `PLACEMENT` only; `QUICK_SCAN` is raised by a later 10.11-n once Story 10.21's BETA call passes.)* *(SCP 2026-11-24 camera-release-timeline, superseding SCP 2026-11-21: the first run, release 0.11.0, raises `CAMERA_SCAN` to GA and `PLACEMENT` to BETA, following Story 10.8, and `QUICK_SCAN` to BETA only when the `QUICK_SCAN` preconditions under Depends hold. Otherwise it raises `CAMERA_SCAN` and `PLACEMENT` only, and `QUICK_SCAN` follows in a 10.11-n (0.11.x); the PO decides at 10.11 start. `CASE_RECOGNITION` stays OFF in 0.11.0.)*
+*(SCP 2026-11-21 quick-scan-side-face-accuracy: the first run raises `CAMERA_SCAN` and `PLACEMENT` only; `QUICK_SCAN` is raised by a later 10.11-n once Story 10.21's BETA call passes.)* *(SCP 2026-11-24 camera-release-timeline, superseding SCP 2026-11-21: the first run, release 0.11.0, raises `CAMERA_SCAN` to GA and `PLACEMENT` to BETA, following Story 10.8, and `QUICK_SCAN` to BETA only when the `QUICK_SCAN` preconditions under Depends hold (Stories 10.30–10.33 done and 10.33 BETA call recorded, SCP 2026-11-24 continuous-quick-scan). Otherwise it raises `CAMERA_SCAN` and `PLACEMENT` only, and `QUICK_SCAN` follows in a 10.11-n (0.11.x); the PO decides at 10.11 start. `CASE_RECOGNITION` stays OFF in 0.11.0.)*
 
 **Acceptance Criteria:**
 
@@ -2668,7 +2668,7 @@ So that two corner photos usually finish the scan instead of sending me face by 
 
 ### Story 10.24: Retake a corner in Quick Scan
 
-*(SCP 2026-11-24 camera-release-timeline: superseded by the continuous facelet scan approach (PR #363). Parked until the spike session's SCP replaces or drops it. Do not start.)*
+*(SCP 2026-11-24 camera-release-timeline / continuous-quick-scan: superseded and **dropped**; replaced by Stories 10.30–10.33. Do not start. For 10.27's non-corner-model `ColorCalibrationTest.KNOWN_PASTEL_PROBLEMS` `#166`, see tracked follow-up action item `scp-2026-11-24-pastel-plausibility-guided-followup`.)*
 
 As a Learner using Quick Scan,
 I want to take a corner again when I see the photo went wrong,
@@ -2706,7 +2706,7 @@ So that one bad photo doesn't make me restart the scan or go face by face.
 
 ### Story 10.25: Quick Scan starts from whichever corner it is shown
 
-*(SCP 2026-11-24 camera-release-timeline: superseded by the continuous facelet scan approach (PR #363). Parked until the spike session's SCP replaces or drops it. Do not start.)*
+*(SCP 2026-11-24 camera-release-timeline / continuous-quick-scan: superseded and **dropped**; replaced by Stories 10.30–10.33. Do not start. For 10.27's non-corner-model `ColorCalibrationTest.KNOWN_PASTEL_PROBLEMS` `#166`, see tracked follow-up action item `scp-2026-11-24-pastel-plausibility-guided-followup`.)*
 
 As a Learner using Quick Scan,
 I want the first photo to take whichever corner I show and the second to ask for the faces still missing,
@@ -2744,7 +2744,7 @@ So that a fast capture never mislabels my cube and I never get stuck at the seco
 
 ### Story 10.26: Quick Scan fills a few unread stickers from the cube's rules
 
-*(SCP 2026-11-24 camera-release-timeline: superseded by the continuous facelet scan approach (PR #363). Parked until the spike session's SCP replaces or drops it. Do not start.)*
+*(SCP 2026-11-24 camera-release-timeline / continuous-quick-scan: superseded and **dropped**; replaced by Stories 10.30–10.33. Do not start. For 10.27's non-corner-model `ColorCalibrationTest.KNOWN_PASTEL_PROBLEMS` `#166`, see tracked follow-up action item `scp-2026-11-24-pastel-plausibility-guided-followup`.)*
 
 As a Learner using Quick Scan,
 I want the few stickers the camera couldn't read to be worked out from the rest of my cube when that is certain,
@@ -2752,7 +2752,7 @@ So that a handful of doubtful stickers doesn't send whole faces to face-by-face 
 
 **Refs:** FR-22, FR-23 · recognition NFRs (Quick Scan, Confidence calibration) · AD-9 · Stories 10.17, 10.20, 10.21 · spec `_bmad-output/specs/spec-quick-scan-reliability/fix-plan.md` ("Keep stickers, not faces", CAP-5) · #301
 
-**Depends on** Stories 10.20 and 10.21. **Starts** only after the PO's 10.21 BETA call (Story 10.21's last AC), with the held-out report in hand; the safety assertion (first AC) is built and run before any search. *(SCP 2026-11-24 camera-release-timeline: that call (2026-11-24) left `QUICK_SCAN` OFF, so this story does not start; it is superseded with 10.24, 10.25 and 10.27.)* **Human gate:** a device session on both reference devices. *(SCP 2026-11-22 quick-scan-corners-and-solver-copy. PO decision 2026-11-22, Q-c: plan it now in the backlog. SCP 2026-11-22 quick-scan-reliability did not propose it; the "Keep stickers, not faces" candidate in the spec and its constraint that cube rules cannot force an unsupported label (fix-plan.md) are carried into the ACs below. It does not change Story 10.21's keep rule.)*
+**Depends on** Stories 10.20 and 10.21. **Starts** only after the PO's 10.21 BETA call (Story 10.21's last AC), with the held-out report in hand; the safety assertion (first AC) is built and run before any search. *(SCP 2026-11-24 camera-release-timeline / continuous-quick-scan: dropped with 10.24, 10.25 and 10.27; replaced by Stories 10.30–10.33.)* **Human gate:** a device session on both reference devices. *(SCP 2026-11-22 quick-scan-corners-and-solver-copy. PO decision 2026-11-22, Q-c: plan it now in the backlog. SCP 2026-11-22 quick-scan-reliability did not propose it; the "Keep stickers, not faces" candidate in the spec and its constraint that cube rules cannot force an unsupported label (fix-plan.md) are carried into the ACs below. It does not change Story 10.21's keep rule.)*
 
 **Acceptance Criteria:**
 
@@ -2774,7 +2774,7 @@ So that a handful of doubtful stickers doesn't send whole faces to face-by-face 
 
 ### Story 10.27: Clean the corner fixture labels and judge pastel stickers against the cube's own colours
 
-*(SCP 2026-11-24 camera-release-timeline: superseded by the continuous facelet scan approach (PR #363). Parked until the spike session's SCP replaces or drops it. Do not start.)*
+*(SCP 2026-11-24 camera-release-timeline / continuous-quick-scan: superseded and **dropped**; replaced by Stories 10.30–10.33. Do not start. For 10.27's non-corner-model `ColorCalibrationTest.KNOWN_PASTEL_PROBLEMS` `#166`, see tracked follow-up action item `scp-2026-11-24-pastel-plausibility-guided-followup`.)*
 
 As the developer tuning Quick Scan,
 I want a repeatable label-cleansing pipeline for the corner fixtures, and a plausibility check that judges a sticker against its own cube's calibrated colours,
@@ -2879,6 +2879,122 @@ So that I understand what the check saw and how to recover, wherever I run it.
 **Given** both hosts at a normal step and at completion
 **When** a Quick Check returns a match, a probable mismatch and an unreadable result
 **Then** tests cover each case on each host; the copy comes from content strings and fits at 200% font on the Lenovo's 600 dp width
+
+### Story 10.30: Port continuous facelet lattice fitter and cube mapper to pure JVM
+
+As the developer,
+I want the continuous facelet lattice fitter and cube mapper ported to pure-JVM Kotlin in `:core:domain`,
+So that Quick Scan's geometry stitching, color anchoring, invariants, and twist detection are 100% deterministic, Android-free, and verified to parity with the PC spike.
+
+**Refs:** FR-22, FR-23, FR-24 · NFR-4, NFR-12 · AD-1, AD-2, AD-9, AD-12, AD-14 · PR #363 (`pc_spike/lattice_fit.py`, `pc_spike/mapper.py`)
+
+**Depends on** Story 10.1 (domain `Facelets`, `CubeValidator`, `ScanAssembler`). Device-free (pure JVM). *(SCP 2026-11-24 continuous-quick-scan.)*
+
+**Acceptance Criteria:**
+
+**Given** unordered 2D sticker-center points `(x, y)` from 1 to 3 visible cube faces
+**When** `FaceLatticeFitter.fit(centers)` runs in `:core:domain` (`dev.cubentia.domain.recognition.continuous`, zero Android/OpenCV imports)
+**Then** it recovers up to 3 clockwise projective face quads using bimodal multi-scale neighborhood clustering, exact 4-point DLT homography solving, and tight geometry checks (`opp <= 1.55`, `mean_err <= 0.12 * d`), reproducing **90/90 (100%) faces and 90/90 (100%) shared edges** against a committed deterministic `Fixtures/corner/` peak parity JSON fixture under `core/domain/src/test/resources/fixtures/continuous/`
+
+**Given** a stream of neutral per-frame quad observations (2D quad vertices + 9 sampled linear/sRGB patches + sharpness/glare quality scalars)
+**When** `ContinuousFaceletMapper.processFrame(...)` runs
+**Then** it maintains an intrinsics-free 2D shared-edge face graph with historical center-color tracking lock (`center_de <= 26`), 24-SO(3) regrip merger with symmetry + per-center (`<= 26`) + outlier (`< 2` cells `> 35`) guards, zero-mean bounded log-RGB AWB drift (`±0.36`), shading-invariant CIELAB + WHITE-referenced hue distance + exact 8-per-color balanced solver, local cubie invariants with evidence-weighted conflict reopening, and per-fragment mid-scan layer-twist detection (`de > 33` on an outer line for 5 frames on `master`), returning sealed domain snapshots and cue enums/keys (AD-12)
+
+**Given** a completed or partial continuous scan (including starting on Yellow/Orange/Blue without White)
+**When** the mapper exports its result
+**Then** a completed 54-sticker state is canonicalized to `Orientation.HOME` (`WHITE` on U, `GREEN` on F, AD-2) so `ScanReview` never corrupts non-HOME scans; confirmed faces also export as a typed domain handoff payload (face colors + mutual orientation + self-calibrated center Labs / per-cell confidence) accepted by `ScanAssembler` for Story 10.17 Guided handover without reclassifying kept faces, by `ScanReview` for Story 10.16 *Retake faces* and `#323` suspect ranking, and by the Solve tab's `#321` seeded Editor fallback; saved Color Calibration (FR-24) is optional and never required because the mapper self-calibrates from the cube's own 6 centers
+
+**Given** the 7 end-to-end stress scenarios ported as JVM parity tests (regrip, pastel + AWB drift, logo center + overhead glare, mid-solve F2L symmetric regrip, finger occlusion + clutter, starting without White, mid-scan layer twist)
+**When** `./gradlew :core:domain:test :core:domain:koverVerify :core:domain:checkModuleBoundaries` runs
+**Then** **7/7** pass (**54/54**, `0` wrong, `0` transient wrong on Scenarios 1–6; twist caught cleanly on Scenario 7), `:core:domain` stays ≥ 80% Kover line coverage, and module boundaries pass
+
+### Story 10.31: Wire LiteRT v2 INT8 sticker-center detector, split `continuous` source set, and retire shadow reader
+
+As the developer,
+I want Quick Scan's clean-room LiteRT v2 INT8 detector bundled in its own build-time source set with reproducible provenance and the failed debug shadow reader retired,
+So that release `0.11.0` ships only the 369.4 KB INT8 model within NFR-11 while leaving `CASE_RECOGNITION` untouched and OFF.
+
+**Refs:** FR-22 · NFR-5, NFR-8, NFR-11 · AD-9, AD-13, AD-14, AD-15, AD-18 · OQ-7 · PR #363, PR #366
+
+**Depends on** Story 10.30. **Human gate:** R8 `cornerR8` device benchmark on **Lenovo TB128XU** (minimum gating) and **Galaxy S24 FE** (mid gating). *(SCP 2026-11-24 continuous-quick-scan.)*
+
+**Acceptance Criteria:**
+
+**Given** `build-logic` (`FeatureFlagLevels`, `ReleaseConventionPlugin`, `CameraSizePolicy`, `CheckCameraSizeTask`, `CameraClasspathPolicy`, `ShadowReaderPolicy`, `GenerateKeepRulesTask`)
+**When** build variants are configured
+**Then** `FeatureFlagLevels` splits `isContinuousModelEnabled` (`QUICK_SCAN`), `isCornerModelEnabled` (`CASE_RECOGNITION`), and `isLiteRtEnabled` (`QUICK_SCAN || CASE_RECOGNITION`); `QUICK_SCAN` above `OFF` composes `app/src/camera/continuous/` (`kotlin/`, `assets/sticker_centers_v2_int8.tflite` `378,288 B` SHA-256 `d18fb2c2fe2bb975cf646877f811718c16775ce6bcde907f12547d143174be7c`, manifest) + `litert:2.3.2` (no `ai-delivery`, `noCompress += "tflite"`); `CASE_RECOGNITION` above `OFF` composes legacy `app/src/camera/corner/` (`corner_keypoints.tflite`); `CheckCameraSizeTask` projects the `0.11.0` `CASE_RECOGNITION=OFF` camera release without counting `dev/cubentia/app/camera/corner/**` classes or `src/camera/corner/assets` (and avoids double-counting once release carries camera flags in Story 10.11); and `./gradlew -p build-logic test` verifies all flag combinations including `QUICK_SCAN=BETA, CASE_RECOGNITION=OFF` shipping zero `corner_keypoints.tflite` and zero `sticker_reader*.tflite` bytes
+
+**Given** Story 10.23's debug shadow sticker reader
+**When** this story merges
+**Then** `app/src/camera/debug/sticker/` (`sticker_reader.tflite`, `ShadowReaderToggle`, `ShadowStickerReader`), `ReleaseConventionPlugin`'s `ShadowReaderPolicy.composes(...)` hooks & manifest inclusion, `CapturedFaceObserver` / `CapturedFaceObserverOptionalModule`, the `lastCornerCrops`/`shadowScanId` plumbing in `GuidedScanActivity` and `ScanFrameSource`, and the 4 `app/src/testDebug/kotlin/dev/cubentia/app/camera/sticker/*` tests are cleanly removed; `ShadowReaderPolicy` and `ShadowReaderCompositionFunctionalTest` keep enforcing the non-debuggable release guard against any `sticker_reader*.tflite` asset or `dev/cubentia/app/camera/sticker/` class; `tools/sticker-model/` stays archived as historical Story 10.23 evidence; and `docs/ARCHITECTURE.md` is updated to match AD-9/AD-18
+
+**Given** clean-room provenance for `sticker_centers_v2_int8.tflite`
+**When** the model is committed into `app/src/camera/continuous/assets/`
+**Then** the reproducible training and evaluation recipe is promoted into `tools/center-model/` (`pyproject.toml`, `README.md`, `model-card.json` with full 64-hex SHA-256, tool versions, dataset/holdout manifest, and a holdout-disjointness test)
+
+**Given** `LiteRtStickerCenterDetector` inside `app/src/camera/continuous/` behind an optional `@BindsOptionalOf` `StickerCenterDetector` seam (keeping `QUICK_SCAN = BETA` in `debug`)
+**When** it analyses a `YuvFrame` off the main thread (`analyzerExecutor`, XNNPACK CPU **2 threads**, direct YUV→`UINT8[1,256,256,3]` downsampling honoring `rotationDegrees` & `cropRect`, `FLOAT32[1,64,64,3]` peak decode, inverse mapping back to `PreviewView` coordinates via `ViewfinderGrid.frameToViewFraction`, all `Interpreter` calls inside `app/src/camera/`)
+**Then** it feeds `FaceLatticeFitter` + `ContinuousFaceletMapper` without persisting or transmitting any frame (AD-13)
+
+**Given** `cornerR8` (kept composing both model sets so `LiteRtCornerDetectorDeviceTest` and `CiWorkflowTest` stay green, plus new `LiteRtStickerCenterDetectorDeviceTest`) and size gates
+**When** `./gradlew spotlessCheck build`, `:app:checkCameraSize`, a minified `0.11.0`-profile size check (`CAMERA_SCAN=GA, PLACEMENT=BETA, QUICK_SCAN=BETA, CASE_RECOGNITION=OFF`), and `-Pcubentia.cornerR8=true :app:connectedCornerR8AndroidTest` run
+**Then** `:app:checkCameraSize` and the real minified `0.11.0`-profile build both stay `< 30,000,000 B` (NFR-11), 16 KB ELF alignment passes, and on-device R8 benchmarks across both `640×480` and `1280×960` inputs achieve exact PC-to-Android peak parity on the 3 tuning `Fixtures/corner/` stills and full per-frame end-to-end latency (`YUV→RGB + LiteRT + decode + FaceLatticeFitter + ContinuousFaceletMapper`) `≤ 50 ms` `p50` on Lenovo TB128XU and `≤ 20 ms` `p50` on Galaxy S24 FE
+
+### Story 10.32: Continuous Quick Scan live viewfinder, growing net, Guided fallback, and Review hand-off
+
+As a Learner using Quick Scan,
+I want to turn my cube in front of the camera and watch the 6-face map fill in with clear guidance,
+So that scanning feels effortless and I can fall back to face-by-face capture at any moment without losing progress.
+
+**Refs:** FR-22, FR-23, FR-25 · NFR-7, NFR-10, NFR-11 · AD-3, AD-9, AD-13, AD-17, AD-18 · UX-DR15, UX-DR16, UX-DR19 · Stories 10.3, 10.15, 10.16, 10.17
+
+**Depends on** Story 10.31. **Human gate:** hands-on main-app sanity pass from the Solve tab on Lenovo TB128XU and Galaxy S24 FE (full matrix & BETA call in Story 10.33). *(SCP 2026-11-24 continuous-quick-scan.)*
+
+**Acceptance Criteria:**
+
+**Given** `QUICK_SCAN` is `BETA` or `GA` (wired in `debug` at `BETA`; `OFF` in `release` until Story 10.11)
+**When** the Learner opens Quick Scan from the Solve tab (`SolveScreen` → `onQuickScan`)
+**Then** `ContinuousQuickScanScreen` shows the live CameraX preview with smoothed detected face quads (correctly mapped across portrait phones and landscape tablets), a compact live growing 6-face `URFDLB` net (using shared `StickerAppearance` color-blind glyphs, AD-17), `Sides mapped: N/6`, and one inline cue line from `en.json` covering all mapper states (bring into view, turn to show remaining N sides, tilt for adjacent face, tilt away from light, conflict face, layer twist detected, all 54 stickers verified)
+
+**Given** a scan in progress
+**When** the Learner taps *Reset*, *Scan face by face*, *Enter colors instead*, *Torch* (OFF by default; shown only on flash-equipped devices and turned off on handover/leave/background), or *Close* / system Back
+**Then** *Reset* clears the mapper state in place; *Scan face by face* keeps every confirmed face and opens Guided 6-face Scan for only the missing faces assembled via `ScanAssembler`, with Back returning to Quick Scan with confirmed faces intact (Story 10.17); *Enter colors instead* seeds the Manual Cube Editor on the Solve tab with confirmed stickers when ≥ 1 face was mapped (Story 10.15 `#321`); *Close* / Back exits immediately at 0 mapped faces and asks "Discard this scan?" at ≥ 1 mapped face; zero frames are persisted or sent
+
+**Given** all 54 stickers verified (`0` conflicts, `Orientation.HOME`, `CubeValidator` valid)
+**When** the mapper completes
+**Then** Quick Scan opens Story 10.3 Scan Review (with Story 10.16 per-face retake, `#323` suspect ranking, and Paint mode) and returns standard `ScanOutcome` to the Solve tab (Solution Playback or seeded Editor fallback)
+
+**Given** obsolete 2-corner Quick Scan code no longer used by `CASE_RECOGNITION` or `FixtureRecorderActivity`
+**When** this story merges
+**Then** Quick-Scan-only 2-corner domain/UI code and tests (`QuickScan.kt`, `QuickScanClassification.kt`, `CornerHold.kt`, `QuickScanDiagnosis.kt`, `SideLight.kt`, and obsolete 2-corner branches in `GuidedScanActivity`/`GuidedScanScreen`) are cleanly removed while keeping `CornerLocator`/`CornerReader`/`CornerGuide` intact for `CASE_RECOGNITION` and `FixtureRecorderActivity`, and `:app:checkCameraSize` confirms reclaimed class-byte headroom
+
+**Given** Robolectric Compose UI, route, accessibility, and layout tests
+**When** `./gradlew spotlessCheck build` runs
+**Then** all copy comes from `en.json` (`checkLearnerText` passes), the screen fits a phone in portrait without scrolling and at 200% font on Lenovo 600 dp, TalkBack announces side milestones/cues/conflict/completion, and `QUICK_SCAN = OFF` hides all Quick Scan UI cleanly
+
+### Story 10.33: Continuous Quick Scan physical-device matrix and PO BETA call
+
+As the product owner,
+I want continuous Quick Scan measured on our physical reference devices across cubes and lighting conditions,
+So that I can make an informed BETA call for Story 10.11's `0.11.0` camera release.
+
+**Refs:** FR-22 · §4.8 recognition NFRs, NFR-11 · AD-18 · PRD §7 gate 6 · Stories 10.8, 10.11, 10.32
+
+**Depends on** Story 10.32. **Human gate:** physical-device session on the main app build (from the Solve tab) across **Lenovo Tab M10 Plus 3rd Gen (`TB128XU`, gating minimum)**, **Galaxy S24 FE (`SM-S721U1`, mid gating)**, and **Galaxy Tab S7 FE 5G (`SM-T738U`, compatibility)**. *(SCP 2026-11-24 continuous-quick-scan.)*
+
+**Acceptance Criteria:**
+
+**Given** the main app build with `QUICK_SCAN` wired and stickered (`stka`), stickerless (`stla`), and pastel (`stlb`) cubes across warm, cool, low indoor, and backlit/glare lighting (noting daylight explicitly if excluded from the indoor BETA call, mirroring Story 10.8)
+**When** the PO runs live scans from the Solve tab on Lenovo TB128XU, Galaxy S24 FE, and Galaxy Tab S7 FE 5G — at least **20 full scans (`≥ 1,080` evaluated stickers)** across the matrix covering scrambled, checkerboard, near-solved/F2L, regrip recovery, mid-scan layer twist rejection, *Scan face by face* handover keeping faces, and manual Editor fallback
+**Then** `docs/evidence/10-33/continuous-quick-scan-beta.md` records per device, cube, and light: completion rate, time to 54/54, sticker corrections in review, confidently-wrong rate (target `≤ 0.1%`, zero silent wrong commits), sustained frame latency (`p50`/`p95`), thermal stability, and live `:app:checkCameraSize` + minified `0.11.0`-profile size measurements (`< 30 MB`)
+
+**Given** the main app Solve tab with `CAMERA_SCAN = GA` and `QUICK_SCAN = BETA`
+**When** verified during the device session
+**Then** Quick Scan renders the shared BETA badge and tooltip ("May misread colors in poor light. Manual entry always works.") while Guided 6-face Scan carries no beta label (matching Story 10.11 AC4)
+
+**Given** the evidence report (with Lenovo TB128XU as gating minimum)
+**When** the PO makes the release-level decision
+**Then** the PO records the `QUICK_SCAN` decision (`BETA` for Story 10.11's `0.11.0` release, or `OFF` with routed issues) in the PRD `.memlog.md`, closing `scp-2026-11-24-quick-scan-raise-preconditions`
 
 ## Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition
 

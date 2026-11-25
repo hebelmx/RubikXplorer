@@ -153,12 +153,13 @@ development_status:
   10-19-quick-scan-reads-the-side-faces-in-good-light: done
   10-20-record-10-19-pipeline-corner-fixtures-and-check-the-corner-m: done
   10-21-quick-scan-keeps-the-side-faces-it-reads-well: done
-  10-24-retake-a-corner-in-quick-scan: backlog
-  10-25-quick-scan-starts-from-whichever-corner-it-is-shown: backlog
-  10-26-quick-scan-fills-a-few-unread-stickers-from-the-cube-s-rules: backlog
-  10-27-clean-the-corner-fixture-labels-and-judge-pastel-stickers-ag: backlog
+  # 10-24..10-27 dropped by SCP 2026-11-24 continuous-quick-scan; replaced by 10-30..10-33
   10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa: done
   10-29-solution-playback-shows-the-same-quick-check-result-as-lesso: backlog
+  10-30-port-continuous-facelet-lattice-fitter-and-cube-mapper-to-p: backlog
+  10-31-wire-litert-v2-int8-sticker-center-detector-split-continuou: backlog
+  10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fa: backlog
+  10-33-continuous-quick-scan-physical-device-matrix-and-po-beta-ca: backlog
   10-22-quick-scan-captures-promptly-once-the-cube-is-in-view: done
   10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads: done
   epic-10-retrospective: optional
@@ -896,17 +897,19 @@ action_items:
       devices with both test cubes, record labeled corner fixtures with the recorder
       corner mode, run evaluateQuickScan and make the GA/BETA call (GA only at >=
       95% valid after <= 3 corrections in < 15 s) (medium; deferred from 11.1 by PO
-      decision, before-merge gate, #106)"
+      decision, before-merge gate, #106; done: superseded by Story 10.33 under SCP
+      2026-11-24 continuous-quick-scan)"
     owner: "PO (hebelmx)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-11-1-quick-scan-from-two-corners.md"
   - id: "epic-11-deferred-11.1-wrong-corner-self-calibration"
     epic: 11
     action: "A wrongly held corner is labeled from the prompt, so self-calibration
       can produce a valid but wrong state; add a center-color plausibility check against
-      the prompted color (medium; deferred from 11.1, QuickScan.kt:110-120)"
+      the prompted color (medium; deferred from 11.1, QuickScan.kt:110-120; done:
+      superseded by SCP 2026-11-24 continuous-quick-scan)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-11-1-quick-scan-from-two-corners.md"
   - id: "epic-11-deferred-11.1-camerax-corner-branch-test"
     epic: 11
@@ -1014,9 +1017,11 @@ action_items:
     action: "Make epic-11-deferred-11.1-device-session-c, -11.3-device-capture-and-sticker-order
       (incl. on-device < 1 s) and -11.2-device-placement-scan explicit preconditions
       of Story 10.11: no Epic 11 flag above OFF in release until done; run them as
-      one batched device session C"
+      one batched device session C (done: 11.1 replaced by Story 10.33 preconditions
+      under SCP 2026-11-24 continuous-quick-scan; 11.2 Placement BETA & 11.3 Case
+      OFF governed by SCP 2026-11-24 camera-release-timeline)"
     owner: "SM + PO (hebelmx)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-11-retro-2026-11-18.md"
   - id: "epic-11-retro-item-105-extract-placement-and-recognize-flow-wir"
     epic: 11
@@ -2427,34 +2432,38 @@ action_items:
     action: "The calibration match centre check fails on both reference devices right
       after calibrating (Lenovo on every hold, S24 FE on hold 2), so the 1-blank keep
       rule ran on a single face in the whole device session (high; deferred from 10.21,
-      docs/evidence/10-21/device-session-notes.md)"
+      docs/evidence/10-21/device-session-notes.md; done: superseded by SCP 2026-11-24
+      continuous-quick-scan)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
   - id: "epic-10-deferred-10-21-light-check-front-lit-false-blocks"
     epic: 10
     action: "The light check marks most front-lit holds light=fail (lightScore 28-58),
       so front-lit false blocks are common on both reference devices (medium; deferred
-      from 10.21, docs/evidence/10-21/device-session-notes.md)"
+      from 10.21, docs/evidence/10-21/device-session-notes.md; done: superseded by
+      SCP 2026-11-24 continuous-quick-scan)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
   - id: "epic-10-deferred-10-21-face-by-face-first-face-ref-none"
     epic: 10
     action: "The face-by-face fallback logs ref=none with no colours for its first
       face on every run, and it misread 3 stickers on Lenovo stka (U1 Y as W, U8 O
-      as W, F2 W as B) (medium; deferred from 10.21, docs/evidence/10-21/device-session-notes.md)"
+      as W, F2 W as B) (medium; deferred from 10.21, docs/evidence/10-21/device-session-notes.md;
+      done: superseded by SCP 2026-11-24 continuous-quick-scan)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
   - id: "epic-10-deferred-10-21-pastel-bar-warm-keeps-wrong-sticker"
     epic: 10
     action: "The pastel tuning group lenovo-tb128xu_stlb_bar-warm still keeps a confidently
       wrong sticker (D2, Orange read as Red) on a kept face; settle with Story 10.27
       (pastel judged against the cube's own calibrated colours) and the PO BETA call
-      (medium; deferred from 10.21, QuickScanClassification.kt AGREEMENT_MARGIN)"
+      (medium; deferred from 10.21, QuickScanClassification.kt AGREEMENT_MARGIN; done:
+      superseded by SCP 2026-11-24 continuous-quick-scan)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
   - id: "epic-10-deferred-10-21-per-frame-match-cost-unmeasured"
     epic: 10
@@ -2462,9 +2471,10 @@ action_items:
       (each re-running SelfCalibration) on every settled frame on the analyzer thread
       with the frame-time cost unmeasured; compute self-calibration and match once
       per frame or log analyzer frame time on the S24 FE and Lenovo (medium, unverified;
-      deferred from 10.21, QuickScan.kt:252)"
+      deferred from 10.21, QuickScan.kt:252; done: superseded by SCP 2026-11-24
+      continuous-quick-scan)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
   - id: "epic-10-deferred-10-21-calibration-torch-only-fake-tested"
     epic: 10
@@ -2480,18 +2490,19 @@ action_items:
     action: "The Orange agreement margin 21.3 is driven by one tuning sticker (sm-s721u1_stla_bar-warm-2
       h1 F2, labelled Red, read Orange) that may be a mislabel; refit once Story 10.27's
       label-exclusions.json lands (medium; deferred from 10.21, QuickScanClassification.kt
-      AGREEMENT_MARGIN)"
+      AGREEMENT_MARGIN; done: superseded by SCP 2026-11-24 continuous-quick-scan)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
   - id: "epic-10-deferred-10-21-light-hysteresis-jitter-untested"
     epic: 10
     action: "The calibrated light hysteresis band (1.33 to 1.35) was never tested
       against frame-to-frame jitter; compare flip counts of the old single cut and
       the new band on recorded bursts or check light-clear steadiness on the S24 FE
-      (medium, unverified; deferred from 10.21, SideLight.kt)"
+      (medium, unverified; deferred from 10.21, SideLight.kt; done: superseded by
+      SCP 2026-11-24 continuous-quick-scan)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
   - id: "epic-10-deferred-10-21-one-blank-rule-no-held-out-group"
     epic: 10
@@ -2509,9 +2520,9 @@ action_items:
     action: "The calibrated light hold cut 1.35 was fitted on front light only and
       sm-s721u1_stla_ceilback would not trip with a matching calibration; report backlit
       groups in calibrated mode with their own calibration forced and refit (medium;
-      deferred from 10.21, SideLight.kt:40)"
+      deferred from 10.21, SideLight.kt:40; done: superseded by SCP 2026-11-24 continuous-quick-scan)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
   - id: "epic-10-deferred-10-21-guided-scan-uses-torch-on-calibrations"
     epic: 10
@@ -2525,17 +2536,19 @@ action_items:
     epic: 10
     action: "The agreement fit used plain tuning groups only after one disclosed held-out
       replay run with the pastel-inclusive fit; confirm the plain-fit choice under
-      the epic pastel rule when refitting (low; deferred from 10.21, docs/evidence/10-21/tuning-and-replay.md)"
+      the epic pastel rule when refitting (low; deferred from 10.21, docs/evidence/10-21/tuning-and-replay.md;
+      done: superseded by SCP 2026-11-24 continuous-quick-scan)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
   - id: "epic-10-deferred-10-21-retake-test-no-visible-difference"
     epic: 10
     action: "The mismatched-calibration retake test checks which calibration is carried,
       not a visible sticker difference, because self-calibration overrides the saved
-      centres on the synthetic samples (low; deferred from 10.21, GuidedScanFlowTest.kt)"
+      centres on the synthetic samples (low; deferred from 10.21, GuidedScanFlowTest.kt;
+      done: superseded by SCP 2026-11-24 continuous-quick-scan)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-21-quick-scan-keeps-the-side-faces-it-reads-well.md"
   - id: "issue-321-deferred-partial-scan-note-over-empty-net"
     epic: 10
@@ -2672,16 +2685,16 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/spec-gh-318-recorder-keypoints-only-save-explains.md"
   - id: "scp-2026-11-24-quick-scan-port-stories"
     epic: 10
-    action: "The continuous facelet scan spike session writes the Quick Scan port stories through correct-course (Android port behind QUICK_SCAN, device benchmark on the Lenovo TB128XU, Galaxy S24 FE and Galaxy Tab S7 FE 5G with the Lenovo as gating minimum, BETA call) and replaces or drops 10.24-10.27 (high; SCP 2026-11-24 camera-release-timeline)"
+    action: "The continuous facelet scan spike session writes the Quick Scan port stories through correct-course (Android port behind QUICK_SCAN, device benchmark on the Lenovo TB128XU, Galaxy S24 FE and Galaxy Tab S7 FE 5G with the Lenovo as gating minimum, BETA call) and replaces or drops 10.24-10.27 (high; SCP 2026-11-24 camera-release-timeline; done: Stories 10.30-10.33 authored and 10.24-10.27 dropped by SCP 2026-11-24 continuous-quick-scan; 3-device R8 benchmark closed in PR #366)"
     owner: "PO (BMad)"
-    status: open
-    ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-24-camera-release-timeline.md"
+    status: done
+    ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-24-continuous-quick-scan.md"
   - id: "scp-2026-11-24-quick-scan-raise-preconditions"
     epic: 10
-    action: "Before Story 10.11 raises QUICK_SCAN: the spike session's SCP amends the architecture spine and PRD (AD-9 reader of record, AD-18 composition, ShadowReaderPolicy, CameraSizePolicy, FR-22, PRD 4.8 out-of-scope continuous video), and :app:checkCameraSize and :app:checkReleaseSize are measured with the new models in (research estimate about 2.0-2.5 MB headroom) (high; SCP 2026-11-24 camera-release-timeline)"
+    action: "Before Story 10.11 raises QUICK_SCAN in 0.11.0: complete Stories 10.30-10.33 (pure-JVM continuous core, LiteRT v2 INT8 continuous source-set split + shadow reader retirement, continuous Quick Scan live UI + 2-corner cleanup, physical-device matrix), confirm :app:checkCameraSize and minified 0.11.0-profile size < 30 MB, and record Story 10.33's PO BETA call in PRD .memlog.md (spine/PRD/UX amendments already applied by SCP 2026-11-24 continuous-quick-scan; 3-device R8 benchmark closed in PR #366) (high; SCP 2026-11-24 camera-release-timeline & continuous-quick-scan)"
     owner: "PO (BMad)"
     status: open
-    ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-24-camera-release-timeline.md"
+    ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-24-continuous-quick-scan.md"
   - id: "scp-2026-11-24-site-order-0-11-0"
     epic: 10
     action: "For the 0.11.0 camera release, follow docs/release.md:25: merge the site privacy PR (camera sentence) before the flag-raise PR, or keep APP_REF pinned to v0.10.1 (it is as of 2026-11-24) until the tag; push v0.11.0; move APP_REF to v0.11.0 only after its release run passes (medium; SCP 2026-11-24 camera-release-timeline)"
@@ -2712,3 +2725,9 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-314-render-sync-test-tiered-timeout.md"
+  - id: "scp-2026-11-24-pastel-plausibility-guided-followup"
+    epic: 10
+    action: "Follow-up after dropping Story 10.27: resolve ColorCalibrationTest.KNOWN_PASTEL_PROBLEMS (lenovo-tb128xu_stlb_bar-warm hold 2 L[8] pastel Blue, #166 / FR-24) for Guided 6-face Scan ColorPlausibility without blocking 0.11.0 Guided GA or continuous Quick Scan Stories 10.30-10.33 (low; SCP 2026-11-24 continuous-quick-scan)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-24-continuous-quick-scan.md"
