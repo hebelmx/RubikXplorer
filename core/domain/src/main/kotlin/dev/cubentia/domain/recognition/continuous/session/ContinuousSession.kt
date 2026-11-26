@@ -463,10 +463,6 @@ object ContinuousSessionFormat {
 
     const val MODEL_INPUT_SIZE = 256
 
-    /** Checked-in limits (decimal bytes, enforced by `:checkFixtureSize`). */
-    const val CHECKED_IN_SESSION_LIMIT_BYTES = 15_000_000L
-    const val CHECKED_IN_ROOT_LIMIT_BYTES = 60_000_000L
-
     /** A capture p50 more than this factor over the device's no-capture baseline p50 marks the session defective. */
     const val LATENCY_DEFECT_FACTOR = 1.10
 

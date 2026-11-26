@@ -341,6 +341,20 @@ class ContinuousSessionWriterTest {
     }
 
     @Test
+    fun `a frame write failure with a successful rename is saved as a defective session`() {
+        val w = writer(imageEvery = 1, executor = InlineExecutor())
+        // A directory where frame 1's PNG goes: that write throws after the streams are open.
+        File(w.tempDir, ContinuousSessionFormat.imageName(1)).mkdirs()
+        repeat(3) { w.frame(it) }
+        assertFalse(w.status.recording)
+        val saved = w.save(partial)
+        val m = ContinuousSessionJson.readManifest(File(saved.path))
+        assertTrue(m.defective)
+        assertTrue(m.defectReasons.any { it.startsWith("WRITE_FAILED") }, m.defectReasons.toString())
+        assertEquals(1, m.frameCount)
+    }
+
+    @Test
     fun `a write failure stops the session without throwing and frames after shutdown are not captured`() {
         root.mkdirs()
         // A file where the temp directory should be: every write fails.

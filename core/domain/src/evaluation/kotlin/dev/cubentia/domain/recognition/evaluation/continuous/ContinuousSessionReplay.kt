@@ -7,6 +7,7 @@ import dev.cubentia.domain.recognition.continuous.ContinuousScanExport
 import dev.cubentia.domain.recognition.continuous.session.ContinuousSessionFormat
 import dev.cubentia.domain.recognition.continuous.session.ContinuousSessionJson
 import dev.cubentia.domain.recognition.continuous.session.ContinuousSessionManifest
+import dev.cubentia.domain.recognition.continuous.session.SessionCountCheck
 import dev.cubentia.domain.recognition.continuous.session.SessionOutcome
 import dev.cubentia.domain.recognition.continuous.session.SessionSnapshot
 import java.io.File
@@ -66,6 +67,8 @@ object ContinuousSessionReplay {
         val replayed: List<SessionSnapshot>,
         /** Frame indices missing between the first and last recorded frame (skipped or cap-dropped frames the live mapper saw). */
         val frameGaps: Int = 0,
+        /** The labels' count check was refused: they are reported but never scored, so [labelMismatches] stays empty. */
+        val labelsRefused: Boolean = false,
     ) {
         /** Frames the live mapper saw that the recording lacks; a session with any is not exactly replayable. */
         val missingFrames: Int get() = maxOf(frameGaps, manifest.captureSkips)
@@ -94,8 +97,10 @@ object ContinuousSessionReplay {
                 last?.let { snapshot -> Face.entries.flatMap { snapshot.netColors().getValue(it) } } ?: List(54) { null }
             }
         val labels = ContinuousSessionJson.readLabels(dir)
+        val refused = labels?.countCheck == SessionCountCheck.REFUSED
         val mismatches =
             labels
+                ?.takeUnless { refused }
                 ?.stickers
                 ?.mapIndexedNotNull { index, label ->
                     val truth = label.color ?: return@mapIndexedNotNull null
@@ -125,6 +130,7 @@ object ContinuousSessionReplay {
             uncommittedLabelled = labels?.stickers?.indices?.count { labels.stickers[it].color != null && net[it] == null } ?: 0,
             replayed = replayed,
             frameGaps = frameGaps(frames.map { it.frameIndex }),
+            labelsRefused = refused,
         )
     }
 
@@ -220,7 +226,12 @@ object ContinuousSessionReplay {
                 appendLine("- Golden revision: ${r.manifest.goldenRevision ?: "as recorded"}")
                 appendLine("- Snapshot/cue diffs: ${r.diffs.size}")
                 r.diffs.forEach { appendLine("  - $it") }
-                if (r.labelled) {
+                if (r.labelled && r.labelsRefused) {
+                    appendLine(
+                        "- Label mismatches: not scored (count check REFUSED) (unknown labels: ${r.unknownLabels}; " +
+                            "labelled but not committed: ${r.uncommittedLabelled})",
+                    )
+                } else if (r.labelled) {
                     appendLine(
                         "- Label mismatches: ${r.labelMismatches.size} (unknown labels, not compared: ${r.unknownLabels}; " +
                             "labelled but not committed: ${r.uncommittedLabelled})",

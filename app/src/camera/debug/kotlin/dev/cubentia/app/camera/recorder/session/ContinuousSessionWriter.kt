@@ -254,8 +254,57 @@ internal class ContinuousSessionWriter(
     private fun drainOne() {
         val pending = queue.poll() ?: return
         if (finished || dropRest) return pending.image.let { if (it != null) release(it) }
+        val encoded =
+            try {
+                encode(pending)
+            } catch (e: Exception) {
+                fail(e)
+                return
+            } finally {
+                pending.image?.let(::release)
+            }
+        val frame = encoded.frame
+        val frameLine = encoded.frameLine
+        val snapshotLine = encoded.snapshotLine
+        val png = encoded.png
+        val size = frameLine.toByteArray().size + snapshotLine.toByteArray().size + (png?.size ?: 0)
+        if (bytes.get() + size > sizeCapBytes - MANIFEST_RESERVE_BYTES) {
+            dropRest = true
+            // The cap ended the data even when Save's operator stop came first: record it as the stop reason.
+            stopReason = SessionStopReason.SIZE_CAP
+            recording = false
+            return
+        }
+        try {
+            open()
+            if (png != null && frame.image != null) {
+                File(tempDir, frame.image).writeBytes(png)
+                imageFrames++
+            }
+            checkNotNull(framesOut).write(frameLine)
+            checkNotNull(snapshotsOut).write(snapshotLine)
+        } catch (e: Exception) {
+            fail(e)
+            return
+        }
+        lastWritten = pending.snapshot
+        bytes.addAndGet(size.toLong())
+        written++
+        if (pending.observations.isNotEmpty()) withObservations++
+        timestamps += pending.timestampMs
+        analyzerTimes += pending.analyzerMs
+    }
+
+    private class Encoded(
+        val frame: ContinuousSessionFrame,
+        val frameLine: String,
+        val snapshotLine: String,
+        val png: ByteArray?,
+    )
+
+    /** Writer thread: the frame's JSON lines and PNG; may throw (e.g. a NaN the JSON encoder rejects). */
+    private fun encode(pending: Pending): Encoded {
         val png = pending.image?.let { RgbPng.encode(it, inputSize, inputSize) }
-        pending.image?.let(::release)
         val scale = pending.detection.inputScale
         val frame =
             ContinuousSessionFrame(
@@ -280,35 +329,14 @@ internal class ContinuousSessionWriter(
             )
         val frameLine = ContinuousSessionJson.encodeFrame(frame) + "\n"
         val snapshotLine = ContinuousSessionJson.encodeSnapshot(SessionSnapshot.of(pending.snapshot)) + "\n"
-        val size = frameLine.toByteArray().size + snapshotLine.toByteArray().size + (png?.size ?: 0)
-        if (bytes.get() + size > sizeCapBytes - MANIFEST_RESERVE_BYTES) {
-            dropRest = true
-            // The cap ended the data even when Save's operator stop came first: record it as the stop reason.
-            stopReason = SessionStopReason.SIZE_CAP
-            recording = false
-            return
-        }
-        try {
-            open()
-            if (png != null && frame.image != null) {
-                File(tempDir, frame.image).writeBytes(png)
-                imageFrames++
-            }
-            checkNotNull(framesOut).write(frameLine)
-            checkNotNull(snapshotsOut).write(snapshotLine)
-        } catch (e: Exception) {
-            // Never throw on the writer thread: stop, keep what was written, and mark the session defective.
-            writeFailure = e.message ?: e.toString()
-            dropRest = true
-            stopWith(SessionStopReason.OPERATOR)
-            return
-        }
-        lastWritten = pending.snapshot
-        bytes.addAndGet(size.toLong())
-        written++
-        if (pending.observations.isNotEmpty()) withObservations++
-        timestamps += pending.timestampMs
-        analyzerTimes += pending.analyzerMs
+        return Encoded(frame, frameLine, snapshotLine, png)
+    }
+
+    /** Never throw on the writer thread: stop, keep what was written, and mark the session defective. */
+    private fun fail(e: Exception) {
+        writeFailure = e.message ?: e.toString()
+        dropRest = true
+        stopWith(SessionStopReason.OPERATOR)
     }
 
     private fun open() {
@@ -318,17 +346,19 @@ internal class ContinuousSessionWriter(
         snapshotsOut = File(tempDir, ContinuousSessionFormat.SNAPSHOTS).bufferedWriter()
     }
 
-    private fun closeStreams() {
-        runCatching { framesOut?.close() }
-        runCatching { snapshotsOut?.close() }
+    /** Closes (flushing) both streams; returns the first close failure, if any. */
+    private fun closeStreams(): Throwable? {
+        val failures = listOf(runCatching { framesOut?.close() }, runCatching { snapshotsOut?.close() })
         framesOut = null
         snapshotsOut = null
+        return failures.firstNotNullOfOrNull { it.exceptionOrNull() }
     }
 
     /** Writer thread, after every queued frame: closes the files, writes the manifest last and renames the group. */
     private fun finish(export: ContinuousScanExport): ContinuousSessionSaved {
         open()
-        closeStreams()
+        // A failed flush (e.g. disk full) leaves truncated JSON lines: record it so the manifest marks the session defective.
+        closeStreams()?.let { if (writeFailure == null) writeFailure = it.message ?: it.toString() }
         finished = true
         val p50 = SessionLatency.p50(analyzerTimes)
         val baseline = baselineP50Ms()

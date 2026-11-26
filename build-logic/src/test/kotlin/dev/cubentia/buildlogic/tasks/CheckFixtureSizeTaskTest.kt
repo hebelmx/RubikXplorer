@@ -43,9 +43,21 @@ class CheckFixtureSizeTaskTest {
 
     @Test
     fun `an oversized session fails naming it and its bytes`() {
-        sparse("Fixtures/continuous/big/images/frame-00000.png", 15_000_001)
+        sparse("Fixtures/continuous/big/images/frame-00000.png", 14_999_999)
+        sparse("Fixtures/continuous/big/manifest.json", 2)
         val failure = assertThrows(GradleException::class.java) { task().check() }
         assertTrue("Fixtures/continuous/big is 15000001 B" in failure.message.orEmpty(), failure.message)
+    }
+
+    @Test
+    fun `an oversized tmp dir or a dir without a manifest is not a session, but still counts in the total`() {
+        sparse("Fixtures/continuous/.tmp-x/images/frame-00000.png", 15_000_001)
+        sparse("Fixtures/continuous/.tmp-x/manifest.json", 2)
+        sparse("Fixtures/continuous/loose/frames.jsonl", 15_000_001)
+        task().check()
+        val report = File(projectDir, "build/reports/cubentia/fixture-size.txt").readText()
+        assertTrue(".tmp-x" !in report && "loose" !in report, report)
+        assertTrue(report.contains("total 30000004"), report)
     }
 
     @Test

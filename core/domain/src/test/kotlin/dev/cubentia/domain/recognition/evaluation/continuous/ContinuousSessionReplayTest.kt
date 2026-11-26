@@ -2,6 +2,7 @@ package dev.cubentia.domain.recognition.evaluation.continuous
 
 import dev.cubentia.domain.recognition.continuous.session.ContinuousSessionFormat
 import dev.cubentia.domain.recognition.continuous.session.ContinuousSessionJson
+import dev.cubentia.domain.recognition.continuous.session.SessionCountCheck
 import dev.cubentia.domain.recognition.continuous.session.SessionOutcome
 import dev.cubentia.domain.recognition.continuous.session.SyntheticSessionGenerator
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -149,6 +150,37 @@ class ContinuousSessionReplayTest {
         val text = ContinuousSessionReplay.markdown(listOf(report))
         assertTrue("Label mismatches: 1 (unknown labels, not compared: 1" in text, text)
         assertTrue("U0 truth=$wrong predicted=$truth0" in text, text)
+    }
+
+    @Test
+    fun `refused labels are reported but never scored as mismatches`() {
+        val copy = File(temp, "refused").also { session(SyntheticSessionGenerator.COMPLETE_ID).copyRecursively(it) }
+        val labels = checkNotNull(ContinuousSessionJson.readLabels(copy))
+        val truth0 = checkNotNull(labels.stickers[0].color)
+        val wrong =
+            dev.cubentia.domain.cube.Color.entries
+                .first { it != truth0 }
+        val edited =
+            labels.copy(
+                stickers =
+                    labels.stickers.mapIndexed { i, s ->
+                        when (i) {
+                            0 -> s.copy(color = wrong)
+                            1 -> s.copy(color = null)
+                            else -> s
+                        }
+                    },
+                countCheck = SessionCountCheck.REFUSED,
+            )
+        File(copy, ContinuousSessionFormat.LABELS).writeText(ContinuousSessionJson.encodeLabels(edited))
+        val report = ContinuousSessionReplay.replay(copy)
+        assertTrue(report.labelled)
+        assertTrue(report.labelsRefused)
+        assertTrue(report.labelMismatches.isEmpty())
+        assertEquals(1, report.unknownLabels)
+        val text = ContinuousSessionReplay.markdown(listOf(report))
+        assertTrue("Label mismatches: not scored (count check REFUSED) (unknown labels: 1" in text, text)
+        assertFalse("truth=$wrong" in text, text)
     }
 
     @Test

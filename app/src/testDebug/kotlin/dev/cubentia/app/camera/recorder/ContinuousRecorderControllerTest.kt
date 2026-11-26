@@ -13,6 +13,7 @@ import dev.cubentia.app.camera.ContinuousSessionSetup
 import dev.cubentia.app.camera.ContinuousSessionWriterFactory
 import dev.cubentia.app.camera.StickerCenterDetection
 import dev.cubentia.app.camera.YuvFrame
+import dev.cubentia.app.camera.YuvPlane
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Notation
@@ -123,19 +124,33 @@ class ContinuousRecorderControllerTest {
             return Capture().also { captures += it }
         }
 
+        val baselines = mutableListOf<Pair<String, List<Double>>>()
+
         override fun saveBaseline(
             deviceModel: String,
             analyzerMs: List<Double>,
-        ): ContinuousLatencyBaseline? = null
-    }
-
-    private fun controller(writers: Writers): ContinuousRecorderController {
-        val engines = ContinuousScanEngineFactory { _: ContinuousFrameTap? -> Engine(complete) }
-        val analyzer = ContinuousRecorderAnalyzer(Optional.empty(), Optional.of(engines))
-        return ContinuousRecorderController(analyzer, writers, null, "TB128XU", "LENOVO", inline, inline, inline) {
-            LocalDateTime.of(2026, 11, 26, 9, 0, 0)
+        ): ContinuousLatencyBaseline? {
+            baselines += deviceModel to analyzerMs
+            val sorted = analyzerMs.sorted()
+            return sorted.takeIf { it.isNotEmpty() }?.let { ContinuousLatencyBaseline(deviceModel, it.size, it[it.size / 2], it.last()) }
         }
     }
+
+    private fun controller(
+        writers: Writers,
+        analyzer: ContinuousRecorderAnalyzer =
+            ContinuousRecorderAnalyzer(
+                Optional.empty(),
+                Optional.of(
+                    ContinuousScanEngineFactory { _: ContinuousFrameTap? ->
+                        Engine(complete)
+                    },
+                ),
+            ),
+    ): ContinuousRecorderController =
+        ContinuousRecorderController(analyzer, writers, null, "TB128XU", "LENOVO", inline, inline, inline) {
+            LocalDateTime.of(2026, 11, 26, 9, 0, 0)
+        }
 
     @Test
     fun `start waits for the meta, adb commands wait for the open screen`() {
@@ -182,6 +197,42 @@ class ContinuousRecorderControllerTest {
         assertTrue(writers.captures.single().discarded)
         assertEquals(ContinuousPhase.IDLE, c.state.value.phase)
         assertEquals("Discarded.", c.state.value.statusLine)
+    }
+
+    @Test
+    fun `a baseline run saves the analyzer samples for the device and shows p50 and p95`() {
+        val writers = Writers()
+        // Analyzed frames take 4, 6, 4 and 6 ms (nanoTime is read before and after each frame).
+        val clock = listOf(0, 4, 10, 16, 20, 24, 30, 36).map { it * 1_000_000L }.iterator()
+        val analyzer =
+            ContinuousRecorderAnalyzer(
+                Optional.empty(),
+                Optional.of(ContinuousScanEngineFactory { _: ContinuousFrameTap? -> Engine(complete) }),
+            ) { clock.next() }
+        val c = controller(writers, analyzer)
+        c.baseline()
+        assertEquals(ContinuousPhase.BASELINE, c.state.value.phase)
+        assertTrue(analyzer.baselineRunning)
+        val y = java.nio.ByteBuffer.allocate(64 * 48)
+        val uv = java.nio.ByteBuffer.allocate(32 * 24)
+        val yuv = YuvFrame(YuvPlane(y, 64, 1), YuvPlane(uv, 32, 1), YuvPlane(uv, 32, 1), 0, 0, 64, 48)
+        val geometry = ContinuousFrameGeometry(0, 64, 48, 0, 0, 64, 48)
+        var timestampMs = 0L
+        var frames = 0
+        while (analyzer.baselineRunning) {
+            analyzer.analyze(RecorderMode.CONTINUOUS, yuv, null, 0, 64, 48, timestampMs, geometry)
+            c.onAnalyzed(timestampMs)
+            timestampMs += 10_000L
+            frames++
+        }
+        assertEquals(4, frames)
+        val (device, samples) = writers.baselines.single()
+        assertEquals("TB128XU", device)
+        assertEquals(listOf(4.0, 6.0, 4.0, 6.0), samples)
+        val ui = c.state.value
+        assertEquals(ContinuousPhase.IDLE, ui.phase)
+        assertEquals("Baseline TB128XU: p50 6.0 ms · p95 6.0 ms · 4 frames", ui.statusLine)
+        assertTrue(writers.setups.isEmpty())
     }
 
     @Test

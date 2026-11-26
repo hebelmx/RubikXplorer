@@ -124,7 +124,17 @@ class ContinuousImageReplayDeviceTest {
             }
         }
         val frames = imageFrames()
-        assumeTrue("Pushed sessions hold no model-input PNG; skipping image replay", frames.isNotEmpty())
+        sessions.forEach { dir ->
+            val manifest = ContinuousSessionJson.readManifest(dir)
+            // A session recorded with images must hold some: none means the model-input copy is broken, not a skip.
+            if (manifest.imageEvery > 0) {
+                assertTrue(
+                    "${manifest.sessionId} has imageEvery=${manifest.imageEvery} but no model-input PNG frame",
+                    frames.any { it.sessionId == manifest.sessionId },
+                )
+            }
+        }
+        assumeTrue("Pushed sessions were recorded without images (imageEvery = 0); skipping image replay", frames.isNotEmpty())
         val executor = Executors.newSingleThreadExecutor()
         try {
             executor

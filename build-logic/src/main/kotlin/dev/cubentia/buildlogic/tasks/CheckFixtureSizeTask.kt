@@ -37,7 +37,8 @@ abstract class CheckFixtureSizeTask : DefaultTask() {
             root
                 .listFiles()
                 .orEmpty()
-                .filter { it.isDirectory }
+                // Like every reader: a .tmp- dir or a dir without manifest.json is not a session (it still counts in the total).
+                .filter { it.isDirectory && !it.name.startsWith(".tmp-") && File(it, "manifest.json").isFile }
                 .associate { dir -> dir.name to dir.walkTopDown().filter { it.isFile }.sumOf { it.length() } }
         val rootBytes = if (root.isDirectory) root.walkTopDown().filter { it.isFile }.sumOf { it.length() } else 0L
         val violations = FixtureSizePolicy.violations(sessions, rootBytes)

@@ -177,7 +177,7 @@ internal fun ContinuousRecorderScreen(
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Button(
                                 onClick = { controller.start() },
-                                enabled = hasPermission && controller.meta.ready && cube.isNotBlank() && light.isNotBlank(),
+                                enabled = hasPermission && ContinuousSessionMeta(cube, light, partition).ready,
                                 modifier = Modifier.weight(1f),
                             ) { Text("Start") }
                             OutlinedButton(onClick = { controller.baseline() }, enabled = hasPermission) { Text("Baseline run") }

@@ -5,7 +5,7 @@ created: '2026-11-26'
 status: 'done'
 baseline_revision: '62e9565945a57063e36a32108f8566ab9e99f95e'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/AGENTS.md'
   - '{project-root}/_bmad-output/implementation-artifacts/epic-10-context.md'
@@ -33,6 +33,20 @@ deferred:
     location: >-
       docs/evidence/10-34/legacy-replay.md
     severity: medium (unverified)
+  - summary: >-
+      The step-01 regeneration of epic-10-context.md dropped rules that later Epic 10 stories rely on.
+    evidence: |-
+      Diff since the baseline removes the Guided Scan exit copy ("Discard the faces you captured?"), the unchanged-review fallback to the Editor, "never locks onto a single symmetric face", the 200% font "without cutting or breaking words" wording, the whole Release passes bullet, the 10.29 shared Quick Check result component with its Certainty chip, and "no string or permission rationale" for an OFF flag. It is compiled agent context; regenerate it (or restore those rules) before the next Epic 10 story plans from it.
+    location: >-
+      _bmad-output/implementation-artifacts/epic-10-context.md
+    severity: medium
+  - summary: >-
+      ContinuousRecorderScreen's onDispose turns off continuous mode while a session may still be recording, leaving the capture and engine live.
+    evidence: |-
+      Leave is enabled only when idle, so this is reached through activity recreation; same root cause as the deferred FixtureRecorderActivity.onDestroy item. Fix both together (stop and save/discard the capture on dispose/destroy).
+    location: >-
+      app/src/camera/debug/kotlin/dev/cubentia/app/camera/recorder/ContinuousRecorderScreen.kt:DisposableEffect
+    severity: medium
 ---
 
 <intent-contract>
@@ -210,6 +224,56 @@ Paths under `/mnt/e/Dynamic/IndFun/RubikXplorer-10-34/`. `K/` = `app/src/camera/
   - `[maybe-false]` `[defer]` (intent) `legacy-replay.md` results not re-verified by triage — settle by re-running each listed command; see deferred.
   - `[false]` `[reject]` (intent) `epic-10-context.md` rewritten — it is this workflow's step-01 compiled context, regenerated because the planning files were newer.
 
+### 2026-11-26 — Review pass (follow-up)
+- verdicts: 45 findings — high 0, medium 7, low 30, false 8, maybe-false 0
+- note: review diff excluded the generated synthetic data files and this spec (as in the first pass). The verification-gap and edge-case layers were resumed after an API rate limit; all four layers reported.
+- findings:
+  - `[low]` `[reject]` (blind) `refreshGolden` rewrites `manifest.outcome` and refreshes sessions that are not exactly replayable — refresh is the PO's deliberate acceptance after the documented archived plain replay, the report prints "Not exactly replayable", and the manifest keeps `defective`/`defectReasons`; a refusal flag adds a branch.
+  - `[low]` `[reject]` (blind) Frames accepted then dropped after a size cap/write failure are uncounted, so the export-derived outcome can describe unwritten frames — only reachable at the 40 MB cap (such a session can never be checked in, limit 15 MB) or on a write failure (already defective); the replay prints the outcome diff; the fix needs a new manifest field.
+  - `[low]` `[reject]` (blind) A write failure can leave an orphan PNG or uneven jsonl files and is recorded as an OPERATOR stop — the session is marked defective with `WRITE_FAILED`; a new stop-reason value adds public surface.
+  - `[low]` `[reject]` (blind) Pre-filled labels can be saved without review, so label checks compare predictions with themselves — prefill is the spec's settled 10.28-style design and every sticker stores `reviewed=false`/`PREFILLED`, so readers can tell; a review requirement adds states.
+  - `[low]` `[reject]` (blind) carried — Synthetic labels recorded as ENTERED — first-pass row: `synthetic: true` marks the whole dir; a new TruthSource value adds surface.
+  - `[low]` `[reject]` (blind) No revision marks a dirty working tree (`buildCommit`, `goldenRevision`) — a dirty flag is a new field; recorded commits are full hashes as the spec asks and golden refresh is documented to run on committed code.
+  - `[false]` `[reject]` (blind) carried — Session-id one-second collisions — first-pass row: Start needs the previous session saved or discarded.
+  - `[low]` `[reject]` (blind) carried — Orphan `.tmp-*` dirs after a failed save (no retry), `cube-session.sh pull` copying them — first-pass rows: rare debug-tool failure, never read as complete; the onDestroy part stays deferred.
+  - `[low]` `[reject]` (blind) Latency rule skipped without a baseline; baseline keyed only by device model; p95 never compared — no-baseline is the carried false row (the AC compares against a no-capture run on the same device); p50 is the spec's rule; extra baseline keys add fields.
+  - `[low]` `[patch]` (blind) Size limits defined twice (`ContinuousSessionFormat.CHECKED_IN_*` unused vs `FixtureSizePolicy`) — deleted the unused domain constants.
+  - `[low]` `[patch]` (blind) `:checkFixtureSize` counts `.tmp-*` and manifest-less dirs as sessions, against the spec's reader rule — per-session map now only counts non-`.tmp-*` dirs with `manifest.json`; root total still counts every byte; `CheckFixtureSizeTaskTest` case added.
+  - `[low]` `[reject]` (blind) Image replay never checks the sampler/lattice against recorded observations; greedy nearest matching — the image-replay colour check is the spec's settled design (like with like on the same PNG); the rest adds machinery.
+  - `[low]` `[reject]` (blind) carried — Replay main argument parsing (missing values, unknown flag as root, `--session` not checking `isComplete`) — first-pass row: developer CLI misuse; adds guards.
+  - `[medium]` `[defer]` (blind) `epic-10-context.md` regeneration dropped rules other stories rely on (Guided exit copy, unchanged-review fallback, symmetric-face lock, 200% font wording, Release passes, 10.29 Quick Check component, OFF-flag rationale) — verified in the diff; the file is compiled agent context, so the fix routes to defer.
+  - `[false]` `[reject]` (blind) carried — Fixture-writer guard covers only one package — first-pass row: `recorder/` is compiled only for debuggable builds.
+  - `[low]` `[reject]` (blind) `RECORDER_SESSION` receiver exported without permission — debug builds only; `adb shell am broadcast` needs an exported receiver, the same mechanism the spec reuses from the burst receiver.
+  - `[low]` `[patch]` (edge) PNG/observation/JSON encoding in `drainOne` ran outside the try, so an exception would crash the writer thread — encoding moved into the failure handling (`fail(e)`: WRITE_FAILED, dropRest, stop) with the image buffer released in `finally`.
+  - `[low]` `[patch]` (edge) `closeStreams` swallowed close/flush failures in `finish`, saving truncated jsonl as non-defective — `closeStreams` returns the first failure and `finish` records it as `WRITE_FAILED`.
+  - `[low]` `[reject]` (edge) Dropped trailing frames make the manifest outcome disagree with replay — same as the blind row above.
+  - `[low]` `[reject]` (edge) Status-line frame count counts accepted, not written frames — the gap only exists after recording already stopped (size cap/write failure); cosmetic.
+  - `[false]` `[reject]` (edge) carried — sessionId collision with a saved session — first-pass row.
+  - `[low]` `[reject]` (edge) carried — Save failure resets the UI to IDLE and orphans the `.tmp-` dir — first-pass row.
+  - `[medium]` `[defer]` (edge) carried — Activity destroyed while RECORDING/SAVING leaks the writer and leaves `.tmp-` — first-pass deferred item.
+  - `[medium]` `[defer]` (edge) `ContinuousRecorderScreen` onDispose turns off continuous mode while a session records, leaving it live — Leave is disabled unless idle, so this is reached through activity recreation, the same root cause as the deferred onDestroy item; deferred with it.
+  - `[low]` `[patch]` (edge) Start stays disabled after the keystroke that makes cube/light ready (reads non-observable `controller.meta`) — `enabled` now uses `ContinuousSessionMeta(cube, light, partition).ready`.
+  - `[low]` `[reject]` (edge) carried — Malformed-session guards (net length, RGB count, conflicted slot) — first-pass rows: hand-edited files only.
+  - `[low]` `[reject]` (edge) Truncated jsonl (both files) replays with zero diffs — needs both files cut at the same line by hand or a write failure (already defective); adds a guard.
+  - `[low]` `[patch]` (edge) REFUSED labels still scored although the UI says scoring skips them — replay produces no mismatches for `countCheck == REFUSED` (`Report.labelsRefused`, markdown says "not scored"); `ContinuousSessionReplayTest` case added.
+  - `[low]` `[reject]` (edge) carried — `--session`/`--report` without a value — first-pass row.
+  - `[low]` `[reject]` (edge) `refreshGolden` on a session with missing frames — same as the blind refresh row.
+  - `[low]` `[reject]` (edge) carried — debug build fails without a `git` binary — first-pass row.
+  - `[low]` `[reject]` (edge, claim) `goldenRevision` is HEAD even with uncommitted changes — same as the blind dirty-tree row.
+  - `[medium]` `[patch]` (verification-gap) Controller baseline run (`baseline()` → `onAnalyzed` → `saveBaseline` → status line) untested — `ContinuousRecorderControllerTest` baseline case with a fixed clock asserts the saved samples and the p50/p95 status line.
+  - `[medium]` `[patch]` (verification-gap) `WRITE_FAILED` never reaches a saved manifest in any test — `ContinuousSessionWriterTest` blocks one PNG path after the streams open and asserts `defective`, a `WRITE_FAILED` reason and `frameCount == 1`.
+  - `[medium]` `[patch]` (verification-gap) Image replay skips instead of failing when `imageEvery > 0` but no PNGs exist; `copyModelInput` untested on the real detector — the device test now fails naming the session; `LiteRtStickerCenterDetectorDeviceTest` asserts `copyModelInput` false before detect, true and filled after `detectRgb`, refusing a short buffer (compiled; device run is a PO step).
+  - `[medium]` `[defer]` (verification-gap) carried — Real detector letterbox fields checked only by the skipping device test — first-pass deferred item.
+  - `[false]` `[reject]` (intent) Shipped camera code carries more than the tap (ports, model identity, reused model-input buffer) — the writer ports are the carried false row; the buffer is a per-frame scratch copy allocated only when a tap asks, the detector already holds the same bytes, no frame is kept across frames for shipped callers (null tap).
+  - `[false]` `[reject]` (intent) `:core:domain` main gains `java.io.File` readers — the spec places the session format and codec in domain main; AD-9 restricts pixels and LiteRT, and the files hold neutral data.
+  - `[false]` `[reject]` (intent) carried — Synthetic fixtures / image replay exercises nothing in CI — first-pass rows: synthetic stand-in and device run are PO steps by clarification.
+  - `[low]` `[reject]` (intent) "Keep as refused" saves REFUSED labels while the refusal text reads "Not saved: …" — the refusal text must stay identical to 10.28 (spec), REFUSED labels are a spec'd state, and the status after saving reads "Labels kept as refused".
+  - `[false]` `[reject]` (intent) Corner recorder never shows the new unknown-count suffix — the 10.28 behaviour must stay unchanged, which is what the diff does.
+  - `[low]` `[patch]` (intent) `checkFixtureSize` counts `.tmp-*` dirs — grouped with the blind fixture-size patch.
+  - `[low]` `[reject]` (intent) `WRITE_FAILED` widens the defect rule and records an OPERATOR stop — same as the blind write-failure row.
+  - `[low]` `[reject]` (intent) Outcome from export vs last written snapshot after a size cap — same as the blind dropped-frames row.
+  - `[false]` `[reject]` (intent) carried — `epic-10-context.md` rewrite crosses the planning-artifact boundary — first-pass row: it is this workflow's compiled context in implementation-artifacts.
+
 ## Design Notes
 
 **Recorder UI (debug-only; settled from existing recorder conventions + UX memlog 2026-11-15 decisions):**
@@ -283,3 +347,23 @@ Status: done
 - The UI, the adb broadcast, the real latency numbers and image replay are all unrun on hardware.
 - The recorder's camera configuration (output rotation enabled, default resolution) differs from `ScanFrameSource`; it is recorded in the manifest geometry.
 - The pre-existing output drift of `exportKotlinStickerReads` and `evaluateMatrix` is documented in `legacy-replay.md`.
+
+### Follow-up review pass (2026-11-26)
+
+**Summary:** A second review of the whole change since `62e9565945a57063e36a32108f8566ab9e99f95e` (four layers: blind, edge case, verification gap, intent alignment) found 45 findings: high 0, medium 7, low 30, false 8. It patched 9 entries (3 medium, 6 low), deferred 2 new items, and rejected the rest; every row and its reason is in the Review Triage Log.
+
+**Files changed in this pass:**
+- `app/src/camera/debug/.../recorder/session/ContinuousSessionWriter.kt` -- frame encoding inside the failure handling; close/flush failures recorded as `WRITE_FAILED`.
+- `app/src/camera/debug/.../recorder/ContinuousRecorderScreen.kt` -- Start readiness from the screen's own fields.
+- `core/domain/.../continuous/session/ContinuousSession.kt` -- removed the unused duplicate checked-in size constants.
+- `core/domain/src/evaluation/.../continuous/ContinuousSessionReplay.kt` -- REFUSED labels are not scored (`labelsRefused`).
+- `build-logic/.../tasks/CheckFixtureSizeTask.kt` -- only complete, non-`.tmp-*` dirs count as sessions; root total unchanged.
+- Tests: `ContinuousSessionWriterTest` (write failure reaches the manifest), `ContinuousRecorderControllerTest` (baseline run), `ContinuousSessionReplayTest` (REFUSED labels), `CheckFixtureSizeTaskTest` (`.tmp-*`/manifest-less dirs), `ContinuousImageReplayDeviceTest` (missing PNGs fail), `LiteRtStickerCenterDetectorDeviceTest` (`copyModelInput`).
+
+**Deferred (new):** the `epic-10-context.md` regeneration dropped rules (medium); the recorder screen's dispose while recording (medium, same root cause as the deferred onDestroy item).
+
+**Follow-up review recommended: false.** This follow-up pass patched no high finding (patched: 3 medium, 6 low).
+
+**Verification (after patches):** all passed -- `./gradlew spotlessCheck build :app:compileDebugAndroidTestKotlin`; `./gradlew -p build-logic test`; cornerR8 `checkCornerR8FixtureWriter` + `checkCornerR8ShadowReader`; release011 `checkRelease011FixtureWriter`; targeted `:app:testDebugUnitTest` (analyzer, writer, recorder rules, controller); `:core:domain:test` (StickerTruthCheck, ContinuousSession*); `:core:domain:replayContinuousSession` (0 diffs on both synthetic sessions); `:app:checkCameraSize`.
+
+**Residual risks:** unchanged from the first pass (UI, adb broadcast, latency numbers and image replay unrun on hardware); the two new device-test assertions are compiled only.
