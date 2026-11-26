@@ -360,10 +360,7 @@ class SolveFromScanRouteTest {
     ) {
         val scan = Robolectric.buildActivity(GuidedScanActivity::class.java, intent).setup()
         try {
-            rule.waitUntil(10_000) {
-                shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(16))
-                camera.starts > 0
-            }
+            rule.awaitScanCamera { camera.starts > 0 }
             rule.waitForIdle()
             body(scan)
         } finally {

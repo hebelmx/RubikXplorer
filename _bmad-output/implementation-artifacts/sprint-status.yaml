@@ -3072,3 +3072,27 @@ action_items:
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-26-retire-recorder.md"
+  - id: "issue-400-deferred-pin-per-poll-camera-sync"
+    epic: 10
+    action: "No committed test pins the per-poll Compose sync of awaitScanCamera, and nothing stops a new scan route test from waiting for the camera start with a bare waitUntil again; add a source-scan guard (like ComposeTestTimingGuardTest) or an ordered-pair test, or an AGENTS.md pitfall (medium; deferred from #400, ScanCameraWait.kt:19)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-400-scan-route-tests-camera-start-wait.md"
+  - id: "issue-400-deferred-schedule-fuzz-not-in-repo"
+    epic: 10
+    action: "The schedule fuzz that separates before from after for #400 (a random 0-60 ms delay inside the calibration-load IO block and the analyzerExecutor hop) is not in the repo, so the flake cannot be re-shown from a checkout; commit it as an opt-in test-only switch or document the patch (medium; deferred from #400 gate)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-400-scan-route-tests-camera-start-wait.md"
+  - id: "issue-400-deferred-other-route-waits-unpumped"
+    epic: 10
+    action: "Other waits in the scan route tests still poll with waitUntil without a looper pump or Compose sync and may stall the same way when a background hand-off lands late (CaseRecognitionRouteTest.kt:125, ContinuousQuickScanRouteTest.kt:731 and :484, QuickCheckRouteTest host.state waits, ScanRouteTest.kt:500 and :538); fuzz those hand-offs before changing them (medium, unverified; deferred from #400)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-400-scan-route-tests-camera-start-wait.md"
+  - id: "issue-400-deferred-coach-mark-read-race"
+    epic: 10
+    action: "ScanRouteTest.coachMarkStaysPendingUntilTappedAndIsAbsentInTheNextActivity opens the review without waiting for the coach-mark read, so it failed once in 300 fuzzed runs at ScanRouteTest.kt:449 (could not find review:coach); never seen in CI (low; deferred from #400, ScanRouteTest.kt:449)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-400-scan-route-tests-camera-start-wait.md"
