@@ -3060,3 +3060,15 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-390-quick-scan-detector-unavailable-fallback.md"
+  - id: "scp-2026-11-26-pr-396-superseded"
+    epic: 10
+    action: "Mark PR #396 as a draft now; close it as superseded when the rebuilt Story 10.34 (fresh branch from main, cherry-picking the frame tap, writer, replay, checkFixtureSize and writer guards) opens its PR"
+    owner: "SM / orchestrator"
+    status: open
+    ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-26-retire-recorder.md"
+  - id: "scp-2026-11-26-case-recognition-no-capture-tool"
+    epic: 10
+    action: "Before CASE_RECOGNITION is raised above OFF, decide how Case fixtures are captured now that the fixture recorder is retired (for example a debug recording mode of Case capture, like Story 10.34)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-26-retire-recorder.md"
