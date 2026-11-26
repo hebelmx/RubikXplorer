@@ -201,6 +201,8 @@ class ContinuousFaceSamplerTest {
         val face = faceFor(48.0, 48.0, 144.0)
         val fakeDetector =
             object : StickerCenterDetector {
+                override val unavailable = false
+
                 override fun detect(
                     frame: YuvFrame,
                     rotationDegrees: Int,
@@ -416,6 +418,8 @@ class ContinuousFaceSamplerTest {
         var detectCalls = 0
         val countingDetector =
             object : StickerCenterDetector {
+                override val unavailable = false
+
                 override fun detect(
                     frame: YuvFrame,
                     rotationDegrees: Int,

@@ -26,9 +26,11 @@ class LiteRtStickerCenterDetectorFailureTest {
                 loads++
                 throw FileNotFoundException(StickerCenterModelContract.MODEL_ASSET)
             }
+        assertFalse(detector.unavailable)
         repeat(3) {
             val result = detector.detect(validFrame, rotationDegrees = 90, viewWidth = 1080, viewHeight = 1920)
             assertTrue(result.peaks.isEmpty())
+            assertTrue(detector.unavailable)
         }
         assertEquals(1, loads)
     }
@@ -38,6 +40,7 @@ class LiteRtStickerCenterDetectorFailureTest {
         val corrupt = LiteRtStickerCenterDetector { ByteBuffer.allocateDirect(16) }
         assertTrue(corrupt.detect(validFrame, 0).peaks.isEmpty())
         assertTrue(corrupt.detect(validFrame, 0).peaks.isEmpty())
+        assertTrue(corrupt.unavailable)
 
         var linkageLoads = 0
         val unlinked =
@@ -46,7 +49,24 @@ class LiteRtStickerCenterDetectorFailureTest {
                 throw UnsatisfiedLinkError("libLiteRt.so missing")
             }
         repeat(2) { assertTrue(unlinked.detect(validFrame, 0).peaks.isEmpty()) }
+        assertTrue(unlinked.unavailable)
         assertEquals(1, linkageLoads)
+    }
+
+    @Test
+    fun `a tensor contract mismatch latches unavailable without loading again`() {
+        var loads = 0
+        val detector =
+            LiteRtStickerCenterDetector(loadModel = {
+                loads++
+                ByteBuffer.allocateDirect(16)
+            }, openSession = { null })
+        assertFalse(detector.unavailable)
+        repeat(2) {
+            assertEquals(StickerCenterDetection.EMPTY, detector.detect(validFrame, 0))
+            assertTrue(detector.unavailable)
+        }
+        assertEquals(1, loads)
     }
 
     @Test
@@ -81,7 +101,11 @@ class LiteRtStickerCenterDetectorFailureTest {
                         }
                     },
                 )
-            repeat(3) { assertTrue(detector.detect(validFrame, rotationDegrees = 0).peaks.isEmpty()) }
+            assertFalse(detector.unavailable)
+            repeat(3) {
+                assertTrue(detector.detect(validFrame, rotationDegrees = 0).peaks.isEmpty())
+                assertTrue(detector.unavailable)
+            }
             assertTrue(detector.detectRgb(ByteArray(48), 4, 4).peaks.isEmpty())
             assertEquals(0, detector.failedFrames, failure().toString())
             assertEquals(1, opens, failure().toString())
@@ -94,11 +118,16 @@ class LiteRtStickerCenterDetectorFailureTest {
     fun `a healthy session runs once per frame and is closed exactly once`() {
         val session = CountingStickerCenterSession()
         val detector = session.detector
-        repeat(3) { assertTrue(detector.detect(validFrame, rotationDegrees = 90).peaks.isEmpty()) }
+        assertFalse(detector.unavailable)
+        repeat(3) {
+            assertTrue(detector.detect(validFrame, rotationDegrees = 90).peaks.isEmpty())
+            assertFalse(detector.unavailable)
+        }
         assertEquals(3, session.runs)
         detector.close()
         assertTrue(detector.detect(validFrame, rotationDegrees = 90).peaks.isEmpty())
         assertEquals(3, session.runs)
+        assertFalse(detector.unavailable)
         assertEquals(1, session.closes)
         assertEquals(0, detector.failedFrames)
     }
@@ -109,10 +138,12 @@ class LiteRtStickerCenterDetectorFailureTest {
         val short = makeBlankYuv(64, 48).apply { y.buffer.limit(1) }
         for ((index, rotation) in listOf(0, 90, 180, 270).withIndex()) {
             assertEquals(StickerCenterDetection.EMPTY, session.detector.detect(short, rotation))
+            assertFalse(session.detector.unavailable)
             assertEquals(index + 1, session.detector.failedFrames)
         }
         assertEquals(0, session.runs)
         val recovered = session.detector.detect(validFrame, 0)
+        assertFalse(session.detector.unavailable)
         assertEquals(validFrame.width, recovered.uprightWidth)
         assertEquals(4, session.detector.failedFrames)
         assertEquals(1, session.runs)
@@ -210,6 +241,7 @@ class LiteRtStickerCenterDetectorFailureTest {
         assertTrue(detector.detectRgb(ByteArray(0), 0, 0).peaks.isEmpty())
         assertTrue(detector.detectRgb(ByteArray(16), 50_000, 50_000).peaks.isEmpty())
         assertTrue(detector.detectRgb(ByteArray(16), Int.MAX_VALUE, Int.MAX_VALUE).peaks.isEmpty())
+        assertFalse(detector.unavailable)
         assertEquals(0, loads)
     }
 
@@ -223,6 +255,7 @@ class LiteRtStickerCenterDetectorFailureTest {
             }
         detector.close()
         assertTrue(detector.detect(validFrame, 0).peaks.isEmpty())
+        assertFalse(detector.unavailable)
         assertEquals(0, loads)
 
         val pipeline = ContinuousScanPipeline(detector)

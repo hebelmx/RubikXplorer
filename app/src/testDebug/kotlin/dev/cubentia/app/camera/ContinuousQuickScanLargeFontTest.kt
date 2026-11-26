@@ -6,6 +6,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.dp
 import dev.cubentia.app.content.ContentStrings
@@ -158,6 +159,37 @@ class ContinuousQuickScanLargeFontTest {
         } else {
             assertTrue(where, enterColors.top >= review.bottom)
             assertTrue(where, review.left == faceByFace.left && review.right == faceByFace.right)
+        }
+    }
+
+    /** GH #390: the detector-unavailable card on the Lenovo at 200% font: *Close*, the message and both actions, unclipped. */
+    @Test
+    @Config(qualifiers = "w600dp-h960dp-port", fontScale = 2.0f)
+    fun theDetectorUnavailableCardFitsOnTheTabletAtDoubleFont() {
+        rule.setContent {
+            CubentiaTheme { GuidedScanScreen(GuidedScanPhase.QuickScanUnavailable, strings, GuidedScanActions()) }
+        }
+        val root = rule.onRoot().fetchSemanticsNode().boundsInRoot
+        val message = "Quick Scan isn't available right now. You can scan face by face or enter your cube's colors by hand."
+        val parts =
+            listOf(
+                "Close" to rule.onNodeWithTag("scanClose"),
+                "message" to rule.onNodeWithText(message),
+                "Scan face by face" to rule.onNodeWithText("Scan face by face"),
+                "Enter colors instead" to rule.onNodeWithTag("scanEnterColors"),
+            ).map { (name, node) ->
+                val shown = node.assertIsDisplayed().fetchSemanticsNode()
+                val bounds = shown.boundsInRoot
+                assertTrue(
+                    "$name $bounds (size ${shown.size}), root $root",
+                    bounds.left >= root.left && bounds.top >= root.top && bounds.right <= root.right && bounds.bottom <= root.bottom &&
+                        bounds.width >= shown.size.width - 0.5f && bounds.height >= shown.size.height - 0.5f && bounds.height > 0f,
+                )
+                name to bounds
+            }
+        // Top to bottom in the card pattern's order, nothing overlapping.
+        parts.zipWithNext { (above, upper), (below, lower) ->
+            assertTrue("$above $upper, $below $lower", lower.top >= upper.bottom)
         }
     }
 

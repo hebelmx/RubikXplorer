@@ -21,6 +21,8 @@ internal object ContinuousScanEngineModule {
 private class PipelineEngine(
     private val pipeline: ContinuousScanPipeline,
 ) : ContinuousScanEngine {
+    override val detectorUnavailable get() = pipeline.detectorUnavailable
+
     private var frameIndex = 0
 
     override fun processFrame(

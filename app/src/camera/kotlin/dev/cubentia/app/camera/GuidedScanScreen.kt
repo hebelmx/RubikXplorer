@@ -68,6 +68,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -132,7 +133,17 @@ internal sealed interface GuidedScanPhase {
         val fromReview: Review? = null,
     ) : GuidedScanPhase
 
-    data object Continuous : GuidedScanPhase
+    /** Quick Scan's own screen: the live scan or, when the sticker detector cannot run, the card that stands in for it. */
+    sealed interface QuickScan : GuidedScanPhase
+
+    /** The live continuous Quick Scan (Story 10.32). */
+    data object Continuous : QuickScan
+
+    /**
+     * The sticker detector cannot run in this app process (GH #390): a card in place of the live scan, with *Scan face by
+     * face* and *Enter colors instead*. No camera, no torch; the map built so far is kept for both actions.
+     */
+    data object QuickScanUnavailable : QuickScan
 
     data class CornerViewfinder(
         val hold: Int,
@@ -308,6 +319,18 @@ internal fun GuidedScanScreen(
                     ContinuousQuickScanScreen(continuous, strings, actions, cornerTorch, viewfinder)
                 }
 
+                GuidedScanPhase.QuickScanUnavailable -> {
+                    val message = strings.resolve(ContentText("msg.quick-scan.unavailable"))
+                    // GH #390: a pane title is announced when its node appears, also as the first content; a polite live
+                    // region on a node that was just added is not spoken (see ContinuousQuickScanScreen).
+                    Card(message, "quickScanUnavailable", Modifier.semantics { paneTitle = message }) {
+                        Button(onClick = actions.onFaceByFace, Modifier.fillMaxWidth()) {
+                            Text(strings.resolve(ContentText("btn.quick-scan.face-by-face")))
+                        }
+                        EnterColorsButton(strings, actions.onEnterColors)
+                    }
+                }
+
                 is GuidedScanPhase.Calibration -> {
                     // Story 10.21: the same torch toggle, locked from the first kept swatch until saved or left.
                     val torch =
@@ -389,11 +412,12 @@ internal fun GuidedScanScreen(
 private fun Card(
     message: String,
     tag: String,
+    modifier: Modifier = Modifier,
     buttons: @Composable () -> Unit,
 ) {
     Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
         Column(
-            Modifier.widthIn(max = 480.dp).fillMaxWidth().testTag(tag),
+            modifier.widthIn(max = 480.dp).fillMaxWidth().testTag(tag),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {

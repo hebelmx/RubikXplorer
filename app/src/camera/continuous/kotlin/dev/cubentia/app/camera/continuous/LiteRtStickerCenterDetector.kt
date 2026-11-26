@@ -33,7 +33,7 @@ internal interface StickerCenterInferenceSession {
  *
  * Runs exclusively off the main thread on XNNPACK CPU with 2 threads using pre-allocated direct buffers.
  * A frame that fails input conversion or peak decoding is counted and skipped. Its session stays open for the next frame.
- * Inference failures disable the detector.
+ * Model initialization and inference failures latch [unavailable] for the lifetime of this singleton.
  * Never persists, writes to disk, or transmits any camera frame (AD-13).
  */
 @Singleton
@@ -53,6 +53,10 @@ internal class LiteRtStickerCenterDetector
 
         /** Set only by the injected constructor: a debuggable app checks the calling thread in [detect]. */
         private var debuggable = false
+
+        @Volatile
+        override var unavailable = false
+            private set
 
         private val lock = Any()
         private var session: StickerCenterInferenceSession? = null
@@ -181,9 +185,9 @@ internal class LiteRtStickerCenterDetector
                 null
             }
 
-        /** A failed inference never retries: the next frame would repeat the same failure and log it again. */
+        /** A failed inference never retries: the next frame would repeat the same failure and log it again (GH #390: [unavailable]). */
         private fun latchDisabled() {
-            closed = true
+            unavailable = true
             runCatching { session?.close() }
             session = null
         }
@@ -193,15 +197,19 @@ internal class LiteRtStickerCenterDetector
             session?.let { return it }
             if (initAttempted) return null
             initAttempted = true
-            return try {
-                openSession(loadModel())?.also { session = it }
-            } catch (e: Exception) {
-                logWarning("Unable to load ${StickerCenterModelContract.MODEL_ASSET}; continuous detector disabled", e)
-                null
-            } catch (e: LinkageError) {
-                logWarning("LiteRT runtime unavailable; continuous detector disabled", e)
-                null
-            }
+            session =
+                try {
+                    openSession(loadModel())
+                } catch (e: Exception) {
+                    logWarning("Unable to load ${StickerCenterModelContract.MODEL_ASSET}; continuous detector disabled", e)
+                    null
+                } catch (e: LinkageError) {
+                    logWarning("LiteRT runtime unavailable; continuous detector disabled", e)
+                    null
+                }
+            // GH #390: the one load attempt failed, or the model did not match the tensor contract.
+            if (session == null) unavailable = true
+            return session
         }
 
         internal fun close() {
