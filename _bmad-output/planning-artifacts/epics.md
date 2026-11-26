@@ -2978,9 +2978,9 @@ So that scanning feels effortless and I can fall back to face-by-face capture at
 **When** the mapper completes
 **Then** Quick Scan opens Story 10.3 Scan Review (with Story 10.16 per-face retake, `#323` suspect ranking, and Paint mode) and returns standard `ScanOutcome` to the Solve tab (Solution Playback or seeded Editor fallback)
 
-**Given** obsolete 2-corner Quick Scan code no longer used by `CASE_RECOGNITION` or `FixtureRecorderActivity`
+**Given** obsolete 2-corner Quick Scan code no longer used by `CASE_RECOGNITION`, `FixtureRecorderActivity` (including `RecorderBurst`), the evaluation tasks or `ScanDiagnostics`
 **When** this story merges
-**Then** Quick-Scan-only 2-corner domain/UI code and tests (`QuickScan.kt`, `QuickScanClassification.kt`, `CornerHold.kt`, `QuickScanDiagnosis.kt`, `SideLight.kt`, and obsolete 2-corner branches in `GuidedScanActivity`/`GuidedScanScreen`) are cleanly removed while keeping `CornerLocator`/`CornerReader`/`CornerGuide` intact for `CASE_RECOGNITION` and `FixtureRecorderActivity`, and `:app:checkCameraSize` confirms reclaimed class-byte headroom
+**Then** `QuickScan.kt`, `QuickScanDiagnosis.kt` and the obsolete 2-corner branches in `GuidedScanActivity`/`GuidedScanScreen` are removed with their tests; `CornerHold.kt` and `SideLight.kt` are trimmed to what Case capture and the recorder use; `QuickScanClassification.kt`, `exportKotlinStickerReads` and `evaluateQuickScan` are kept; `CornerLocator`/`CornerReader`/`CornerGuide` stay intact; any retired legacy replay has its last revision and command recorded in `docs/evidence/10-32/`; and `:app:checkCameraSize` passes with the class-byte change explained in that evidence *(SCP 2026-11-25 continuous-fixture-recorder: aligned with the 10.32 PO scope Q7, superseding the original removal list.)*
 
 **Given** Robolectric Compose UI, route, accessibility, and layout tests
 **When** `./gradlew spotlessCheck build` runs
@@ -3009,6 +3009,8 @@ So that I can make an informed BETA call for Story 10.11's `0.11.0` camera relea
 **Given** the evidence report (with Lenovo TB128XU as gating minimum)
 **When** the PO makes the release-level decision
 **Then** the PO records the `QUICK_SCAN` decision (`BETA` for Story 10.11's `0.11.0` release, or `OFF` with routed issues) in the PRD `.memlog.md`, closing `scp-2026-11-24-quick-scan-raise-preconditions`
+
+*(SCP 2026-11-25 continuous-fixture-recorder, approved: two deferred follow-ups come after Stories 10.30–10.33 — A, record and replay a continuous Quick Scan session in the developer fixture recorder; B, retire the Quick-Scan-only two-corner recorder and exporter paths after A. Story numbers are assigned when scheduled; fix stories routed from 10.33 do not block A.)*
 
 ## Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition
 
