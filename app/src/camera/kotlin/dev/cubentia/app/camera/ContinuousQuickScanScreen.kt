@@ -26,10 +26,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -103,24 +103,23 @@ internal fun ContinuousQuickScanScreen(
         Column(modifier.padding(horizontal = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             ContinuousNet(state, Modifier.weight(1f).fillMaxWidth())
             Text(strings.resolve(ContinuousQuickScanFlow.countText(state.count)), Modifier.testTag("quickScan:count"))
-            val announced = state.announcement
-            key(announced?.serial) {
-                // Described only while it is the count shown: after the count fell, a swipe never reads the old number.
-                val label =
-                    announced?.takeIf { it.count == state.count }?.let {
-                        strings.resolve(
-                            ContinuousQuickScanFlow.countText(it.count),
-                        )
-                    }
-                Spacer(
-                    Modifier
-                        .size(1.dp)
-                        .semantics {
-                            liveRegion = LiveRegionMode.Polite
-                            if (label != null) contentDescription = label
-                        }.testTag("quickScan:announcement"),
-                )
-            }
+            // One node for the whole scan: TalkBack speaks a live region when a node it knows changes, and Compose sends
+            // no such event for a node that was just added. Described only while it is the count shown: after the count
+            // fell, a swipe never reads the old number.
+            val label =
+                state.announcement?.takeIf { it.count == state.count }?.let {
+                    strings.resolve(
+                        ContinuousQuickScanFlow.countText(it.count),
+                    )
+                }
+            Spacer(
+                Modifier
+                    .size(1.dp)
+                    .semantics {
+                        liveRegion = LiveRegionMode.Polite
+                        if (label != null) contentDescription = label
+                    }.testTag("quickScan:announcement"),
+            )
             Text(strings.resolve(state.cue.toText()), Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag("quickScan:cue"))
             val reset = strings.resolve(ContentText("btn.quick-scan.reset"))
             if (state.snapshot?.twistDetected == true) {
@@ -132,15 +131,20 @@ internal fun ContinuousQuickScanScreen(
                 Text(strings.resolve(ContentText("btn.quick-scan.face-by-face")))
             }
             // *Review and Correct* (Q8): shown or gone at once, with no animation or announcement; never the emphasised
-            // action. On a short panel (a phone in landscape) it shares the last row, so the net keeps a readable cell.
+            // action. Hidden, it still takes its place (not drawn, not tappable, and no node for TalkBack), so no other
+            // action moves under a finger when it appears or goes. On a short panel (a phone in landscape) it shares
+            // the last row, so the net keeps a readable cell.
+            val offered = state.reviewAndCorrectOffered()
             val reviewAndCorrect: @Composable (Modifier) -> Unit = { place ->
-                OutlinedButton(actions.onReviewAndCorrect, place.testTag("quickScan:reviewAndCorrect")) {
+                OutlinedButton(
+                    actions.onReviewAndCorrect,
+                    if (offered) place.testTag("quickScan:reviewAndCorrect") else place.alpha(0f).clearAndSetSemantics { },
+                    enabled = offered,
+                ) {
                     Text(strings.resolve(ContentText("btn.quick-scan.review-and-correct")))
                 }
             }
-            if (!state.reviewAndCorrectOffered()) {
-                EnterColorsButton(strings, actions.onEnterColors)
-            } else if (short) {
+            if (short) {
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),

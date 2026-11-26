@@ -612,6 +612,33 @@ class ContinuousQuickScanRouteTest {
         }
     }
 
+    @Test fun closingAnAnchoredCentresOnlyHandOverWithNoCaptureAsksFirst() {
+        quickScanActivity { scan, model ->
+            // Three sides mapped as the mapper exports them below six: no face is kept, yet Back would restore this map.
+            show(listOf(Face.U, Face.F, Face.R), centresOnly = true)
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 3/6")
+            rule.onNodeWithTag("quickScan:faceByFace").performClick()
+            settle(model)
+            rule.onNodeWithTag("scanProgress").assertTextEquals("Face 1 of 6")
+            rule.onNodeWithTag("scanClose").performClick()
+            assertQuickScanDiscardCopy()
+            assertTrue(!scan.get().isFinishing)
+            // Cancel keeps the hand-over, and Back from it still returns to the map.
+            rule.onNodeWithTag("scan:discard:cancel").performClick()
+            rule.waitForIdle()
+            rule.onNodeWithTag("scan:discard").assertDoesNotExist()
+            rule.onNodeWithTag("scanProgress").assertTextEquals("Face 1 of 6")
+            scan.get().onBackPressedDispatcher.onBackPressed()
+            settle(model)
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 3/6")
+            rule.onNodeWithTag("quickScan:faceByFace").performClick()
+            settle(model)
+            rule.onNodeWithTag("scanClose").performClick()
+            rule.onNodeWithTag("scan:discard:confirm").performClick()
+            assertEquals(ScanOutcome.Cancelled, outcome(scan.get()))
+        }
+    }
+
     @Test fun closingAnUnanchoredHandOverAfterACaptureAsksFirst() {
         quickScanActivity { scan, model ->
             show(listOf(Face.U), anchored = false)

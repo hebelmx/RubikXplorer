@@ -1,6 +1,7 @@
 package dev.cubentia.app.camera
 
 import android.app.Application
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -18,6 +19,7 @@ import dev.cubentia.domain.recognition.Coaching
 import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.GuidedScanPlan
 import dev.cubentia.domain.recognition.Lab
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -74,16 +76,16 @@ class ContinuousQuickScanLargeFontTest {
         pairedLastRow: Boolean? = null,
     ) {
         var touch = 0f
+        val twist = dev.cubentia.domain.recognition.continuous.ContinuousScanCue.LayerTwistDetected
+        val state = mutableStateOf(ContinuousQuickScanFlow(snapshot = testSnapshot(testHandoff(Face.entries), twist)))
         rule.setContent {
             touch = with(LocalDensity.current) { 48.dp.toPx() }
-            val snap =
-                testSnapshot(testHandoff(Face.entries), dev.cubentia.domain.recognition.continuous.ContinuousScanCue.LayerTwistDetected)
             CubentiaTheme {
                 GuidedScanScreen(
                     GuidedScanPhase.Continuous,
                     strings,
                     GuidedScanActions(),
-                    continuous = ContinuousQuickScanFlow(snapshot = snap),
+                    continuous = state.value,
                     cornerTorch = false,
                 )
             }
@@ -129,6 +131,19 @@ class ContinuousQuickScanLargeFontTest {
             "scanClose ${bounds("scanClose")}, torch ${bounds("quickScan:torch")}",
             bounds("scanClose").right <= bounds("quickScan:torch").left,
         )
+        // Hidden (six sides, but only the six centres set), *Review and Correct* keeps its place: nothing else in the
+        // panel moves when it goes or comes back, so every layout here fits the same way with and without it.
+        val others = tags - "quickScan:reviewAndCorrect"
+        val shown = others.associateWith(::bounds)
+        rule.runOnIdle {
+            state.value =
+                ContinuousQuickScanFlow(snapshot = testSnapshot(testHandoff(Face.entries, centresOnly = true), twist))
+        }
+        rule.onNodeWithTag("quickScan:reviewAndCorrect").assertDoesNotExist()
+        assertEquals(shown, others.associateWith(::bounds))
+        rule.runOnIdle { state.value = ContinuousQuickScanFlow(snapshot = testSnapshot(testHandoff(Face.entries), twist)) }
+        rule.onNodeWithTag("quickScan:reviewAndCorrect").assertIsDisplayed()
+        assertEquals(shown, others.associateWith(::bounds))
         if (pairedLastRow == null) return
 
         val faceByFace = bounds("quickScan:faceByFace")

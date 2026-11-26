@@ -500,10 +500,10 @@ class GuidedScanActivity : ComponentActivity() {
 
     /**
      * Close, and system Back when no retake, hand-over, calibration or early review handles it first: asks "Discard this
-     * scan?" when it would drop at least one face Quick Scan captured, kept or read in its hand-over (Story 10.17), and
-     * "Discard the faces you captured?" when it would drop a face of a plain Guided 6-face viewfinder (GH #325);
-     * otherwise the scan ends Cancelled at once. An early review (Story 10.32, *Review and Correct*) never comes here:
-     * its Back returns to the live scan, and its *Close* asks in the review screen itself.
+     * scan?" when it would drop at least one side Quick Scan mapped, or one face it kept or read in its hand-over (Story
+     * 10.17), and "Discard the faces you captured?" when it would drop a face of a plain Guided 6-face viewfinder
+     * (GH #325); otherwise the scan ends Cancelled at once. An early review (Story 10.32, *Review and Correct*) never
+     * comes here: its Back returns to the live scan, and its *Close* asks in the review screen itself.
      */
     private fun closeOrConfirm() {
         val current = phase
@@ -521,9 +521,10 @@ class GuidedScanActivity : ComponentActivity() {
                     scan.continuous.confirmClose
                 }
 
-                // The hand-over viewfinder: only when it would drop a face Quick Scan kept or a face captured here.
+                // The hand-over viewfinder: when it would drop the map Back returns to (one or more mapped sides, as on
+                // the continuous screen), a face Quick Scan kept or a face captured here.
                 current is GuidedScanPhase.Viewfinder && current.handOver -> {
-                    scan.handoff?.faces?.isNotEmpty() == true || current.captured.isNotEmpty()
+                    scan.continuous.confirmClose || scan.handoff?.faces?.isNotEmpty() == true || current.captured.isNotEmpty()
                 }
 
                 else -> {

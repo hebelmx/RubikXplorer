@@ -25,10 +25,13 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.preferences.LocalHaptics
@@ -76,6 +79,17 @@ class ContinuousQuickScanScreenTest {
         rule.onNodeWithTag("quickScan:cue").assertTextEquals("Bring the cube into view.").assert(polite)
         rule.onNodeWithTag("quickScan:torch").assertDoesNotExist()
         rule.onNodeWithTag("quickScan:faceByFace").assertIsEnabled()
+        // One node for the whole scan, empty until the first side: TalkBack is told of a change to a node it knows, and
+        // of nothing about a node that has just been added.
+        val announcer =
+            rule
+                .onNodeWithTag("quickScan:announcement")
+                .assert(polite)
+                .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ContentDescription))
+                .fetchSemanticsNode()
+                .id
+
+        fun assertTheSameAnnouncer() = assertEquals(announcer, rule.onNodeWithTag("quickScan:announcement").fetchSemanticsNode().id)
         val cues =
             listOf(
                 ContinuousScanCue.TurnRemaining(3),
@@ -99,6 +113,7 @@ class ContinuousQuickScanScreenTest {
                     "quickScan:announcement",
                 ).assert(polite)
                 .assertContentDescriptionEquals("Sides mapped: ${state.value.count}/6")
+            assertTheSameAnnouncer()
         }
         rule.runOnIdle { state.value = state.value.next(ContinuousFrame(testSnapshot(testHandoff(Face.entries.take(2))), emptyList()), 0) }
         rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 2/6")
@@ -107,8 +122,14 @@ class ContinuousQuickScanScreenTest {
             .onNodeWithTag("quickScan:announcement")
             .assert(polite)
             .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ContentDescription))
+        assertTheSameAnnouncer()
         rule.runOnIdle { state.value = state.value.next(ContinuousFrame(testSnapshot(testHandoff(Face.entries.take(4))), emptyList()), 0) }
-        rule.onNodeWithTag("quickScan:announcement").assertContentDescriptionEquals("Sides mapped: 4/6")
+        rule.onNodeWithTag("quickScan:announcement").assert(polite).assertContentDescriptionEquals("Sides mapped: 4/6")
+        assertTheSameAnnouncer()
+        // The next increase changes the description of that same node.
+        rule.runOnIdle { state.value = state.value.next(ContinuousFrame(testSnapshot(testHandoff(Face.entries.take(5))), emptyList()), 0) }
+        rule.onNodeWithTag("quickScan:announcement").assert(polite).assertContentDescriptionEquals("Sides mapped: 5/6")
+        assertTheSameAnnouncer()
         assertTrue(
             rule
                 .onNodeWithTag("quickScan:net")
@@ -177,12 +198,60 @@ class ContinuousQuickScanScreenTest {
         rule.onNodeWithTag("quickScan:reviewAndCorrect").assertIsDisplayed().assertTextEquals("Review and Correct")
         feed(3)
         rule.onNodeWithTag("quickScan:reviewAndCorrect").assertDoesNotExist()
+        // Hidden, its place is kept but is no button: a tap there does nothing.
+        rule.onRoot().performTouchInput { click(action.center) }
+        rule.waitForIdle()
+        assertEquals(1, taps)
         feed(6)
         rule.onNodeWithTag("quickScan:reviewAndCorrect").assertIsDisplayed()
         feed(6, ContinuousScanCue.AllVerified)
         rule.onNodeWithTag("quickScan:cue").assertTextEquals("All 54 stickers verified.")
         rule.onNodeWithTag("quickScan:reviewAndCorrect").assertDoesNotExist()
     }
+
+    /**
+     * *Reset*, *Scan face by face* and *Enter colors instead* are where they were when *Review and Correct* appears and
+     * when it hides, so a tap aimed at one of them never lands on another. Hidden, the action is no node at all.
+     */
+    private fun theOtherActionsStayPut() {
+        val state = mutableStateOf(ContinuousQuickScanFlow())
+        rule.setContent {
+            CubentiaTheme { GuidedScanScreen(GuidedScanPhase.Continuous, strings, GuidedScanActions(), continuous = state.value) }
+        }
+
+        fun feed(faces: Int) =
+            rule.runOnIdle {
+                val snapshot = testSnapshot(testHandoff(Face.entries.take(faces)), ContinuousScanCue.TiltAdjacent)
+                state.value = state.value.next(ContinuousFrame(snapshot, emptyList()), 0)
+            }
+
+        fun others() =
+            listOf("quickScan:reset", "quickScan:faceByFace", "scanEnterColors").associateWith {
+                rule
+                    .onNodeWithTag(it)
+                    .assertIsDisplayed()
+                    .fetchSemanticsNode()
+                    .boundsInRoot
+            }
+        feed(3)
+        val hidden = others()
+        rule.onNodeWithTag("quickScan:reviewAndCorrect").assertDoesNotExist()
+        rule.onNodeWithText("Review and Correct").assertDoesNotExist()
+        feed(4)
+        rule.onNodeWithTag("quickScan:reviewAndCorrect").assertIsDisplayed()
+        assertEquals(hidden, others())
+        feed(3)
+        rule.onNodeWithTag("quickScan:reviewAndCorrect").assertDoesNotExist()
+        rule.onNodeWithText("Review and Correct").assertDoesNotExist()
+        assertEquals(hidden, others())
+    }
+
+    @Test fun theOtherActionsStayPutWhenReviewAndCorrectAppearsOrHides() = theOtherActionsStayPut()
+
+    /** The short landscape panel, where the action shares the last row with *Enter colors instead*. */
+    @Test
+    @Config(qualifiers = "w640dp-h360dp-land")
+    fun theOtherActionsStayPutOnALandscapePhoneWhenReviewAndCorrectAppearsOrHides() = theOtherActionsStayPut()
 
     /** The fill of the button [tag], sampled inside its left end, clear of its label. */
     private fun fill(tag: String): Color {
