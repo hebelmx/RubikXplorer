@@ -3062,7 +3062,7 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/spec-gh-390-quick-scan-detector-unavailable-fallback.md"
   - id: "scp-2026-11-26-pr-396-superseded"
     epic: 10
-    action: "Mark PR #396 as a draft now; close it as superseded when the rebuilt Story 10.34 (fresh branch from main, cherry-picking the frame tap, writer, replay, checkFixtureSize and writer guards) opens its PR"
+    action: "PR #396 was closed as superseded on 2026-11-26 and its branch kept; Story 10.35 cherry-picks StickerTruthCheck from it, and the rebuilt Story 10.34 cherry-picks the frame tap, writer, replay, checkFixtureSize and writer guards. Delete the branch (and the RubikXplorer-10-34 worktree) once the rebuilt 10.34 merges"
     owner: "SM / orchestrator"
     status: open
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-26-retire-recorder.md"

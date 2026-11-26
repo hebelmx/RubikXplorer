@@ -69,7 +69,7 @@ The separate debug fixture recorder failed the Story 10.34 device gate because i
   - `exportKotlinStickerReads`, `evaluateScanAccuracy`, `evaluateLiveBaseline`, `evaluateRecognitionApproaches`, `evaluateMatrix`, `evaluateQuickScan`
   - `ScanDiagnostics.onQuickScanRun`
 - **Build-logic:** `CameraSizePolicy.debugOnlyClassGlobs` and the tests that use recorder classes as sample paths (`ShadowReaderPolicyTest`, `CameraSizePolicyTest`, `CameraCompositionFunctionalTest`) are updated. The release guards stay.
-- **PR #396:** becomes a draft now. It is closed as superseded when the rebuilt 10.34 opens its PR from a fresh branch that cherry-picks the kept infrastructure. Its spec (`spec-10-34-…`, written for the old recorder ACs) and its `review` status stay on that branch; the rebuild writes a new spec. On `main`, 10.34 is still `backlog`, so no status downgrade is needed.
+- **PR #396:** closed as superseded on 26 November 2026, with its branch kept. The rebuilt 10.34 starts from a fresh branch that cherry-picks the kept infrastructure from that branch. Its spec (`spec-10-34-…`, written for the old recorder ACs) and its `review` status stay on that branch; the rebuild writes a new spec. On `main`, 10.34 is still `backlog`, so no status downgrade is needed.
 
 ### Supersedes
 
@@ -233,7 +233,7 @@ N/A. No Learner-visible change. The Rec control and the session sheet are debug-
 
 - **`sprint-status.yaml` keys:** no changes. 10.34 stays `backlog` on `main`.
 - **New `action_items`, added when this proposal is applied:**
-  - `scp-2026-11-26-pr-396-superseded`: mark PR #396 as a draft now; close it as superseded when the rebuilt 10.34 opens its PR. Owner: orchestrator.
+  - `scp-2026-11-26-pr-396-superseded`: PR #396 is closed and its branch kept for cherry-picks; delete the branch and the `RubikXplorer-10-34` worktree once the rebuilt 10.34 merges. Owner: orchestrator.
   - `scp-2026-11-26-case-recognition-no-capture-tool`: before `CASE_RECOGNITION` is raised above OFF, decide how Case fixtures are captured (for example a debug recording mode of Case capture, like 10.34). Owner: PO (BMad).
 - **Open action items that name the recorder** (the 10.35 AC disposes of them; listed here so nothing is dropped):
 
@@ -261,7 +261,7 @@ N/A. No Learner-visible change. The Rec control and the session sheet are debug-
 | --- | --- |
 | PO (BMad) | Approve. Run the rebuilt 10.34's Lenovo gate. Later, decide whether the support export is worth its own proposal. |
 | Architect (Winston) | Confirm the AD-9 amendment in the architecture `.memlog.md` (part of applying this proposal). |
-| Orchestrator / Dev (Amelia) | Run Story 10.35 (including moving `StickerTruthCheck` to `main`), then Story 10.34 rebuilt on a fresh branch that cherry-picks from PR #396, then 10.36. Mark PR #396 as a draft now. Close or re-point the recorder action items. |
+| Orchestrator / Dev (Amelia) | Run Story 10.35 (including moving `StickerTruthCheck` to `main`), then Story 10.34 rebuilt on a fresh branch that cherry-picks from PR #396, then 10.36. PR #396 is closed; keep its branch until the rebuilt 10.34 merges. Close or re-point the recorder action items. |
 
 **Success criteria:**
 - After 10.35 there is no `FixtureRecorderActivity`; Case capture, Guided capture and every fixture reader pass.
