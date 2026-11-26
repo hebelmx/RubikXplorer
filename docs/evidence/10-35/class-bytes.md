@@ -78,3 +78,16 @@ release build is unchanged (the recorder and the removed helpers never shipped i
 The debug APK dex totals were measured before the review removed the `includeAwb` parameter (which took a further 963 B off
 the camera class sum); the camera report above is the final tree. The debug APK delta includes the recorder package (about 3.7k source lines with Compose UI), which the camera class sum
 never counted.
+
+## `cornerR8` assemble (the CI build job)
+
+Run on the removal tree (`b6b081cdec0679f466b4d0705a23580e6ff9e0d1`) with the same environment as above, using the
+command of the "Assemble cornerR8 (R8 + LiteRT keep rules)" step in `.github/workflows/ci.yml`:
+
+```text
+./gradlew -Pcubentia.cornerR8=true :app:assembleCornerR8 :app:assembleCornerR8AndroidTest :app:checkCornerR8ShadowReader
+```
+
+- Exit status **0** (`BUILD SUCCESSFUL in 1s`, 107 actionable tasks: 2 executed, 105 up-to-date).
+- Re-run with `--rerun-tasks` added, so no task was taken from an earlier run: exit status **0**
+  (`BUILD SUCCESSFUL in 1m 31s`, 107 actionable tasks: 107 executed).

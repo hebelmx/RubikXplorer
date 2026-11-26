@@ -740,9 +740,12 @@ action_items:
   - id: "scp-2026-11-16-delete-debug-only-launchers"
     epic: 10
     action: "Delete each debug-only launcher once its feature is in the main app build
-      (GuidedScanDebugActivity in Story 10.5 AC 8); at the Epic 10 retro and in each
-      10.11 run, check no Learner feature is reachable only from debug (fixture recorder,
-      ScanDiagnostics, StrictMode, benchmark harnesses stay; re-check spike3d)"
+      (GuidedScanDebugActivity in Story 10.5 AC 8; Story 10.35 deleted the fixture
+      recorder launcher, SCP 2026-11-26 retire-recorder); at the Epic 10 retro and
+      in each 10.11 run, check no Learner feature is reachable only from debug. Debug-only
+      entry points that remain: the PruningTablesBenchmarkActivity and SolveCorpusBenchmarkActivity
+      benchmark harnesses (app/src/debug) and the opt-in Spike3dActivity launcher (-Pcubentia.spike3d);
+      ScanDiagnostics and StrictMode also stay"
     owner: "Dev (Amelia) + SM"
     status: open
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-16-main-app-entry-points.md"
@@ -2656,7 +2659,12 @@ action_items:
     action: "Check the epic-10-context.md recompiled in 10.28 against epics.md: it
       may have dropped the 10.24-10.26 rules (retake merge, corner naming, cube-rule
       fill) and exposure/prompt-capture rules, and added unrelated 10.29 scope (medium;
-      deferred from 10.28, epic-10-context.md; see also epic-10-deferred-10.20-epic-10-context-refresh)"
+      deferred from 10.28, epic-10-context.md; see also epic-10-deferred-10.20-epic-10-context-refresh).
+      Re-pointed to Story 10.35 (SCP 2026-11-26 retire-recorder), which recompiled
+      epic-10-context.md from epics.md: 10.24-10.27 are dropped there, so the context
+      lists them as dropped and states that their retake-merge, corner-naming and
+      cube-rule-fill rules and the two-corner exposure/prompt-capture rules do not apply;
+      10.29 stays because epics.md keeps it in Epic 10"
     owner: "Dev (Amelia)"
     status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa.md"
@@ -3032,10 +3040,11 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
   - id: "epic-10-deferred-10.32-retire-kept-2-corner-code"
     epic: 10
-    action: "Retire the 2-corner code kept for the Story 10.23 tools (QuickScanClassification.kt,
-      CenterCheck, unused SideLight members) and reclaim the camera class bytes when
-      the tools move to the continuous pipeline, per SCP 2026-11-25 continuous-fixture-recorder
-      (low; deferred from 10.32)"
+    action: "Closed in part by Story 10.35 (SCP 2026-11-26 retire-recorder): CenterCheck
+      and the SideLight members only the recorder used are deleted. What remains:
+      QuickScanClassification.kt stays as an evaluation reader (owner :core:domain evaluation);
+      moving it to the evaluation source set is optional future clean-up (low; deferred
+      from 10.32, re-worded by 10.35)"
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
