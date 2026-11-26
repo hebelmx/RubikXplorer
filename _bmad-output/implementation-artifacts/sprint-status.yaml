@@ -3060,6 +3060,18 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-390-quick-scan-detector-unavailable-fallback.md"
+  - id: "scp-2026-11-26-pr-396-superseded"
+    epic: 10
+    action: "PR #396 was closed as superseded on 2026-11-26 and its branch kept; Story 10.35 cherry-picks StickerTruthCheck from it, and the rebuilt Story 10.34 cherry-picks the frame tap, writer, replay, checkFixtureSize and writer guards. Delete the branch (and the RubikXplorer-10-34 worktree) once the rebuilt 10.34 merges"
+    owner: "SM / orchestrator"
+    status: open
+    ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-26-retire-recorder.md"
+  - id: "scp-2026-11-26-case-recognition-no-capture-tool"
+    epic: 10
+    action: "Before CASE_RECOGNITION is raised above OFF, decide how Case fixtures are captured now that the fixture recorder is retired (for example a debug recording mode of Case capture, like Story 10.34)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-26-retire-recorder.md"
   - id: "issue-400-deferred-pin-per-poll-camera-sync"
     epic: 10
     action: "No committed test pins the per-poll Compose sync of awaitScanCamera, and nothing stops a new scan route test from waiting for the camera start with a bare waitUntil again; add a source-scan guard (like ComposeTestTimingGuardTest) or an ordered-pair test, or an AGENTS.md pitfall (medium; deferred from #400, ScanCameraWait.kt:19)"
