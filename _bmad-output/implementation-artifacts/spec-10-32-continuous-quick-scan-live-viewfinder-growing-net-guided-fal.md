@@ -2,7 +2,7 @@
 title: 'Continuous Quick Scan live viewfinder, growing net, Guided fallback, and Review hand-off'
 type: 'feature'
 created: '2026-11-25'
-status: 'draft'
+status: 'blocked'
 baseline_revision: '52b66aefa63ab02f8ae6b08cc6a6e5d769756be8'
 review_loop_iteration: 0
 followup_review_recommended: false
@@ -385,3 +385,28 @@ Status: done. This section supersedes the first pass's follow-up recommendation 
 - Two unverified items deferred to the device pass: the panel on a landscape phone at 200% font, and focus/exposure without cube metering.
 - A camera failure in the middle of a Quick Scan opens the unavailable card, and *Enter colors instead* from there starts with a blank Editor (rejected as rare; recorded in the triage log).
 - The debug run line's `elapsedMs` counts from the screen opening, so it includes a permission prompt and the 1 s completion hold; `evaluateQuickScan`'s 15 s success threshold should be read with that in mind in Story 10.33.
+
+### Review and Correct addition (PO clarification Q8) — 2026-11-25
+
+Status: blocked
+Blocking condition: intent gap
+
+The spec was returned to `draft` to add the mid-scan *Review and Correct* action. Planning stopped before any code or intent-contract change: the investigation hit the condition the product owner named ("if the mapper cannot take corrections back into the map without a behaviour change to ContinuousFaceletMapper, HALT"). Everything above this section is unchanged and still describes the implemented story.
+
+**Evidence gathered (read-only).**
+- `ContinuousFaceletMapper.solveGlobalColorsAndNet` (L952-1151) rebuilds the whole net from the camera observations on every frame (`val newNet = emptyNet()` L1048, `net = newNet` L1148). The mapper's public surface is `reset`, `processFrame`, `exportHandoff`, `export`; nothing accepts a Learner-set sticker. A correction therefore cannot live in the mapper's map without a change to `ContinuousFaceletMapper`.
+- The mapper's cue (`computeCue` L1153), its `Complete` snapshot (`buildSnapshot` L1241) and `export()` (L392) all read only that camera-built net. A correction held outside the mapper would not stop the conflict cue, would not count in "N stickers" cues, and would never let the mapper report the scan complete.
+- A conflicted sticker's colour is discarded: L1140 sets the weakest slot to `null` and L1141 records only the slot. `ContinuousScanSnapshot.net` and `ContinuousFaceHandoff.colors` carry `null` there. Only the slot's averaged Lab is exported (`ContinuousFaceHandoff.labs`), and the six-centre calibration exists only once all six centres were seen.
+- With all six centres in view the mapper re-solves the cube orientation on each frame (L967-1012) and may change `globalRotIdx`; stickers kept outside the mapper by HOME face and cell would then sit on the wrong cells.
+- Non-centre stickers are committed only after all six centre prototypes exist (`protos.size == 6`, L1057). So "more than 50% of the 54 stickers" (28 or more) can be reached only at 6/6 sides; the sides threshold has no effect with today's mapper. Not a blocker; recorded so the parameter is not a surprise.
+
+**Unanswered questions.**
+1. *Where do the corrections live?* (a) Allow an additive change to `ContinuousFaceletMapper` (Learner-pinned stickers that the net, cues, completion and export honour) — this lifts the spec's "no change to ContinuousFaceletMapper" rule and diverges from the PC reference; or (b) keep the mapper untouched and hold the corrections in the screen's own layer on top of the mapper's snapshots and exports. Option (b) needs questions 2-4 answered.
+2. *Under (b), camera against correction:* when the camera later commits a different colour for a sticker the Learner corrected or filled, which one is shown and handed on — the correction always, or the newer camera read?
+3. *Under (b), completion and cues:* do corrected stickers count towards finishing the scan? If yes, the screen (not the mapper) must decide "all 54 valid" and open the final Review, and the cue line must stop naming conflicts the Learner already fixed — which is new cue logic the story forbids ("no cue copy or priority is changed"). If no, the scan can only finish when the camera itself reads all 54, and the corrections matter only on the next visit to Review.
+4. *Under (b), orientation change:* if the mapper changes its orientation solution after corrections were made, are the corrections dropped, or kept on the same HOME cells?
+5. *Conflicted stickers, "Latest read, marked as suspect":* the mapper exposes no colour for a conflicted sticker. (a) Allow the mapper to also output the colour it withdrew (additive output, no decision changed); (b) re-read the colour in the app from the exported averaged Lab with the Review's classifier (a different classifier, an average rather than the latest read, and only possible when a calibration exists); or (c) show the sticker blank and rank it first.
+6. *When the action is not available* (thresholds not met): hidden or shown disabled? And is it available while a layer twist is latched (as *Scan face by face* and *Enter colors instead* are, Q3) and during the 1 s completion hold?
+7. *Per-face retake inside the early Review, then Back:* does the retaken face count as a kept correction (all nine stickers pinned), or is it dropped as Guided captures are on Back today (Story 10.17 rule)?
+
+No commit other than this status record was made in this run; no production code or test was changed.
