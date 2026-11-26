@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Test
 import java.io.File
 
 class ReviewProbeTest {
-    private val out = File("/tmp/claude-1000/-mnt-e-Dynamic-IndFun-RubikXplorer/5fa36894-35c8-4f0d-a8c1-e6ebd0c5af03/scratchpad/probe-out.txt")
+    private val out = File("/path/to/out/probe-out.txt")
 
     @Test
     fun longSessionCost() {

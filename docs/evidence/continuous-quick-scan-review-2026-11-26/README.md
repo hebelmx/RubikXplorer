@@ -2,7 +2,7 @@
 
 Code review of the continuous Quick Scan pipeline on `main` at 79c948e5 (before Story 10.34, PR #396), followed by an adversarial pass that tried to disprove each finding. Scope: `app/src/camera/continuous/` (detector, model transform, face sampler, pipeline), the analyzer wiring in `ScanFrameSource` and `GuidedScanActivity`, `ContinuousQuickScanFlow`, and `core/domain/.../recognition/continuous/` (lattice fitter, projective geometry, colour model, facelet mapper).
 
-The probes are JVM tests run on a scratch copy of the code, not on a device. Their sources are in [`probes/`](probes/). They are kept here as evidence and are not part of the build: `ReviewProbe2Test` needs a two-line patch to `SyntheticCubeStream` (`rx = FingerSize.rx`, `ry = FingerSize.ry`).
+The probes are JVM tests run on a scratch copy of the code, not on a device. Their sources are in [`probes/`](probes/), saved as `.kt.txt` so the build and Spotless ignore them; copy one into `core/domain/src/test/kotlin/dev/cubentia/domain/recognition/continuous/` to run it, and set its output path. Note: `ReviewProbe2Test` needs a two-line patch to `SyntheticCubeStream` (`rx = FingerSize.rx`, `ry = FingerSize.ry`).
 
 ## Verdicts
 
