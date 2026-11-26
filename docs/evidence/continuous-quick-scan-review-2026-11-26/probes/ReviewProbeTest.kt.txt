@@ -1,0 +1,65 @@
+package dev.cubentia.domain.recognition.continuous
+
+import org.junit.jupiter.api.Test
+import java.io.File
+
+class ReviewProbeTest {
+    private val out = File("/path/to/out/probe-out.txt")
+
+    @Test
+    fun longSessionCost() {
+        val cfg = SyntheticCubeStream.buildScenarios()[0]
+        val frames = SyntheticCubeStream.generateSequence(cfg)
+        // warm the JIT on a throwaway mapper
+        repeat(3) { val w = ContinuousFaceletMapper(); frames.forEach { w.processFrame(it.frameIndex, it.detections) } }
+        val mapper = ContinuousFaceletMapper()
+        var idx = 0
+        // stop before the scan completes so the session looks like a stalled, still-running scan
+        val head = frames.take(45)
+        for (fr in head) mapper.processFrame(idx++, fr.detections)
+        val still = head.last().detections
+        val sb = StringBuilder("longSession: faces in still frame=${still.size}\n")
+        val block = 1000
+        repeat(12) { b ->
+            val t0 = System.nanoTime()
+            var last: ContinuousScanSnapshot? = null
+            repeat(block) { last = mapper.processFrame(idx++, still) }
+            val ms = (System.nanoTime() - t0) / 1e6 / block
+            val rt = Runtime.getRuntime()
+            System.gc()
+            val usedMb = (rt.totalMemory() - rt.freeMemory()) / 1e6
+            sb.append("frames=${(b + 1) * block} msPerFrame=${"%.3f".format(ms)} heapMb=${"%.1f".format(usedMb)} committed=${last!!.committedCount} twist=${last!!.twistDetected}\n")
+        }
+        out.appendText(sb.toString())
+    }
+
+    private fun fingerProbe(cells: Set<Int>, label: String) {
+        val cfg = SyntheticCubeStream.buildScenarios()[0]
+        val frames = SyntheticCubeStream.generateSequence(cfg)
+        val mapper = ContinuousFaceletMapper()
+        var idx = 0
+        val head = frames.take(45)
+        var snap: ContinuousScanSnapshot? = null
+        for (fr in head) snap = mapper.processFrame(idx++, fr.detections)
+        val still = head.last().detections
+        repeat(10) { snap = mapper.processFrame(idx++, still) }
+        val before = snap!!.twistDetected
+        val big = still.indices.maxBy { ProjectiveGeometry.quadArea(still[it].quad) }
+        val skin = RgbColor(205.0, 160.0, 135.0)
+        val occluded = still.mapIndexed { i, o ->
+            if (i != big) o else o.copy(cellRgbs = o.cellRgbs.mapIndexed { c, rgb -> if (c in cells) skin else rgb })
+        }
+        val sb = StringBuilder("finger[$label]: twistBefore=$before quals=${still[big].cellQualities.map { "%.2f".format(it) }} rgbs=${still[big].cellRgbs.map { "(${it.r.toInt()},${it.g.toInt()},${it.b.toInt()})" }}\n")
+        for (k in 1..8) {
+            snap = mapper.processFrame(idx++, occluded)
+            sb.append("  occludedFrame=$k twist=${snap!!.twistDetected} cue=${snap!!.cue}\n")
+        }
+        out.appendText(sb.toString())
+    }
+
+    @Test fun fingerRow() = fingerProbe(setOf(0, 1, 2), "row 0-1-2")
+
+    @Test fun fingerTwo() = fingerProbe(setOf(0, 1), "cells 0-1")
+
+    @Test fun fingerColumn() = fingerProbe(setOf(2, 5), "cells 2-5")
+}
