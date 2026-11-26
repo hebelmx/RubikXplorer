@@ -3030,3 +3030,9 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
+  - id: "issue-389-deferred-face-sampler-short-frame-crash"
+    epic: 10
+    action: "ContinuousFaceSampler.sample can still throw outside detect() on a camera frame whose plane buffer is short only in its last rows, which still crashes the continuous Quick Scan analyzer; guard that path or catch in the analyzer (medium; deferred from #389, ContinuousFaceSampler.kt:182)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-389-continuous-quick-scan-bad-frame-skip.md"
