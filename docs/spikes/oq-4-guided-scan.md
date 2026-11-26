@@ -55,6 +55,8 @@ Accuracy is `correct predicted stickers / explicitly labeled stickers`. Report u
 
 ## Prototype and size cost
 
+> Story 10.35 retired the debug fixture recorder; the recorder text below is kept as history. See `docs/evidence/10-35/legacy-replay.md` for the replay commands and the last revision that contains it.
+
 The fixture recorder is composed automatically into camera-enabled debuggable build types from `app/src/camera/debug`. Release and benchmark never include the recorder, even when a camera flag is raised. CameraX dependencies and CAMERA permission follow the camera feature flags. Since Story 10.12 each Capture also saves one downscaled JPEG of the measured frame (long edge ≤ 1024 px, quality 85) next to the face's JSON, for the Story 10.13 OpenCV/ML comparison; only the debug recorder writes frames, and nothing else leaves the analyzer. Low-light and glare checks and manual quality controls remain prototype aids, not validated blur or alignment detection.
 
 The size figures below are historical Story 1.9 measurements from the former opt-in prototype, not measurements of the current recorder.
@@ -91,6 +93,8 @@ Entered-only accuracy counts only stickers whose truth the operator entered; pre
 | Device: samsung SM-S721U1 | 322/324 | 99.3827% | 120/122 | 98.3607% | 34/36 | 94.4444% | 2 | 0 | see groups |
 | Total | 645/648 | 99.5370% | 237/240 | 98.7500% | 69/72 | 95.8333% | 3 | 0 | see groups |
 <!-- live-baseline:end -->
+
+> Story 10.35 retired the debug fixture recorder; the recorder text below is kept as history. See `docs/evidence/10-35/legacy-replay.md` for the replay commands and the last revision that contains it.
 
 Install the debug APK and launch **Cubentia fixture recorder** with `adb shell am start -n com.exxerpro.cubentia/dev.cubentia.app.camera.recorder.FixtureRecorderActivity` (it has no launcher icon since 2026-11-18, so it can't be opened by accident). The screen does not scroll: on a phone the viewfinder (grid, calibration ring, 6-face progress strip) sits on top, then the face net beside a 2×3 palette (W Y R O G B), a status line and one primary action; on a 600 dp or landscape screen the viewfinder is on the left. For each device × cube (session A2: both gating devices, cubes `stla`, `stka`, `stlb`, `stkb`, studio light):
 

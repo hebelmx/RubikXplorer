@@ -583,13 +583,12 @@ internal class TorchControl(
 /**
  * Quick Scan's torch toggle (Stories 10.19, 10.32): a flash icon with a visible label in the viewfinder's top corner. The
  * label is the current state ("Torch on" / "Torch off") and is the button's only text, so it is what TalkBack reads; a tap
- * toggles it. Story 10.20: the debug fixture recorder shows the same control under its own [testTag].
+ * toggles it.
  */
 @Composable
 internal fun TorchButton(
     torch: TorchControl,
     modifier: Modifier = Modifier,
-    testTag: String = "quickScan:torch",
 ) {
     val label = torch.strings.resolve(ContentText(if (torch.on) "btn.quick-scan.torch-on" else "btn.quick-scan.torch-off"))
     val content = if (torch.on) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
@@ -603,7 +602,7 @@ internal fun TorchButton(
                 .heightIn(min = 48.dp)
                 // The state label is the spoken text; no toggleable state, so TalkBack reads the state once.
                 .semantics { role = Role.Button }
-                .testTag(testTag),
+                .testTag("quickScan:torch"),
         shape = RoundedCornerShape(24.dp),
         color = if (torch.on) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
         contentColor = if (torch.enabled) content else content.copy(alpha = DISABLED_ALPHA),

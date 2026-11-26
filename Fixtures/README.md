@@ -70,6 +70,8 @@ Run `python3 -m pip install -r tools/requirements-photo-eval.txt` once, then `py
 
 `live/<device>_<cube>_<light>/<FACE>.json` contains one self-contained record per face (U, R, F, D, L, B). Each directory part is lowercase ASCII letters/digits with other runs collapsed to hyphens and trimmed; empty parts are rejected. Records include schema version, model/manufacturer, OS release/build, SDK, ISO-8601 capture time, cube/light descriptions, six calibration centers and a labeled CIELAB FaceSample. Schema 2 (Story 10.12) adds `truthSources`, nine `"entered"`/`"prefilled"` values saying whether the operator set each sticker or kept a close-call-gated prefill, and `frame`, the sibling `<FACE>.jpg` (the measured frame, long edge ≤ 1024 px). Schema-1 records (session A) have neither and count every sticker as entered. Recapture overwrites both files.
 
+> Story 10.35 retired the debug fixture recorder (and the `tools/cube-session.sh recorder|pull` commands); the recording steps below are kept as history. The fixtures stay readable; see `docs/evidence/10-35/legacy-replay.md` for the replay commands and the last revision that contains the recorder.
+
 After recording with the debug **Cubentia fixture recorder**, pull into the repository root:
 
 ```sh
@@ -88,6 +90,8 @@ The pull brings the JPEG frames with the JSON. Review the exported metadata, tru
 `./gradlew :core:domain:evaluateScanAccuracy` runs the same `live/` records through the product scan pipeline of OQ-7 decision K: the all-Kotlin cell reader on the A2 frames (ImageIO decode, sRGB → CIELAB, histogram mode, no OpenCV) and on the recorded center-pixel samples, then self-calibration from the six centers and assembly into URFDLB. It rewrites only the generated span of `docs/scan-accuracy.md` (per-device sticker and scan accuracy, confidently wrong, the logo-center guard). It is on demand and not part of `build`.
 
 ### Quick Scan corner fixtures
+
+> Story 10.35 retired the debug fixture recorder (and the `tools/cube-session.sh recorder|pull` commands); the recording steps below are kept as history. The fixtures stay readable; see `docs/evidence/10-35/legacy-replay.md` for the replay commands and the last revision that contains the recorder.
 
 In the debug fixture recorder's Cube and light dialog, enable **Corner mode**.
 Calibrate the six colors, then align white on top, green on the left and red

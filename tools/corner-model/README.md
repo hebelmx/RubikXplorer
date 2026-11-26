@@ -72,7 +72,7 @@ index against the folders and the AC2 coverage (per device at least 20 held-out 
 a tuning group per front-lit device × light × torch condition, a backlit group per device).
 
 Only **keypoint fixtures** are read; the color records (`corner-<hold>.json`, schema 3/4, with `labeledSamples`), the
-`group.json` manifests in the same folders and the `groups.json` index are skipped. The 10.19 fixture recorder (debug build, corner mode) writes each
+`group.json` manifests in the same folders and the `groups.json` index are skipped. The 10.19 fixture recorder (debug build, corner mode; retired by Story 10.35, see `docs/evidence/10-35/legacy-replay.md`) wrote each
 capture as `<group>/keypoints/NNNN.json` with `NNNN.png`:
 
 ```json

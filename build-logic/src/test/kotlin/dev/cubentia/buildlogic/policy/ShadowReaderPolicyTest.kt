@@ -20,7 +20,6 @@ class ShadowReaderPolicyTest {
                         "dev/cubentia/app/camera/CornerReader.class",
                         "dev/cubentia/app/camera/continuous/LiteRtStickerCenterDetector.class",
                         "dev/cubentia/app/camera/sticker/ShadowStickerReader.class",
-                        "dev/cubentia/app/camera/recorder/RecorderBurst.class",
                     ),
             )
         assertEquals(
@@ -35,7 +34,7 @@ class ShadowReaderPolicyTest {
     @Test
     fun `the camera size sum leaves out debug-only tools and legacy corner classes`() {
         assertEquals(
-            listOf("dev/cubentia/app/camera/recorder/**", "dev/cubentia/app/camera/sticker/**"),
+            listOf("dev/cubentia/app/camera/sticker/**"),
             CameraSizePolicy.debugOnlyClassGlobs,
         )
         assertEquals(

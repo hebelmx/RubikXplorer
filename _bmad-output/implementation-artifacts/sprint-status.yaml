@@ -2345,7 +2345,7 @@ action_items:
       check FrameQuality on the located faces and drop the EV+ hint when glare is
       the cause (low; deferred from #329, RecorderRules.kt:370)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-329-recorder-dark-faces-hint.md"
   - id: "issue-329-deferred-no-jpeg-says-detector-missed"
     epic: 10
@@ -2353,7 +2353,7 @@ action_items:
       the detector found the cube; show a separate 'no image encoded' status (low;
       deferred from #329, FixtureRecorderScreen.kt:351)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-329-recorder-dark-faces-hint.md"
   - id: "issue-329-deferred-evidence-floor-constant-drift"
     epic: 10
@@ -2402,14 +2402,14 @@ action_items:
       hide a dropped argument; remove the default so callers must pass it (medium;
       deferred from #330, FixtureRecorderScreen.kt:423)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-330-recorder-hold-settle-after-ev.md"
   - id: "issue-330-deferred-evindex-without-ev-step"
     epic: 10
     action: "evIndex is saved without the camera EV step size, so the EV offset cannot
       be compared across devices; add an evStep field (low; deferred from #330, LiveFixture.kt:209)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-330-recorder-hold-settle-after-ev.md"
   - id: "issue-330-deferred-settle-null-holds-refit"
     epic: 10
@@ -2417,7 +2417,7 @@ action_items:
       group 9 sm-s721u1_stla_ceilback hold 2) need a refit decision or a re-record
       (low; deferred from #330)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-330-recorder-hold-settle-after-ev.md"
   - id: "issue-325-deferred-find-my-place-discard-lands-stage-list"
     epic: 10
@@ -2641,7 +2641,7 @@ action_items:
       them; confirmCornerFace, retakeHold and saveOverride have no test (medium; deferred
       from 10.28, FixtureRecorderScreen.kt:415)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa.md"
   - id: "epic-10-deferred-10.28-count-check-write-retry"
     epic: 10
@@ -2649,7 +2649,7 @@ action_items:
       PENDING (unsaved, ignored by every consumer) with only a status line; keep the
       holds and offer a retry as saveOverride does (medium; deferred from 10.28, FixtureRecorderScreen.kt:471)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa.md"
   - id: "epic-10-deferred-10.28-epic-10-context-drift"
     epic: 10
@@ -2658,7 +2658,7 @@ action_items:
       fill) and exposure/prompt-capture rules, and added unrelated 10.29 scope (medium;
       deferred from 10.28, epic-10-context.md; see also epic-10-deferred-10.20-epic-10-context-refresh)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa.md"
   - id: "epic-10-deferred-10.28-recorder-ui-device-check"
     epic: 10
@@ -2667,7 +2667,7 @@ action_items:
       1/2, Override dialog (blank reason refused), side-face Confirm lock (medium;
       deferred from 10.28, FixtureRecorderScreen.kt)"
     owner: "PO (BMad)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa.md"
   - id: "epic-12-deferred-12.4-green-release-device-run"
     epic: 12
@@ -2707,7 +2707,7 @@ action_items:
       detector found no cube; give a missing JPEG its own reason (low; deferred from
       #318, FixtureRecorderScreen.kt:380)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-318-recorder-keypoints-only-save-explains.md"
   - id: "issue-318-deferred-missed-hold-untested"
     epic: 10
@@ -2716,7 +2716,7 @@ action_items:
       helper and test it, or confirm it in the next device session (low; deferred
       from #318, FixtureRecorderScreen.kt:181)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-318-recorder-keypoints-only-save-explains.md"
   - id: "issue-318-deferred-missed-hold-reset-race"
     epic: 10
@@ -2725,7 +2725,7 @@ action_items:
       corner 1\"; set it only when the hold and reset generation are unchanged (low;
       deferred from #318, FixtureRecorderScreen.kt:412)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-318-recorder-keypoints-only-save-explains.md"
   - id: "issue-318-deferred-status-retake-clause-cut"
     epic: 10
@@ -2733,7 +2733,7 @@ action_items:
       trailing \"Retake corner N\" clause can be cut off on narrow screens (the reason
       and the Retake button stay visible) (low; deferred from #318, FixtureRecorderScreen.kt:881)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-318-recorder-keypoints-only-save-explains.md"
   - id: "scp-2026-11-24-quick-scan-port-stories"
     epic: 10

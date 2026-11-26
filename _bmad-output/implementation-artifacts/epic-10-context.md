@@ -38,6 +38,9 @@ A Learner can put their real cube into the app with the camera: scan it face by 
 - Story 10.31: Wire LiteRT v2 INT8 sticker-center detector, split `continuous` source set, and retire shadow reader
 - Story 10.32: Continuous Quick Scan live viewfinder, growing net, Guided fallback, and Review hand-off
 - Story 10.33: Continuous Quick Scan physical-device matrix and PO BETA call
+- Story 10.34: Record and replay a continuous Quick Scan session in the developer build's Quick Scan
+- Story 10.35: Retire the Quick-Scan-only two-corner recorder paths
+- Story 10.36: Record new scrambles on the continuous recorder, analyse them, and improve continuous Quick Scan
 
 ## Requirements & Constraints
 
@@ -46,7 +49,7 @@ A Learner can put their real cube into the app with the camera: scan it face by 
 - **Quick Scan GA bar.** At least 95% of scans reach a valid state with at most 3 corrections (the Guided fallback is allowed), in under 15 s. Below that bar it ships as BETA.
 - **Latency.** Full per-frame pipeline p50: 50 ms or less on the Lenovo TB128XU, 20 ms or less on the Galaxy S24 FE.
 - **Devices.** The Lenovo Tab M10 Plus 3rd Gen (TB128XU, no flash) is the gating minimum. The Galaxy S24 FE is the mid-range gate. The Galaxy Tab S7 FE 5G is for compatibility only. Layout must fit a phone in portrait without scrolling, and work at 200% font on the Lenovo's 600 dp width without cutting or breaking words.
-- **Privacy and size.** Frames stay in memory and are never stored, sent or logged. `CAMERA` is the only runtime permission, and there is still no internet permission. The release must stay under 30,000,000 B, checked by `:app:checkCameraSize` and by a real minified 0.11.0-profile build. 16 KB ELF alignment is required. No ML Kit, Play-services ML or OpenCV.
+- **Privacy and size.** Frames stay in memory and are never stored, sent or logged by any release or benchmark build; the only exception is the debug-only Quick Scan session recording, which saves frames on an operator's own device on request. `CAMERA` is the only runtime permission, and there is still no internet permission. The release must stay under 30,000,000 B, checked by `:app:checkCameraSize` and by a real minified 0.11.0-profile build. 16 KB ELF alignment is required. No ML Kit, Play-services ML or OpenCV.
 - **Exit and review rules.**
   - Guided Scan: closing with no face captured leaves at once. With faces captured it asks "Discard the faces you captured?".
   - Quick Scan: closing leaves at once at 0 mapped faces. Otherwise it asks "Discard this scan?".
@@ -54,7 +57,7 @@ A Learner can put their real cube into the app with the camera: scan it face by 
   - System Back behaves the same as *Close*.
 - **Acceptance.** Camera stories are accepted on the main app build from their real entry point, with the flag raised in debug. A debug-only launcher is never the gate. Learner text comes from content strings (`checkLearnerText`). Device evidence goes to `docs/evidence/<story>/`.
 - **Release passes.** From the first release that raises `CAMERA_SCAN` (0.11.0), the camera flows are part of the accessibility manual check, the performance pass and the recognition release gate. A release with every camera flag OFF declares no runtime permission.
-- **Fixtures.** Held-out groups are never used for tuning. The recorder refuses a corner group that does not have exactly 9 of each colour, unless the operator gives a written override reason.
+- **Fixtures.** Held-out groups are never used for tuning. The nine-of-each-colour rule lives on in `StickerTruthCheck` (`:core:domain`): labels without exactly 9 of each colour, or with an unreviewed pre-fill, are refused, and an off-count set is saved only with a non-blank operator reason. The separate debug fixture recorder is retired; its fixtures in `Fixtures/live`, `corner`, `matrix` and `labeled` stay as read-only evidence for the `:core:domain` evaluation readers.
 
 ## Technical Decisions
 
@@ -66,7 +69,8 @@ A Learner can put their real cube into the app with the camera: scan it face by 
 - **Flags compose the build.** `QUICK_SCAN` above OFF composes `camera/continuous/`. `CASE_RECOGNITION` alone composes the legacy `camera/corner/` model, and it stays OFF in 0.11.0 and v1.0.0. LiteRT is included only when either flag is above OFF.
 - **Shadow reader retired.** The Story 10.23 shadow reader is removed. `ShadowReaderPolicy` stays as a release guard against any `sticker_reader*.tflite` asset or `camera/sticker/` class.
 - **Model provenance.** The training and evaluation recipe lives in `tools/center-model/`, with a model card, the full SHA-256 and a holdout-disjointness test.
-- **Two-corner code removal.** The Quick-Scan-only two-corner code is removed. `CornerLocator`, `CornerReader` and `CornerGuide` stay, because `CASE_RECOGNITION` and the fixture recorder still use them.
+- **Two-corner code removal.** The Quick-Scan-only two-corner code and the separate fixture recorder are removed. `CornerLocator`, `CornerReader` and `CornerGuide` stay, because Case recognition (`CASE_RECOGNITION`) still uses them.
+- **Session recording (10.34).** Continuous sessions are recorded from the debug build's real Solve-tab Quick Scan (same camera configuration, pipeline and UI), never from a separate capture screen. The writer, Rec control and labeller live in the debug-only package `dev.cubentia.app.camera.session`, reached only through optional bindings the debug camera source set provides; release, benchmark and minified builds carry no writer, guarded by a build check.
 - **Calibration.** `CalibrationRepository` is the only owner of calibration. Calibration is never stored in session state or a Checkpoint.
 - **State changes.** The scan flow returns a `ScanOutcome`, and only the caller dispatches it. Solution Playback actions go through `SessionEvent` → `reduce()`. A ViewModel or composable never mutates state.
 - **Quick Check result (10.29).** Lessons and Solution Playback share one result component. It shows the Certainty chip from `Assess` and never a numeric confidence.
@@ -85,7 +89,7 @@ A Learner can put their real cube into the app with the camera: scan it face by 
 
 ## Cross-Story Dependencies
 
-- **Remaining order:** 10.30 → 10.31 → 10.32 → 10.33, then the 10.11 run that raises `QUICK_SCAN`. 10.30 is device-free. 10.31 needs an R8 benchmark on both gating devices. 10.33 records the PO's BETA call in the PRD memlog.
+- **Remaining order:** 10.33 (live matrix and the PO's BETA call), and 10.35 → 10.34 → 10.36. 10.35 is device-free and retires the recorder before 10.34 rebuilds session recording on a fresh branch from `main`. 10.36 records with the 10.34 mode, and its labels pass `StickerTruthCheck`. The recording stories are debug tooling and gate no tag; 10.11 waits on 10.36 only when 10.33 does not call `QUICK_SCAN` BETA.
 - **10.11:** depends on 12.3, 12.4 and 13.6 and runs before 12.5. Its first run, 0.11.0, raises `CAMERA_SCAN` to GA and `PLACEMENT` to BETA. `QUICK_SCAN` goes to BETA in the same run only if 10.30–10.33 are done; otherwise it follows in a later 0.11.x run.
 - **12.5:** promotes a new v1.0.0 tag cut from main, with the same flag levels.
 - **Privacy page:** the site's privacy page must update before the tag.

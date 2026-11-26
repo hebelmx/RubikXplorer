@@ -78,10 +78,9 @@ class CameraXFrameSourceTest {
         }
     }
 
-    @Test fun meteringIncludesAwbOnlyWhenAsked() {
+    @Test fun meteringIncludesAfAeAndAwb() {
         val afAe = FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE
-        assertEquals(afAe or FocusMeteringAction.FLAG_AWB, CameraXFrameSource.meteringFlags(includeAwb = true))
-        assertEquals(afAe, CameraXFrameSource.meteringFlags(includeAwb = false))
+        assertEquals(afAe or FocusMeteringAction.FLAG_AWB, CameraXFrameSource.meteringFlags())
     }
 
     @Test fun cornerFramesUseTheInjectedDetectorInsteadOfTheHeuristic() {

@@ -122,15 +122,11 @@ class SideLightTest {
         assertTrue(verdict.passed)
         assertNull(verdict.leftDifference)
         assertNull(verdict.darkerSideDifference)
-        assertTrue(SideLight.check(listOf(null, null, null)).passed)
+        assertTrue(SideLight.checkSamples(listOf(null, null, null)).passed)
     }
 
     @Test
-    fun `frame stats and samples are checked by their cell lightness in hold order`() {
-        fun stats(level: Double) = FrameStats(face(level).map { CellReading(Lab(it!!, 0.0, 0.0), true) }, 120.0, 0.0, 100.0, 12)
-        assertFalse(SideLight.check(listOf(stats(90.0), stats(50.0), stats(88.0))).passed)
-        assertTrue(SideLight.check(listOf(stats(90.0), null, stats(50.0))).passed)
-
+    fun `samples are checked by their sticker lightness in hold order`() {
         fun sample(level: Double) =
             FaceSample(
                 face = dev.cubentia.domain.cube.Face.U,

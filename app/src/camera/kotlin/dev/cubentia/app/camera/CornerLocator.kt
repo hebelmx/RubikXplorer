@@ -23,8 +23,8 @@ internal data class CornerPoint(
 }
 
 /**
- * The corner model's input crop half-size as a multiple of the guide radius: the one value both the model transform
- * (`CornerModelTransform`) and the debug fixture recorder's model-input crop use (Story 10.19).
+ * The corner model's input crop half-size as a multiple of the guide radius (Story 10.19), defined once for the model
+ * transform (`CornerModelTransform`).
  */
 internal const val CORNER_MODEL_CROP_RADIUS_MULTIPLIER = 1.65
 
