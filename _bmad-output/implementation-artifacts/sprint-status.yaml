@@ -2980,7 +2980,7 @@ action_items:
     epic: 10
     action: "Describe the Review and Correct action, the keep-only-fully-read-faces hand-over rule and the two-pane layout from 600 dp in the Story 10.32 acceptance criteria and the UX Quick Scan capture row through bmad-correct-course (medium; deferred from 10.32)"
     owner: "PO (BMad)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
   - id: "epic-10-deferred-10.32-net-drawing-untested"
     epic: 10
