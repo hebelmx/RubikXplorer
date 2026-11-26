@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-25-2026 19:15'
+last_updated: '11-25-2026 22:30'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -161,6 +161,7 @@ development_status:
   10-33-continuous-quick-scan-physical-device-matrix-and-po-beta-cal: backlog
   10-34-record-and-replay-a-continuous-quick-scan-session-in-the-dev: backlog
   10-35-retire-the-quick-scan-only-two-corner-recorder-paths: backlog
+  10-36-record-new-scrambles-on-the-continuous-recorder-analyse-the: backlog
   10-22-quick-scan-captures-promptly-once-the-cube-is-in-view: done
   10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads: done
   epic-10-retrospective: optional
@@ -189,6 +190,7 @@ development_status:
   12-15-move-pictures-and-the-move-strip: done
   12-16-see-the-turn-while-dragging-commit-on-release: done
   12-17-know-when-the-view-is-rotated-and-reset-it-in-one-tap: done
+  12-18-settle-every-open-action-item-before-the-camera-release: backlog
   epic-12-retrospective: optional
 
   epic-13: in-progress
