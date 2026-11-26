@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-25-2026 16:45'
+last_updated: '11-25-2026 18:56'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -157,8 +157,7 @@ development_status:
   10-29-solution-playback-shows-the-same-quick-check-result-as-lesso: done
   10-30-port-continuous-facelet-lattice-fitter-and-cube-mapper-to-pu: done
   10-31-wire-litert-v2-int8-sticker-center-detector-split-continuous: done
-  10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal: 
-    in-progress
+  10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal: review
   10-33-continuous-quick-scan-physical-device-matrix-and-po-beta-cal: backlog
   10-22-quick-scan-captures-promptly-once-the-cube-is-in-view: done
   10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads: done
