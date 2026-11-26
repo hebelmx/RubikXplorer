@@ -711,14 +711,14 @@ action_items:
     action: "Update docs/release.md:15 and :23 to the merged-first flow: tags from
       main, pilot-install confirmation in #127, not the 7.8 PR"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-7-retro-2026-11-12.md"
   - id: "epic-7-retro-item-68-add-a-release-apk-install-and-launch-smo"
     epic: 7
     action: "Add a release-APK install-and-launch smoke test to release.yml before
       Play upload (7.8 deferred medium; closes epic-2-retro-item-6)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/epic-7-retro-2026-11-12.md"
   - id: "epic-7-retro-item-69-re-scope-epic-4-retro-item-15-to-lessons"
     epic: 7
