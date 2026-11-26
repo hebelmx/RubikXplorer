@@ -5,6 +5,7 @@ import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
 import dev.cubentia.app.camera.continuous.LiteRtStickerCenterDetector
 import dev.cubentia.app.camera.corner.LiteRtCornerDetector
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -29,11 +30,21 @@ class CornerDetectorBindingTest {
     @Inject
     internal lateinit var stickerCenterDetector: Optional<StickerCenterDetector>
 
+    @Inject
+    internal lateinit var stickerCenterDetectorAgain: Optional<StickerCenterDetector>
+
     @Inject internal lateinit var engines: Optional<ContinuousScanEngineFactory>
 
     @Test fun continuousFactoryCreatesIndependentScanSessions() {
         assertTrue(engines.isPresent)
         assertTrue(engines.get().create() !== engines.get().create())
+    }
+
+    /** GH #390: one detector for the app process, so its unavailable state reaches every later scan before any frame. */
+    @Test
+    fun debugGraphHandsEveryScanTheSameStickerCenterDetector() {
+        assertTrue(stickerCenterDetector.isPresent && stickerCenterDetectorAgain.isPresent)
+        assertSame(stickerCenterDetector.get(), stickerCenterDetectorAgain.get())
     }
 
     @Before

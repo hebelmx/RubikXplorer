@@ -18,8 +18,11 @@ internal data class ContinuousFrame(
     val viewOverlays: List<ContinuousOverlayQuad>,
 )
 
-/** Session-scoped mapper. All calls belong to the scan's single analyzer executor. */
+/** Session-scoped mapper. Frame processing, reset and export belong to the scan's single analyzer executor. */
 internal interface ContinuousScanEngine {
+    /** Process-wide detector failure, readable on any thread without starting analysis. */
+    val detectorUnavailable: Boolean
+
     fun processFrame(
         frame: YuvFrame,
         rotationDegrees: Int,

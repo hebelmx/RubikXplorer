@@ -2892,7 +2892,7 @@ action_items:
       is not read as no cube in view and Quick Scan can fall back to Guided Scan (medium;
       deferred from 10.31, LiteRtStickerCenterDetector.kt:160)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-31-wire-litert-v2-int8-sticker-center-detector-split-continuous.md"
   - id: "epic-10-deferred-10.31-parity-test-skips-and-1px-tolerance"
     epic: 10
@@ -2950,7 +2950,7 @@ action_items:
       and return EMPTY, so a short plane buffer cannot crash the analyzer thread (low;
       deferred from 10.31, LiteRtStickerCenterDetector.kt:73)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-31-wire-litert-v2-int8-sticker-center-detector-split-continuous.md"
   - id: "epic-10-deferred-10.32-calibration-restarts-quick-scan"
     epic: 10
@@ -2990,7 +2990,7 @@ action_items:
       criteria and the UX Quick Scan capture row through bmad-correct-course (medium;
       deferred from 10.32)"
     owner: "PO (BMad)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
   - id: "epic-10-deferred-10.32-net-drawing-untested"
     epic: 10
@@ -3055,3 +3055,33 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
+  - id: "issue-389-deferred-face-sampler-short-frame-crash"
+    epic: 10
+    action: "ContinuousFaceSampler.sample can still throw outside detect() on a camera frame whose plane buffer is short only in its last rows, which still crashes the continuous Quick Scan analyzer; guard that path or catch in the analyzer (medium; deferred from #389, ContinuousFaceSampler.kt:182)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-389-continuous-quick-scan-bad-frame-skip.md"
+  - id: "issue-390-deferred-all-frames-fail-never-unavailable"
+    epic: 10
+    action: "A camera whose every frame fails input conversion or peak decoding never latches the detector unavailable, so continuous Quick Scan shows the bring-into-view cue for ever and the fallback card never appears; PO decides how many consecutive failed frames mean the detector cannot run (medium; deferred from #390, LiteRtStickerCenterDetector.kt:117)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-390-quick-scan-detector-unavailable-fallback.md"
+  - id: "issue-390-deferred-talkback-card-device-check"
+    epic: 10
+    action: "Check on a physical device with TalkBack that the Quick Scan unavailable card is spoken once when it replaces the live scan and when Quick Scan is reopened; it is asserted only as a pane-title semantics property, and forcing the state needs a debug build with a missing or corrupt model asset (medium, unverified; deferred from #390, GuidedScanScreen.kt:322)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-390-quick-scan-detector-unavailable-fallback.md"
+  - id: "issue-390-deferred-first-open-shows-live-scan-briefly"
+    epic: 10
+    action: "In a fresh app process with a broken detector model, continuous Quick Scan shows the live scan and the bring-into-view cue until the first analysed frame latches the detector, because the model loads lazily; accept it or hold the cue until the first frame has been analysed (low; deferred from #390, GuidedScanActivity.kt:636)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-390-quick-scan-detector-unavailable-fallback.md"
+  - id: "issue-390-deferred-face-by-face-tap-before-calibration-load"
+    epic: 10
+    action: "A Scan face by face tap on a reopened Quick Scan unavailable card before the calibration load finishes is reset back to the card and leaves a stale hand-over; skip the post-load phase reset when the viewfinder is a hand-over, with a test (low; deferred from #390, GuidedScanActivity.kt:175)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-390-quick-scan-detector-unavailable-fallback.md"

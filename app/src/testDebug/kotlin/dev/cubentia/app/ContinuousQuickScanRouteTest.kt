@@ -2,6 +2,7 @@ package dev.cubentia.app
 
 import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Looper
 import android.view.HapticFeedbackConstants
 import android.view.View
@@ -10,9 +11,13 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -116,12 +121,18 @@ class ContinuousQuickScanRouteTest {
     /** How many engines the factory made (one per scan, kept across a rotation) and how often one was reset. */
     private var enginesCreated = 0
 
+    @Volatile private var exports = 0
+
+    @Volatile private var unavailable = false
+
     @Volatile private var engineResets = 0
 
     @BindValue internal val engines: ContinuousScanEngineFactory =
         ContinuousScanEngineFactory {
             enginesCreated++
             object : ContinuousScanEngine {
+                override val detectorUnavailable get() = unavailable
+
                 override fun processFrame(
                     frame: YuvFrame,
                     rotationDegrees: Int,
@@ -137,6 +148,7 @@ class ContinuousQuickScanRouteTest {
 
                 override fun export(): ContinuousScanExport {
                     assertTrue(Thread.currentThread() !== Looper.getMainLooper().thread)
+                    exports++
                     return exported
                 }
             }
@@ -286,6 +298,359 @@ class ContinuousQuickScanRouteTest {
             }
         } finally {
             main.pause().stop().destroy()
+        }
+    }
+
+    /**
+     * GH #390: the detector latches unavailable and the camera delivers the frame it failed on; the snapshot it carries is
+     * an empty one, so a test sees at once if the card's route ever published it over the shown map.
+     */
+    private fun feedUnavailable(beforeMainHandlesFrame: () -> Unit = {}) {
+        unavailable = true
+        val frame = ContinuousFrame(testSnapshot(testHandoff(emptyList())), emptyList())
+        camera.feed(ScanFrame(stats(Color.WHITE), 0, continuous = frame), beforeMainHandlesFrame)
+    }
+
+    private val unavailableMessage = "Quick Scan isn't available right now. You can scan face by face or enter your cube's colors by hand."
+
+    private fun waitForUnavailableCard() {
+        rule.waitUntil(10_000) {
+            shadowOf(Looper.getMainLooper()).idle()
+            rule.onAllNodesWithTag("quickScanUnavailable").fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    /** The card alone: its exact text, its two actions in order, *Close* above, and nothing of the live scan. */
+    private fun assertUnavailableCard(model: GuidedScanViewModel) {
+        assertEquals(GuidedScanPhase.QuickScanUnavailable, model.phase)
+        rule.onNodeWithTag("quickScanUnavailable").assertIsDisplayed()
+        rule.onNodeWithText(unavailableMessage).assertIsDisplayed()
+        val actions = rule.onAllNodes(hasClickAction() and hasAnyAncestor(hasTestTag("quickScanUnavailable")))
+        actions.assertCountEquals(2)
+        actions[0].assertTextEquals("Scan face by face")
+        actions[1].assertTextEquals("Enter colors instead")
+        rule.onNodeWithTag("scanClose").assertIsDisplayed()
+        for (tag in listOf("continuous", "count", "cue", "net", "announcement", "reset", "faceByFace", "torch", "reviewAndCorrect")) {
+            rule.onNodeWithTag("quickScan:$tag").assertDoesNotExist()
+        }
+        rule.onNodeWithTag("scanViewfinder").assertDoesNotExist()
+        rule.onNodeWithText("Bring the cube into view.").assertDoesNotExist()
+        // No torch and no analysis while the card shows.
+        assertEquals(false, model.torchOn)
+        assertTrue(camera.receiver == null)
+    }
+
+    @Test fun unavailableBeforeMappingShowsTheCardAndCloseCancelsAtOnce() {
+        quickScanActivity { scan, model ->
+            rule.onNodeWithTag("quickScan:cue").assertTextEquals("Bring the cube into view.")
+            feedUnavailable()
+            settle(model)
+            assertUnavailableCard(model)
+            rule.onNodeWithTag("scanClose").performClick()
+            rule.onNodeWithTag("scan:discard").assertDoesNotExist()
+            assertTrue(scan.get().isFinishing)
+            assertEquals(ScanOutcome.Cancelled, outcome(scan.get()))
+        }
+    }
+
+    @Test fun unavailableBeforeMappingBackCancelsAtOnce() {
+        quickScanActivity { scan, model ->
+            feedUnavailable()
+            settle(model)
+            assertUnavailableCard(model)
+            scan.get().onBackPressedDispatcher.onBackPressed()
+            rule.onNodeWithTag("scan:discard").assertDoesNotExist()
+            assertTrue(scan.get().isFinishing)
+            assertEquals(ScanOutcome.Cancelled, outcome(scan.get()))
+        }
+    }
+
+    @Test fun unavailableBeforeMappingEnterColorsOpensAnEmptyEditor() {
+        quickScanActivity { scan, model ->
+            feedUnavailable()
+            settle(model)
+            assertUnavailableCard(model)
+            rule.onNodeWithTag("scanEnterColors").performClick()
+            settle(model)
+            assertEquals(1, exports)
+            assertEquals(ScanOutcome.FellBackToEditor(null), outcome(scan.get()))
+        }
+    }
+
+    @Test fun unavailableWithMappedSidesTurnsOffTorchAndConfirmsCloseAndBack() {
+        camera.flash = true
+        quickScanActivity { scan, model ->
+            showThreeFullyReadFaces()
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 6/6")
+            rule.onNodeWithTag("quickScan:torch").performClick()
+            settle(model)
+            assertEquals(true, model.torchOn)
+            assertEquals(true, camera.torchCalls.last())
+            val before = model.continuous
+            feedUnavailable()
+            settle(model)
+            assertUnavailableCard(model)
+            // The map the card's actions work from is the one the live scan showed, and the camera is told torch off.
+            assertEquals(before, model.continuous)
+            assertEquals(false, camera.torchCalls.last())
+            assertEquals(0, engineResets)
+            rule.onNodeWithTag("scanClose").performClick()
+            assertQuickScanDiscardCopy()
+            assertTrue(!scan.get().isFinishing)
+            rule.onNodeWithTag("scan:discard:cancel").performClick()
+            rule.waitForIdle()
+            rule.onNodeWithTag("scan:discard").assertDoesNotExist()
+            assertUnavailableCard(model)
+            scan.get().onBackPressedDispatcher.onBackPressed()
+            assertQuickScanDiscardCopy()
+            rule.onNodeWithTag("scan:discard:confirm").performClick()
+            assertTrue(scan.get().isFinishing)
+            assertEquals(ScanOutcome.Cancelled, outcome(scan.get()))
+        }
+    }
+
+    @Test fun scanFaceByFaceOnTheCardAsksForTheSameFacesAsTheLiveButtonAndBackReturnsToTheCardWithTheMapIntact() {
+        quickScanActivity { scan, model ->
+            showThreeFullyReadFaces()
+            val before = model.continuous
+            val stickers = exported.handoff.toFallbackStickers()
+            // What the live screen's button asks for, to compare the card's with.
+            rule.onNodeWithTag("quickScan:faceByFace").performClick()
+            settle(model)
+            val liveHandOver = model.phase
+            val liveKept = model.handoff
+            assertTrue((liveHandOver as GuidedScanPhase.Viewfinder).handOver)
+            scan.get().onBackPressedDispatcher.onBackPressed()
+            settle(model)
+            waitForCamera(continuous = true)
+            assertEquals(before, model.continuous)
+
+            feedUnavailable()
+            settle(model)
+            assertUnavailableCard(model)
+            val exportsBefore = exports
+            repeat(2) { round ->
+                rule.onNodeWithText("Scan face by face").performClick()
+                settle(model)
+                // A fresh export each time, and the same hand-over as the live button's: only B, L and D are asked for.
+                assertEquals(exportsBefore + round + 1, exports)
+                rule.onNodeWithTag("scanProgress").assertTextEquals("Face 1 of 3")
+                rule.onNodeWithText("Show the blue center.").assertIsDisplayed()
+                assertEquals(liveHandOver, model.phase)
+                assertEquals(liveKept, model.handoff)
+                assertEquals(setOf(Face.U, Face.F, Face.R), model.handoff?.faces?.keys)
+                // Back returns to the card, never to the live scan, with the map intact.
+                scan.get().onBackPressedDispatcher.onBackPressed()
+                settle(model)
+                assertUnavailableCard(model)
+                assertEquals(before, model.continuous)
+                assertEquals(null, model.handoff)
+            }
+            assertEquals(0, engineResets)
+            rule.onNodeWithTag("scanEnterColors").performClick()
+            settle(model)
+            assertEquals(exportsBefore + 3, exports)
+            assertEquals(ScanOutcome.FellBackToEditor(stickers), outcome(scan.get()))
+        }
+    }
+
+    @Test fun reopeningWithTheDetectorUnavailableShowsTheCardAtOnceAndNeverStartsTheLiveScan() {
+        // The detector latched in an earlier scan of this app process: the new engine reports it before any frame.
+        unavailable = true
+        quickScanActivity(ready = ::waitForUnavailableCard) { scan, model ->
+            settle(model)
+            assertUnavailableCard(model)
+            // No frame was fed: the live scan was never composed (it alone makes the preview) and no analysis started.
+            assertEquals(0, camera.previews)
+            assertEquals(0, camera.starts)
+            assertTrue(!camera.continuous)
+            assertEquals(1, enginesCreated)
+            rule.onNodeWithTag("scanEnterColors").performClick()
+            settle(model)
+            assertEquals(1, exports)
+            assertEquals(ScanOutcome.FellBackToEditor(null), outcome(scan.get()))
+        }
+    }
+
+    @Suppress("DEPRECATION") // The system's permission result, delivered as the platform does.
+    @Test
+    fun aCameraGrantWhileTheDetectorIsUnavailableOpensTheCard() {
+        unavailable = true
+        val app = RuntimeEnvironment.getApplication()
+        shadowOf(app).denyPermissions(Manifest.permission.CAMERA)
+        val scan = Robolectric.buildActivity(GuidedScanActivity::class.java, launcher.quickScanIntent(app)).setup()
+        try {
+            val model = ViewModelProvider(scan.get())[GuidedScanViewModel::class.java]
+            rule.waitUntil(10_000) {
+                shadowOf(Looper.getMainLooper()).idle()
+                model.calibrationLoaded && rule.onAllNodesWithTag("scanRationale").fetchSemanticsNodes().isNotEmpty()
+            }
+            rule.onNodeWithText("Continue").performClick()
+            val request = shadowOf(scan.get()).lastRequestedPermission
+            assertEquals(listOf(Manifest.permission.CAMERA), request.requestedPermissions.toList())
+            shadowOf(app).grantPermissions(Manifest.permission.CAMERA)
+            scan.get().onRequestPermissionsResult(
+                request.requestCode,
+                request.requestedPermissions,
+                intArrayOf(PackageManager.PERMISSION_GRANTED),
+            )
+            settle(model)
+            assertUnavailableCard(model)
+            assertEquals(0, camera.previews)
+            assertEquals(0, camera.starts)
+        } finally {
+            scan.pause().stop().destroy()
+        }
+    }
+
+    @Test fun aCalibrationSavedFromAReviewWhileTheDetectorIsUnavailableReturnsToTheCard() {
+        quickScanActivity { _, model ->
+            show(listOf(Face.U))
+            settle(model)
+            rule.runOnIdle {
+                model.phase =
+                    GuidedScanPhase.Review(
+                        dev.cubentia.domain.recognition
+                            .ScanReview(List(54) { null }, 0),
+                        offerCalibration = true,
+                    )
+            }
+            rule.onNodeWithTag("review:calibrate:offer").performScrollTo().performClick()
+            rule.onNodeWithTag("review:calibrate:confirm").performClick()
+            settle(model)
+            rule.runOnIdle {
+                val phase = model.phase as GuidedScanPhase.Calibration
+                var session = phase.session
+                while (session.current != null) {
+                    session = session.offer(CellReading(ScanRouteTest.labs.getValue(session.current!!), true)).keep()
+                }
+                model.phase = phase.copy(session = session)
+            }
+            unavailable = true
+            rule.onNodeWithTag("calibration:save").performScrollTo().performClick()
+            rule.waitUntil(10_000) {
+                shadowOf(Looper.getMainLooper()).idle()
+                model.saved != null && !model.saving
+            }
+            settle(model)
+            assertUnavailableCard(model)
+            assertEquals(1, enginesCreated)
+        }
+    }
+
+    @Test fun unavailableNeverReplacesAnOpenDiscardQuestionAndShowsOnTheNextFrameAfterCancel() {
+        quickScanActivity { scan, model ->
+            showThreeFullyReadFaces()
+            val before = model.continuous
+            // The question opens after the analyzer saw the unavailable frame and before the main thread handles it.
+            feedUnavailable { scan.get().onBackPressedDispatcher.onBackPressed() }
+            settle(model)
+            assertQuickScanDiscardCopy()
+            assertEquals(GuidedScanPhase.Continuous, model.phase)
+            rule.onNodeWithTag("quickScanUnavailable").assertDoesNotExist()
+            // With the question open no frame is handled at all.
+            feedUnavailable()
+            settle(model)
+            assertQuickScanDiscardCopy()
+            assertEquals(GuidedScanPhase.Continuous, model.phase)
+            rule.onNodeWithTag("quickScanUnavailable").assertDoesNotExist()
+            rule.onNodeWithTag("scan:discard:cancel").performClick()
+            rule.waitForIdle()
+            rule.onNodeWithTag("scan:discard").assertDoesNotExist()
+            rule.onNodeWithTag("quickScan:continuous").assertIsDisplayed()
+            feedUnavailable()
+            settle(model)
+            assertUnavailableCard(model)
+            assertEquals(before, model.continuous)
+        }
+    }
+
+    @Test fun reviewAndCorrectAndCompletionNeverRunFromTheCard() {
+        quickScanActivity { _, model ->
+            showStalled()
+            assertTrue(model.continuous.reviewAndCorrectOffered())
+            feedUnavailable()
+            settle(model)
+            assertUnavailableCard(model)
+            val exportsBefore = exports
+            // A tap left over from the live scan, landing after the card replaced it.
+            model.reviewAndCorrect()
+            assertTrue(!model.busy)
+            settle(model)
+            assertEquals(exportsBefore, exports)
+            assertUnavailableCard(model)
+            model.completeContinuous()
+            assertTrue(!model.busy)
+            settle(model)
+            assertEquals(exportsBefore, exports)
+            assertUnavailableCard(model)
+        }
+    }
+
+    @Test fun rotationKeepsTheCardTheMapAndTheEngineAndStartsNoCamera() {
+        quickScanActivity { scan, model ->
+            showThreeFullyReadFaces()
+            val before = model.continuous
+            feedUnavailable()
+            settle(model)
+            assertUnavailableCard(model)
+            val engine = model.engine
+            val starts = camera.starts
+            val previews = camera.previews
+            scan.recreate()
+            waitForUnavailableCard()
+            settle(model)
+            assertTrue(ViewModelProvider(scan.get())[GuidedScanViewModel::class.java] === model)
+            assertUnavailableCard(model)
+            assertTrue(model.engine === engine)
+            assertEquals(1, enginesCreated)
+            assertEquals(0, engineResets)
+            assertEquals(before, model.continuous)
+            assertEquals(starts, camera.starts)
+            assertEquals(previews, camera.previews)
+        }
+    }
+
+    @Test fun scanFaceByFaceOnTheCardOfAReopenedQuickScanStartsTheGuidedCameraAndBackReturnsToTheCard() {
+        unavailable = true
+        quickScanActivity(ready = ::waitForUnavailableCard) { scan, model ->
+            rule.waitUntil(10_000) {
+                shadowOf(Looper.getMainLooper()).idle()
+                model.calibrationLoaded
+            }
+            settle(model)
+            assertUnavailableCard(model)
+            assertEquals(0, camera.starts)
+            rule.onNodeWithText("Scan face by face").performClick()
+            settle(model)
+            // Nothing was mapped, so Guided asks for all six faces, on a camera that starts here for the first time.
+            rule.onNodeWithTag("scanProgress").assertTextEquals("Face 1 of 6")
+            waitForCamera(continuous = false)
+            assertTrue(camera.starts > 0)
+            assertTrue(model.handoff?.faces?.isEmpty() == true)
+            scan.get().onBackPressedDispatcher.onBackPressed()
+            settle(model)
+            assertUnavailableCard(model)
+            assertEquals(1, enginesCreated)
+        }
+    }
+
+    @Test fun anUnavailableFrameCannotInterruptAnExportAndBackFromEarlyReviewReturnsToTheCard() {
+        quickScanActivity { scan, model ->
+            showStalled()
+            val before = model.continuous
+            // *Review and Correct* starts its export after the analyzer saw the frame and before main handles it.
+            feedUnavailable {
+                model.reviewAndCorrect()
+                assertTrue(model.busy)
+            }
+            settle(model)
+            assertTrue(earlyReview(model).early)
+            if (rule.onAllNodesWithTag("review:coach").fetchSemanticsNodes().isNotEmpty()) rule.onNodeWithTag("review:coach").performClick()
+            scan.get().onBackPressedDispatcher.onBackPressed()
+            settle(model)
+            assertUnavailableCard(model)
+            assertEquals(before, model.continuous)
         }
     }
 
@@ -1078,8 +1443,13 @@ class ContinuousQuickScanRouteTest {
         }
     }
 
-    /** Opens Quick Scan from the Solve tab (`solve:quickScan`) and runs [body] on its activity once the continuous camera runs. */
+    /**
+     * Opens Quick Scan from the Solve tab (`solve:quickScan`) and runs [body] on its activity once it is [ready]: by
+     * default once the continuous camera runs (the detector-unavailable card, GH #390, never starts it and waits for the
+     * card instead).
+     */
     private fun quickScanActivity(
+        ready: () -> Unit = { waitForCamera(continuous = true) },
         body: (org.robolectric.android.controller.ActivityController<GuidedScanActivity>, GuidedScanViewModel) -> Unit,
     ) {
         val main = Robolectric.buildActivity(MainActivity::class.java).setup()
@@ -1096,7 +1466,7 @@ class ContinuousQuickScanRouteTest {
             val intent = shadow.nextStartedActivityForResult.intent
             val scan = Robolectric.buildActivity(GuidedScanActivity::class.java, intent).setup()
             try {
-                waitForCamera(continuous = true)
+                ready()
                 body(scan, ViewModelProvider(scan.get())[GuidedScanViewModel::class.java])
                 if (scan.get().isFinishing) {
                     val result = shadowOf(scan.get())
@@ -1163,7 +1533,15 @@ class ContinuousQuickScanRouteTest {
         val meterCalls = mutableListOf<Boolean>()
         private lateinit var executor: ExecutorService
 
-        override fun preview(context: Context) = android.view.View(context)
+        /** How many preview views were made (only a camera phase's screen makes one) and how often the camera was started. */
+        var previews = 0
+
+        @Volatile var starts = 0
+
+        override fun preview(context: Context): View {
+            previews++
+            return View(context)
+        }
 
         /** The activity's own rule for whether a continuous frame is analysed now. */
         @Volatile var analyzing: () -> Boolean = { false }
@@ -1184,6 +1562,7 @@ class ContinuousQuickScanRouteTest {
         ) {
             this.executor = executor
             receiver = onFrame
+            starts++
         }
 
         override fun stop() {
@@ -1217,8 +1596,12 @@ class ContinuousQuickScanRouteTest {
         /** The torch applies at once: the last state the activity asked for. */
         override fun torchApplied(): Boolean? = if (flash == true) torchCalls.lastOrNull() ?: false else null
 
-        fun feed(frame: ScanFrame) {
+        fun feed(
+            frame: ScanFrame,
+            beforeMainHandlesFrame: () -> Unit = {},
+        ) {
             executor.submit { checkNotNull(receiver)(frame) }.get()
+            beforeMainHandlesFrame()
             shadowOf(Looper.getMainLooper()).idle()
         }
     }

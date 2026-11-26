@@ -202,7 +202,7 @@ class GuidedScanActivity : ComponentActivity() {
                 },
                 // Like Close, never leave while a calibration write is in flight.
                 onEnterColors = {
-                    if (phase == GuidedScanPhase.Continuous) {
+                    if (phase is GuidedScanPhase.QuickScan) {
                         scan.exportContinuous { exported ->
                             scan.editorOutcome = ScanOutcome.FellBackToEditor(scan.continuous.fallback(exported.handoff))
                         }
@@ -517,7 +517,7 @@ class GuidedScanActivity : ComponentActivity() {
                     false
                 }
 
-                current == GuidedScanPhase.Continuous -> {
+                current is GuidedScanPhase.QuickScan -> {
                     scan.continuous.confirmClose
                 }
 
@@ -630,6 +630,19 @@ class GuidedScanActivity : ComponentActivity() {
             // The revision first: a Reset landing after the busy check then drops this frame on main (its revision is older).
             val revision = scan.revision
             if (scan.analysisHeld || scan.busy) return
+            // GH #390: the detector cannot run, so the card replaces the live scan and this frame's snapshot is dropped
+            // (the shown map stays). The state stays true, so a frame dropped here loses nothing: the card never replaces
+            // an open discard question or interrupts an export, and shows on the next analysed frame instead.
+            if (scan.engine?.detectorUnavailable == true) {
+                ContextCompat.getMainExecutor(this).execute {
+                    if (phase != GuidedScanPhase.Continuous || scan.revision != revision || isFinishing) return@execute
+                    if (!scan.confirmDiscard && !scan.busy) {
+                        scan.torchOn = false
+                        phase = GuidedScanPhase.QuickScanUnavailable
+                    }
+                }
+                return
+            }
             scan.analysisHeld = continuous.snapshot.twistDetected || continuous.snapshot is ContinuousScanSnapshot.Complete
             val flash = frameSource.hasFlashUnit()
             ContextCompat.getMainExecutor(this).execute {
@@ -908,19 +921,22 @@ internal class GuidedScanViewModel : ViewModel() {
 
     fun exportContinuous(consume: (ContinuousScanExport) -> Unit) {
         val active = engine ?: return
-        if (busy || phase != GuidedScanPhase.Continuous) return
+        val source = phase
+        if (busy || source !is GuidedScanPhase.QuickScan) return
         busy = true
         val token = revision
         viewModelScope.launch {
             val exported = withContext(analyzerExecutor.asCoroutineDispatcher()) { active.export() }
             if (revision == token) {
                 busy = false
-                if (phase == GuidedScanPhase.Continuous) consume(exported)
+                if (phase == source) consume(exported)
             }
         }
     }
 
-    fun completeContinuous() =
+    fun completeContinuous() {
+        // GH #390: the detector-unavailable card exports too, but only the live scan completes into a review.
+        if (phase != GuidedScanPhase.Continuous) return
         exportContinuous { exported ->
             if (exported is ContinuousScanExport.Complete) {
                 torchOn = false
@@ -930,6 +946,7 @@ internal class GuidedScanViewModel : ViewModel() {
                 analysisHeld = false
             }
         }
+    }
 
     /**
      * Main thread: *Review and Correct* (Story 10.32, Q8). Scan Review opens on a fresh export, with the torch off:
@@ -939,7 +956,8 @@ internal class GuidedScanViewModel : ViewModel() {
      * exception is a calibration saved from this review ([saveCalibration]), which restarts the scan with an empty map.
      */
     fun reviewAndCorrect() {
-        if (!continuous.reviewAndCorrectOffered()) return
+        // GH #390: never from the detector-unavailable card (a tap left over from the live scan it replaced).
+        if (phase != GuidedScanPhase.Continuous || !continuous.reviewAndCorrectOffered()) return
         exportContinuous { exported ->
             torchOn = false
             val handoff = exported.handoff
@@ -960,7 +978,7 @@ internal class GuidedScanViewModel : ViewModel() {
         held = null
         frozen = null
         torchOn = false
-        phase = GuidedScanPhase.Continuous
+        phase = quickScanPhase()
         analyzerExecutor.execute { retake = null }
     }
 
@@ -1022,12 +1040,24 @@ internal class GuidedScanViewModel : ViewModel() {
             }
 
             quickScanMode -> {
-                if (engine == null) GuidedScanPhase.Unavailable else GuidedScanPhase.Continuous
+                quickScanPhase()
             }
 
             else -> {
                 GuidedScanFlow.phaseOf(controller, quickFaces != null)
             }
+        }
+
+    /**
+     * Quick Scan's own phase, for opening it and for every return to it (a camera grant, Back from the hand-over or from
+     * an early review, a calibration saved from a review): the camera-unavailable card with no engine, the
+     * detector-unavailable card once the engine reports it (GH #390; nothing retries the detector), else the live scan.
+     */
+    private fun quickScanPhase(): GuidedScanPhase =
+        when (engine?.detectorUnavailable) {
+            null -> GuidedScanPhase.Unavailable
+            true -> GuidedScanPhase.QuickScanUnavailable
+            false -> GuidedScanPhase.Continuous
         }
 
     @Volatile var quickFaces: Set<Face>? = null
@@ -1210,7 +1240,7 @@ internal class GuidedScanViewModel : ViewModel() {
         handoff = null
         guidedFacesAsked = 0
         torchOn = false
-        phase = GuidedScanPhase.Continuous
+        phase = quickScanPhase()
     }
 
     /** Main thread: Close asked the discard question (Story 10.17, GH #325). */

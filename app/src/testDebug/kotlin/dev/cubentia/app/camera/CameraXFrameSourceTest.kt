@@ -39,6 +39,8 @@ class CameraXFrameSourceTest {
         val snap = testSnapshot(testHandoff(emptyList()))
         val engine =
             object : ContinuousScanEngine {
+                override val detectorUnavailable = false
+
                 override fun processFrame(
                     frame: YuvFrame,
                     rotationDegrees: Int,

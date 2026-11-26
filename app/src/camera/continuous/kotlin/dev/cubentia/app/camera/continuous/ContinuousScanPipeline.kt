@@ -37,6 +37,9 @@ internal class ContinuousScanPipeline(
     /** Story 10.34: the debug recorder's neutral frame tap; null on the Solve tab. */
     private val tap: ContinuousFrameTap? = null,
 ) {
+    /** GH #390: the detector's own state, readable from any thread with or without a frame. */
+    val detectorUnavailable get() = detector.unavailable
+
     private var lastSnapshot: ContinuousScanSnapshot? = null
 
     /** Reused model-input copy handed to [tap] on the frames it asks for (allocated only when it asks). */
@@ -49,29 +52,12 @@ internal class ContinuousScanPipeline(
         viewWidth: Int = 0,
         viewHeight: Int = 0,
     ): ContinuousPipelineFrame {
-        if (frame.left < 0 || frame.top < 0 || frame.width <= 0 || frame.height <= 0) {
-            val snapshot =
-                lastSnapshot ?: ContinuousScanSnapshot.Scanning(
-                    frameIndex = frameIndex,
-                    net = Face.entries.associateWith { List(9) { null } },
-                    conflictedSlots = emptyList(),
-                    trackedQuads = emptyList(),
-                    globalAnchored = false,
-                    cue = ContinuousScanCue.BringIntoView,
-                    committedCount = 0,
-                    mappedFacesCount = 0,
-                    invariantViolationCount = 0,
-                    pendingFragmentFaces = 0,
-                )
-            tap?.onFrame(frameIndex, emptyList(), snapshot, StickerCenterDetection.EMPTY, null)
-            return ContinuousPipelineFrame(
-                snapshot = snapshot,
-                detection = StickerCenterDetection.EMPTY,
-                fittedFaces = emptyList(),
-                viewOverlays = emptyList(),
-            )
+        if (detectorUnavailable || frame.left < 0 || frame.top < 0 || frame.width <= 0 || frame.height <= 0) {
+            return skippedFrame(frameIndex)
         }
         val detection = detector.detect(frame, rotationDegrees, viewWidth, viewHeight)
+        // GH #390: the frame that latched the detector is not an empty view of the cube; the map stays as it was.
+        if (detectorUnavailable) return skippedFrame(frameIndex)
         val fittedFaces = FaceLatticeFitter.fit(detection.centers)
         val observations =
             if (fittedFaces.isEmpty()) {
@@ -85,7 +71,8 @@ internal class ContinuousScanPipeline(
             val input =
                 if (t.wantsModelInput(frameIndex)) {
                     val buffer = modelInput ?: ByteArray(StickerCenterModelContract.INPUT_BYTES).also { modelInput = it }
-                    buffer.takeIf { detector.copyModelInput(it) }
+                    // GH #389: a failing model-input copy drops only this frame's input, never the analyzer.
+                    buffer.takeIf { runCatching { detector.copyModelInput(it) }.getOrDefault(false) }
                 } else {
                     null
                 }
@@ -119,6 +106,30 @@ internal class ContinuousScanPipeline(
             detection = detection,
             fittedFaces = fittedFaces,
             viewOverlays = overlays,
+        )
+    }
+
+    /** A frame that is not read (an invalid crop, or the detector unavailable): the last snapshot again, the mapper untouched. */
+    private fun skippedFrame(frameIndex: Int): ContinuousPipelineFrame {
+        val snapshot =
+            lastSnapshot ?: ContinuousScanSnapshot.Scanning(
+                frameIndex = frameIndex,
+                net = Face.entries.associateWith { List(9) { null } },
+                conflictedSlots = emptyList(),
+                trackedQuads = emptyList(),
+                globalAnchored = false,
+                cue = ContinuousScanCue.BringIntoView,
+                committedCount = 0,
+                mappedFacesCount = 0,
+                invariantViolationCount = 0,
+                pendingFragmentFaces = 0,
+            )
+        tap?.onFrame(frameIndex, emptyList(), snapshot, StickerCenterDetection.EMPTY, null)
+        return ContinuousPipelineFrame(
+            snapshot = snapshot,
+            detection = StickerCenterDetection.EMPTY,
+            fittedFaces = emptyList(),
+            viewOverlays = emptyList(),
         )
     }
 

@@ -5,6 +5,7 @@ import android.content.pm.ApplicationInfo
 import android.os.Looper
 import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dev.cubentia.app.ScanDiagnostics
 import dev.cubentia.app.camera.StickerCenterDetection
 import dev.cubentia.app.camera.StickerCenterDetector
 import dev.cubentia.app.camera.YuvFrame
@@ -31,6 +32,8 @@ internal interface StickerCenterInferenceSession {
  * LiteRT v2 INT8 sticker-center heatmap detector (`com.google.ai.edge.litert`, AD-9 / Story 10.31).
  *
  * Runs exclusively off the main thread on XNNPACK CPU with 2 threads using pre-allocated direct buffers.
+ * A frame that fails input conversion or peak decoding is counted and skipped. Its session stays open for the next frame.
+ * Model initialization and inference failures latch [unavailable] for the lifetime of this singleton.
  * Never persists, writes to disk, or transmits any camera frame (AD-13).
  */
 @Singleton
@@ -51,10 +54,17 @@ internal class LiteRtStickerCenterDetector
         /** Set only by the injected constructor: a debuggable app checks the calling thread in [detect]. */
         private var debuggable = false
 
+        @Volatile
+        override var unavailable = false
+            private set
+
         private val lock = Any()
         private var session: StickerCenterInferenceSession? = null
         private var initAttempted = false
         private var closed = false
+        private var failedFrameCount = 0
+        internal val failedFrames: Int get() = synchronized(lock) { failedFrameCount }
+
         private val inputBytes = ByteArray(StickerCenterModelContract.INPUT_BYTES)
 
         /** Whether [inputBytes] holds the model input of the last [detect] (Story 10.34 [copyModelInput]). */
@@ -84,32 +94,39 @@ internal class LiteRtStickerCenterDetector
             synchronized(lock) {
                 inputValid = false
                 val active = ensureSession() ?: return StickerCenterDetection.EMPTY
-                val params =
-                    StickerCenterModelTransform.fillYuvInput(frame, rotationDegrees, inputBytes, yuvScratch)
-                        ?: return StickerCenterDetection.EMPTY
-                val dtMs = runInference(active) ?: return StickerCenterDetection.EMPTY
-                inputValid = true
-                val peaks =
-                    StickerCenterModelTransform.decodePeaks(
-                        output = outputFloats,
-                        params = params,
-                        cropLeft = frame.left,
-                        cropTop = frame.top,
-                        cropRight = frame.right,
-                        cropBottom = frame.bottom,
-                        rotationDegrees = rotationDegrees,
-                        viewWidth = viewWidth,
-                        viewHeight = viewHeight,
+                return try {
+                    val params =
+                        StickerCenterModelTransform.fillYuvInput(frame, rotationDegrees, inputBytes, yuvScratch)
+                            ?: return StickerCenterDetection.EMPTY
+                    val dtMs = runInference(active) ?: return StickerCenterDetection.EMPTY
+                    inputValid = true
+                    val peaks =
+                        StickerCenterModelTransform.decodePeaks(
+                            output = outputFloats,
+                            params = params,
+                            cropLeft = frame.left,
+                            cropTop = frame.top,
+                            cropRight = frame.right,
+                            cropBottom = frame.bottom,
+                            rotationDegrees = rotationDegrees,
+                            viewWidth = viewWidth,
+                            viewHeight = viewHeight,
+                        )
+                    StickerCenterDetection(
+                        peaks = peaks,
+                        uprightWidth = params.uprightWidth,
+                        uprightHeight = params.uprightHeight,
+                        inferenceMs = dtMs,
+                        inputScale = params.scale,
+                        inputPadLeft = params.padLeft,
+                        inputPadTop = params.padTop,
                     )
-                return StickerCenterDetection(
-                    peaks = peaks,
-                    uprightWidth = params.uprightWidth,
-                    uprightHeight = params.uprightHeight,
-                    inferenceMs = dtMs,
-                    inputScale = params.scale,
-                    inputPadLeft = params.padLeft,
-                    inputPadTop = params.padTop,
-                )
+                } catch (_: Exception) {
+                    inputValid = false
+                    failedFrameCount++
+                    runCatching { ScanDiagnostics.onQuickScanFrameFailed(failedFrameCount) }
+                    StickerCenterDetection.EMPTY
+                }
             }
         }
 
@@ -190,9 +207,9 @@ internal class LiteRtStickerCenterDetector
                 null
             }
 
-        /** A failed inference never retries: the next frame would repeat the same failure and log it again. */
+        /** A failed inference never retries: the next frame would repeat the same failure and log it again (GH #390: [unavailable]). */
         private fun latchDisabled() {
-            closed = true
+            unavailable = true
             runCatching { session?.close() }
             session = null
         }
@@ -202,15 +219,19 @@ internal class LiteRtStickerCenterDetector
             session?.let { return it }
             if (initAttempted) return null
             initAttempted = true
-            return try {
-                openSession(loadModel())?.also { session = it }
-            } catch (e: Exception) {
-                logWarning("Unable to load ${StickerCenterModelContract.MODEL_ASSET}; continuous detector disabled", e)
-                null
-            } catch (e: LinkageError) {
-                logWarning("LiteRT runtime unavailable; continuous detector disabled", e)
-                null
-            }
+            session =
+                try {
+                    openSession(loadModel())
+                } catch (e: Exception) {
+                    logWarning("Unable to load ${StickerCenterModelContract.MODEL_ASSET}; continuous detector disabled", e)
+                    null
+                } catch (e: LinkageError) {
+                    logWarning("LiteRT runtime unavailable; continuous detector disabled", e)
+                    null
+                }
+            // GH #390: the one load attempt failed, or the model did not match the tensor contract.
+            if (session == null) unavailable = true
+            return session
         }
 
         internal fun close() {
