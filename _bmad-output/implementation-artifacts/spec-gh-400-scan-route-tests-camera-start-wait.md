@@ -2,7 +2,7 @@
 title: 'GH #400: scan route tests wait for the camera start with a full sync on every poll'
 type: 'bugfix'
 created: '2026-11-26'
-status: 'in-review'
+status: 'done'
 baseline_revision: '79c948e58d6e6662f8dd302a411c5be3f8759cd7'
 review_loop_iteration: 0
 followup_review_recommended: false
