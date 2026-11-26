@@ -25,67 +25,79 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** Story 10.17 AC6: Quick Scan's corner view and hand-over viewfinder fit a 411 dp portrait phone at 200 % font, unscrolled. */
+/** Continuous viewfinder and controls fit without scrolling. */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, qualifiers = "w411dp-h891dp-port", fontScale = 2.0f)
-class QuickScanLargeFontTest {
+class ContinuousQuickScanLargeFontTest {
     @get:Rule val rule = createComposeRule()
 
     private val strings = ContentStrings((ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle.strings)
 
-    @Test
-    fun faceByFaceAndEnterColorsFitWithoutScrollingAtTwoHundredPercentFont() =
-        assertFits(
-            GuidedScanPhase.CornerViewfinder(hold = 1, faceByFace = true),
-            listOf("scanCapture", "quickScan:faceByFace", "scanEnterColors"),
-        )
+    @Test fun phoneAtDoubleFont() = fits()
 
     @Test
-    fun theCornerViewWithTheTorchToggleFitsWithoutScrollingAtTwoHundredPercentFont() {
-        assertFits(
-            GuidedScanPhase.CornerViewfinder(hold = 1, faceByFace = true),
-            listOf("scanCapture", "quickScan:faceByFace", "scanEnterColors"),
-            cornerTorch = false,
-        )
-        val camera = rule.onNodeWithTag("scanViewfinder").fetchSemanticsNode().boundsInRoot
-        val torch =
+    @Config(qualifiers = "w600dp-h960dp-port", fontScale = 2.0f)
+    fun tabletAtDoubleFont() = fits()
+
+    @Test
+    @Config(qualifiers = "w360dp-h640dp-port", fontScale = 1f)
+    fun compactPhone() = fits()
+
+    @Test
+    @Config(qualifiers = "w960dp-h600dp-land")
+    fun landscapeTablet() = fits(landscape = true)
+
+    /** A landscape phone is narrower than 600 dp in neither direction a tablet is: it still gets preview left, panel right. */
+    @Test
+    @Config(qualifiers = "w640dp-h360dp-land", fontScale = 1f)
+    fun landscapePhone() = fits(landscape = true)
+
+    private fun fits(landscape: Boolean = false) {
+        var touch = 0f
+        rule.setContent {
+            touch = with(LocalDensity.current) { 48.dp.toPx() }
+            val snap =
+                testSnapshot(testHandoff(Face.entries), dev.cubentia.domain.recognition.continuous.ContinuousScanCue.LayerTwistDetected)
+            CubentiaTheme {
+                GuidedScanScreen(
+                    GuidedScanPhase.Continuous,
+                    strings,
+                    GuidedScanActions(),
+                    continuous = ContinuousQuickScanFlow(snapshot = snap),
+                    cornerTorch = false,
+                )
+            }
+        }
+        val root = rule.onRoot().fetchSemanticsNode().boundsInRoot
+        val camera =
             rule
-                .onNodeWithTag("quickScan:torch")
+                .onNodeWithTag("scanViewfinder")
                 .assertIsDisplayed()
                 .fetchSemanticsNode()
                 .boundsInRoot
-        // The torch toggle sits wholly inside the viewfinder, so it never pushes the buttons below off screen.
-        assertTrue("$torch in $camera", torch.top >= camera.top && torch.bottom <= camera.bottom && torch.right <= camera.right + 0.5f)
-        assertTrue("$torch in $camera", torch.left >= camera.left)
-    }
-
-    @Test
-    fun theCornerViewWithTheCalibrationOfferFitsWithoutScrollingAtTwoHundredPercentFont() =
-        assertFits(
-            GuidedScanPhase.CornerViewfinder(hold = 1, coaching = Coaching.SIDES_DARK, faceByFace = true, offerCalibration = true),
-            listOf("quickScan:calibrate:offer", "scanCapture", "quickScan:faceByFace", "scanEnterColors"),
-            cornerTorch = false,
-        )
-
-    /** Story 10.19: on a 600 dp tablet at 200 % font the panel beside the viewfinder holds the offer and every button. */
-    @Test
-    @Config(qualifiers = "w600dp-h960dp-port", fontScale = 2.0f)
-    fun theCalibrationOfferFitsTheSidePanelOnSixHundredDpAtTwoHundredPercentFont() {
-        var minTouch = 0f
-        val phase = GuidedScanPhase.CornerViewfinder(hold = 1, coaching = Coaching.SIDES_DARK, faceByFace = true, offerCalibration = true)
-        rule.setContent {
-            minTouch = with(LocalDensity.current) { 48.dp.toPx() }
-            CubentiaTheme { GuidedScanScreen(phase, strings, GuidedScanActions(), offerEnterColors = true, cornerTorch = false) }
-        }
-        val screen = rule.onRoot().fetchSemanticsNode().boundsInRoot
-        listOf("quickScan:calibrate:offer", "scanCapture", "quickScan:faceByFace", "scanEnterColors").forEach { tag ->
+        val tags = listOf("quickScan:count", "quickScan:cue", "quickScan:net", "quickScan:reset", "quickScan:faceByFace", "scanEnterColors")
+        // The net's cells never shrink to nothing: its cell is the smaller of a twelfth of its width and a ninth of its height.
+        val net = rule.onNodeWithTag("quickScan:net").fetchSemanticsNode().boundsInRoot
+        assertTrue("net cell in $net (8 dp = ${touch / 6} px)", minOf(net.width / 12, net.height / 9) >= touch / 6 - 0.5f)
+        for (tag in tags + listOf("scanClose", "quickScan:torch")) {
             val bounds =
                 rule
                     .onNodeWithTag(tag)
                     .assertIsDisplayed()
                     .fetchSemanticsNode()
                     .boundsInRoot
-            assertTrue("$tag at $bounds in $screen", bounds.bottom <= screen.bottom && bounds.height >= minTouch - 0.5f)
+            assertTrue(
+                "$tag $bounds, root $root",
+                root.contains(bounds.topLeft) && bounds.right <= root.right && bounds.bottom <= root.bottom && bounds.height > 0f,
+            )
+            if (tag in
+                tags
+            ) {
+                assertTrue("$tag $bounds, camera $camera", if (landscape) bounds.left >= camera.right else bounds.top >= camera.bottom)
+            }
+            if (tag in listOf("quickScan:reset", "quickScan:faceByFace", "scanEnterColors", "scanClose", "quickScan:torch")) {
+                assertTrue("$tag touch height", bounds.height >= touch - 0.5f)
+            }
         }
     }
 

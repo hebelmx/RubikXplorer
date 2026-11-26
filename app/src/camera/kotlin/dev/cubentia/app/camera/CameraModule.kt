@@ -38,3 +38,10 @@ abstract class CornerDetectorOptionalModule {
     @BindsOptionalOf
     internal abstract fun cornerDetector(): CornerDetector
 }
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class ContinuousScanEngineOptionalModule {
+    @BindsOptionalOf
+    internal abstract fun factory(): ContinuousScanEngineFactory
+}

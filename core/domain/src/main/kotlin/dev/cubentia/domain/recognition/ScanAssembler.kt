@@ -714,6 +714,7 @@ object ScanAssembler {
         handoff: ContinuousScanHandoff,
         added: List<FaceSample>,
         saved: CalibrationCenters? = null,
+        preserveUnread: Boolean = false,
     ): ScanResult {
         val keptByFace: Map<Face, ContinuousFaceHandoff> =
             if (handoff.globalAnchored) handoff.faces else emptyMap()
@@ -725,20 +726,7 @@ object ScanAssembler {
                 .groupBy({ it.first }, { it.second })
         val unclaimed = filteredAdded.filter { it.centerColor == null }.map { it.face }.toSet()
 
-        val keptSamples =
-            keptByFace.mapNotNull { (face, fh) ->
-                val validLabs = fh.labs.takeIf { it.size == STICKERS && it.all { l -> l != null && l.isValid() } }
-                validLabs?.let { labs ->
-                    FaceSample(
-                        face = face,
-                        orientationDegrees = 0,
-                        stickers = labs.filterNotNull(),
-                        quality = CaptureQuality.ACCEPTABLE,
-                        centerColor = Color.home(face),
-                        centerPlain = true,
-                    )
-                }
-            }
+        val keptSamples = keptSamples(handoff)
 
         val calibration: CalibrationCenters? =
             if (keptByFace.size == Face.entries.size) {
@@ -755,7 +743,7 @@ object ScanAssembler {
                 derivedWithKept
                     ?: (SelfCalibration.from(filteredAdded, fallbackCenters) as? SelfCalibration.Calibrated)?.calibration
             }
-        val classifyUnclassified = handoff.calibration == null && keptByFace.size < Face.entries.size
+        val classifyUnclassified = !preserveUnread && handoff.calibration == null && keptByFace.size < Face.entries.size
 
         val placedAdded = mutableMapOf<Face, Placement.Placed>()
         val gaps = mutableMapOf<Face, ScanGap>()
@@ -856,6 +844,22 @@ object ScanAssembler {
             Face.entries.filter { it in gaps }.associateWith { gaps.getValue(it) },
         )
     }
+
+    /** The kept faces of an anchored [handoff] whose nine Labs are all valid, as samples; none when it is unanchored. */
+    internal fun keptSamples(handoff: ContinuousScanHandoff): List<FaceSample> =
+        handoff.faces.takeIf { handoff.globalAnchored }.orEmpty().mapNotNull { (face, fh) ->
+            val validLabs = fh.labs.takeIf { it.size == STICKERS && it.all { l -> l != null && l.isValid() } }
+            validLabs?.let { labs ->
+                FaceSample(
+                    face = face,
+                    orientationDegrees = 0,
+                    stickers = labs.filterNotNull(),
+                    quality = CaptureQuality.ACCEPTABLE,
+                    centerColor = Color.home(face),
+                    centerPlain = true,
+                )
+            }
+        }
 
     private fun buildHandoverFallbackCenters(
         handoff: ContinuousScanHandoff,

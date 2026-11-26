@@ -121,9 +121,9 @@ internal sealed interface GuidedScanPhase {
         val coaching: Coaching? = null,
         val saveFailed: Boolean = false,
         val fromReview: Review? = null,
-        /** Opened from Quick Scan's corner view (Story 10.19): *Close* returns to it, *Save* restarts the Quick Scan. */
-        val fromQuickScan: Boolean = false,
     ) : GuidedScanPhase
+
+    data object Continuous : GuidedScanPhase
 
     data class CornerViewfinder(
         val hold: Int,
@@ -131,10 +131,6 @@ internal sealed interface GuidedScanPhase {
         val coaching: Coaching? = null,
         val prompt: ContentText? = null,
         val totalHolds: Int = QuickScanPlan.holds.size,
-        /** Quick Scan's corner view (Story 10.17): offers *Scan face by face*. Never in Case capture. */
-        val faceByFace: Boolean = false,
-        /** Story 10.19 (PO 2026-11-21): an uncalibrated light hold ran on: "Colors look off — calibrate?" below the coaching. */
-        val offerCalibration: Boolean = false,
     ) : GuidedScanPhase
 
     /** The camera rationale, before any system dialog. */
@@ -168,8 +164,13 @@ internal sealed interface GuidedScanPhase {
         val kept: List<FaceSample> = emptyList(),
         /** A retake from review: the review to restore exactly when the Learner backs out before every face is taken. */
         val fromReview: Review? = null,
-        /** Quick Scan's hand-over (Story 10.17): Back returns to the corner view, Close asks before discarding. */
+        /**
+         * Quick Scan's hand-over (Stories 10.17, 10.32): Back returns to Quick Scan with its map intact; Close asks before
+         * discarding a kept or captured face.
+         */
         val handOver: Boolean = false,
+        /** The hand-over's kept faces (from the continuous hand-off, which carries no sample), shown as captured on the mini net. */
+        val keptColors: Map<Face, List<CubeColor?>> = emptyMap(),
     ) : GuidedScanPhase
 }
 
@@ -200,10 +201,10 @@ internal class GuidedScanActions(
     val onDiscardConfirm: () -> Unit = {},
     /** "Discard this scan?" dismissed: the scan goes on exactly as it was. */
     val onDiscardCancel: () -> Unit = {},
-    /** Quick Scan's torch toggle (Story 10.19), shown only on a camera with a flash unit. */
+    /** The torch toggle of Quick Scan and the calibration phase, shown only on a camera with a flash unit. */
     val onToggleTorch: () -> Unit = {},
-    /** Quick Scan's calibration offer confirmed (Story 10.19): opens calibration. */
-    val onCalibrate: () -> Unit = {},
+    /** Quick Scan's *Reset* (Story 10.32): clears the map in place, with no confirmation. */
+    val onReset: () -> Unit = {},
 )
 
 /**
@@ -242,13 +243,12 @@ internal fun GuidedScanScreen(
     actions: GuidedScanActions,
     frozen: FrozenCapture? = null,
     offerEnterColors: Boolean = false,
-    detectedCornerQuads: List<List<CornerPoint>> = emptyList(),
-    cornerThumbnail: ImageBitmap? = null,
+    continuous: ContinuousQuickScanFlow = ContinuousQuickScanFlow(),
     confirmDiscard: Boolean = false,
     /** Which copy the discard question shows (GH #325). */
     discardKind: DiscardKind = DiscardKind.Scan,
     /**
-     * Story 10.19: the torch control's state in Quick Scan's corner view (Story 10.21: and the calibration phase); null
+     * The torch control's state in the continuous Quick Scan (Story 10.32) and the calibration phase (Story 10.21); null
      * shows no control (no flash unit).
      */
     cornerTorch: Boolean? = null,
@@ -260,51 +260,32 @@ internal fun GuidedScanScreen(
     Surface(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().safeDrawingPadding()) {
             // GH #313: the Guided viewfinder holds *Close* and the progress in its own controls group instead.
-            if (phase !is GuidedScanPhase.Viewfinder) {
+            if (phase !is GuidedScanPhase.Viewfinder && phase != GuidedScanPhase.Continuous) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedButton(
                         onClick = actions.onClose,
                         modifier = Modifier.testTag("scanClose"),
                     ) { Text(strings.resolve(ContentText("btn.scan.close"))) }
                     if (phase is GuidedScanPhase.CornerViewfinder && phase.totalHolds == 2) {
-                        Row(
-                            Modifier.weight(1f).padding(end = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            if (cornerThumbnail != null) {
-                                Image(
-                                    bitmap = cornerThumbnail,
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    modifier =
-                                        Modifier
-                                            .size(36.dp)
-                                            .clipToBounds()
-                                            .border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(6.dp))
-                                            .testTag("quickScan:thumbnail"),
-                                )
-                            }
-                            Text(
-                                strings.resolve(
-                                    ContentText("msg.quick-scan.counter", mapOf("n" to phase.hold, "total" to phase.totalHolds)),
-                                ),
-                                Modifier
-                                    .semantics { liveRegion = LiveRegionMode.Polite }
-                                    .testTag("quickScan:counter"),
-                                textAlign = TextAlign.End,
-                                style =
-                                    if (phase.hold > 1 || cornerThumbnail != null) {
-                                        MaterialTheme.typography.titleLarge
-                                    } else {
-                                        LocalRubikTextStyles.current.data
-                                    },
-                            )
-                        }
+                        Text(
+                            strings.resolve(ContentText("msg.quick-scan.counter", mapOf("n" to phase.hold, "total" to phase.totalHolds))),
+                            Modifier
+                                .weight(
+                                    1f,
+                                ).padding(end = 8.dp)
+                                .semantics { liveRegion = LiveRegionMode.Polite }
+                                .testTag("quickScan:counter"),
+                            textAlign = TextAlign.End,
+                            style = if (phase.hold > 1) MaterialTheme.typography.titleLarge else LocalRubikTextStyles.current.data,
+                        )
                     }
                 }
             }
             when (phase) {
+                GuidedScanPhase.Continuous -> {
+                    ContinuousQuickScanScreen(continuous, strings, actions, cornerTorch, viewfinder)
+                }
+
                 is GuidedScanPhase.Calibration -> {
                     // Story 10.21: the same torch toggle, locked from the first kept swatch until saved or left.
                     val torch =
@@ -362,10 +343,6 @@ internal fun GuidedScanScreen(
                         viewfinder,
                         cornerHold = phase.hold,
                         cornerPrompt = phase.prompt,
-                        detectedCornerQuads = detectedCornerQuads,
-                        faceByFace = phase.faceByFace,
-                        torch = cornerTorch?.let { on -> TorchControl(on, strings, actions.onToggleTorch) },
-                        onCalibrate = actions.onCalibrate.takeIf { phase.offerCalibration },
                     )
                 }
 
@@ -426,18 +403,13 @@ private fun Viewfinder(
     preview: @Composable () -> Unit,
     cornerHold: Int? = null,
     cornerPrompt: ContentText? = null,
-    detectedCornerQuads: List<List<CornerPoint>> = emptyList(),
-    faceByFace: Boolean = false,
-    torch: TorchControl? = null,
-    onCalibrate: (() -> Unit)? = null,
     /** GH #313: the plain Guided viewfinder's *Close*, set beside *Capture*; null leaves *Close* out of the panel. */
     onClose: (() -> Unit)? = null,
     /** GH #313: the plain Guided viewfinder's "Face n of 6", set beside the face prompt. */
     progress: ContentText? = null,
 ) {
     val geometry = remember { ViewfinderGeometry() }
-    val steps = cornerHold?.takeIf { cornerPrompt == null }?.let { QuickScanPlan.holds[it - 1] }.orEmpty()
-    val highlighted = steps.map { it.face }.toSet() + listOfNotNull(phase.step?.face)
+    val highlighted = setOfNotNull(phase.step?.face)
     val showCorner = cornerHold != null || frozen?.shrink == false
     BoxWithConstraints(Modifier.fillMaxSize().onGloballyPositioned { geometry.origin = it.boundsInRoot().topLeft }) {
         val wide = maxWidth >= EXPANDED_WIDTH || maxWidth > maxHeight
@@ -448,9 +420,7 @@ private fun Viewfinder(
                         geometry,
                         preview,
                         showCorner,
-                        detectedCornerQuads,
                         captureHighlight = frozen != null && showCorner,
-                        torch = torch,
                     )
                 }
                 Column(
@@ -467,10 +437,8 @@ private fun Viewfinder(
                         CornerPrompt(cornerHold, strings, cornerPrompt)
                     }
                     CoachingLine(phase, strings)
-                    if (onCalibrate != null) CalibrationOfferLine(strings, onCalibrate)
                     if (cornerPrompt == null) MiniNet(phase, geometry, Modifier.weight(1f).fillMaxWidth(), highlighted)
                     CaptureButtons(phase, strings, actions, onClose)
-                    if (faceByFace) FaceByFaceButton(strings, actions.onFaceByFace)
                     if (offerEnterColors) EnterColorsButton(strings, actions.onEnterColors)
                 }
             }
@@ -487,20 +455,16 @@ private fun Viewfinder(
                         geometry,
                         preview,
                         showCorner,
-                        detectedCornerQuads,
                         captureHighlight = frozen != null && showCorner,
-                        torch = torch,
                     )
                 }
                 CoachingLine(phase, strings)
-                if (onCalibrate != null) CalibrationOfferLine(strings, onCalibrate, Modifier.padding(horizontal = 16.dp))
                 Column(
                     Modifier.weight(1f).fillMaxWidth().padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     if (cornerPrompt == null) MiniNet(phase, geometry, Modifier.weight(1f).fillMaxWidth(), highlighted)
                     CaptureButtons(phase, strings, actions, onClose)
-                    if (faceByFace) FaceByFaceButton(strings, actions.onFaceByFace)
                     if (offerEnterColors) EnterColorsButton(strings, actions.onEnterColors)
                 }
             }
@@ -515,7 +479,6 @@ private fun CameraArea(
     geometry: ViewfinderGeometry,
     preview: @Composable () -> Unit,
     corner: Boolean = false,
-    detectedCornerQuads: List<List<CornerPoint>> = emptyList(),
     captureHighlight: Boolean = false,
     torch: TorchControl? = null,
 ) {
@@ -531,7 +494,6 @@ private fun CameraArea(
         val side = minOf(maxWidth, maxHeight) * FrameReader.GRID_FRACTION.toFloat()
         if (corner) {
             CornerOutline(
-                detectedCornerQuads = detectedCornerQuads,
                 modifier = Modifier.fillMaxSize().onGloballyPositioned { geometry.grid = it.boundsInRoot() },
             )
         } else {
@@ -573,7 +535,7 @@ internal class TorchControl(
 )
 
 /**
- * Quick Scan's torch toggle (Story 10.19): a flash icon with a visible label in the corner viewfinder's top corner. The
+ * Quick Scan's torch toggle (Stories 10.19, 10.32): a flash icon with a visible label in the viewfinder's top corner. The
  * label is the current state ("Torch on" / "Torch off") and is the button's only text, so it is what TalkBack reads; a tap
  * toggles it. Story 10.20: the debug fixture recorder shows the same control under its own [testTag].
  */
@@ -712,8 +674,6 @@ internal fun coachingKey(coaching: Coaching): String =
         Coaching.MOVE_UP -> "msg.scan.coach.move-up"
         Coaching.MOVE_DOWN -> "msg.scan.coach.move-down"
         Coaching.PLAIN_LIGHT_SURFACE -> "msg.scan.plain-light-surface"
-        Coaching.SIDES_DARK -> "msg.scan.coach.sides-dark"
-        Coaching.TORCH_GLARE -> "msg.scan.coach.torch-glare"
     }
 
 /** "Face 2 of 6" (a Quick Check: "Face 1 of 2") in the first round; "Again: face 1 of 2" in the re-prompt round. */
@@ -810,11 +770,10 @@ internal fun CornerPrompt(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        if (casePrompt == null) QuickScanPlan.holds[hold - 1].forEach { Swatch(it.centerColor, 24.dp) }
-        val prompt = if (hold == 1) ContentText("msg.quick-scan.hold-first") else ContentText("msg.quick-scan.hold-second")
+        val prompt = casePrompt ?: ContentText(if (hold == 1) "msg.recognize.hold-first" else "msg.recognize.hold-second")
         // Re-prompts replace this text: TalkBack announces the change.
         Text(
-            strings.resolve(casePrompt ?: prompt),
+            strings.resolve(prompt),
             Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             style = MaterialTheme.typography.bodyMedium,
         )
@@ -896,7 +855,9 @@ private fun MiniNet(
         Box(Modifier.requiredSize(cell * NET_COLUMNS * SIDE, cell * NET_ROWS * SIDE)) {
             Face.entries.forEach { face ->
                 val (column, row) = NET_POSITION.getValue(face)
-                val colors = byFace[face]?.let { uprightNet(it).map(::labColor) }
+                val colors =
+                    byFace[face]?.let { uprightNet(it).map(::labColor) }
+                        ?: phase.keptColors[face]?.map { it?.let { c -> UiColor(StickerAppearance.of(c).fill) } }
                 Box(
                     Modifier
                         .offset(cell * SIDE * column, cell * SIDE * row)
@@ -960,7 +921,7 @@ private fun CaptureButtons(
 }
 
 /** Net cell (column, row) of each face's 3×3 in the cross net. */
-private val NET_POSITION: Map<Face, Pair<Int, Int>> =
+internal val NET_POSITION: Map<Face, Pair<Int, Int>> =
     mapOf(Face.U to (1 to 0), Face.L to (0 to 1), Face.F to (1 to 1), Face.R to (2 to 1), Face.B to (3 to 1), Face.D to (1 to 2))
 
 /** The sample's stickers as the viewfinder shows them (pixel order turned by its orientation), i.e. plan net order. */
@@ -989,64 +950,6 @@ internal fun labColor(lab: Lab): UiColor {
         gamma(-0.9692660 * x + 1.8760108 * y + 0.0415560 * z),
         gamma(0.0556434 * x - 0.2040259 * y + 1.0572252 * z),
     )
-}
-
-/** Quick Scan's *Scan face by face* (Story 10.17): a secondary action stacked directly above *Enter colors instead*. */
-@Composable
-private fun FaceByFaceButton(
-    strings: ContentStrings,
-    onClick: () -> Unit,
-) {
-    OutlinedButton(
-        onClick,
-        Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("quickScan:faceByFace"),
-    ) {
-        Text(strings.resolve(ContentText("btn.quick-scan.face-by-face")))
-    }
-}
-
-/**
- * Quick Scan's calibration offer (Story 10.19, PO 2026-11-21), as the review offers it: "Colors look off — calibrate?"
- * and *Calibrate colors*, which asks the same confirm before [onCalibrate] opens calibration.
- */
-@Composable
-private fun CalibrationOfferLine(
-    strings: ContentStrings,
-    onCalibrate: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    var confirm by remember { mutableStateOf(false) }
-    Column(modifier.fillMaxWidth().testTag("quickScan:calibrate"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(
-            strings.resolve(ContentText("msg.calibration.offer")),
-            Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
-            textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        OutlinedButton(
-            { confirm = true },
-            Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("quickScan:calibrate:offer"),
-        ) { Text(strings.resolve(ContentText("btn.calibration.offer"))) }
-    }
-    if (confirm) {
-        AlertDialog(
-            onDismissRequest = { confirm = false },
-            text = { Text(strings.resolve(ContentText("msg.calibration.confirm"))) },
-            confirmButton = {
-                TextButton({
-                    confirm = false
-                    onCalibrate()
-                }, Modifier.testTag("quickScan:calibrate:confirm")) {
-                    Text(strings.resolve(ContentText("btn.calibration.offer")))
-                }
-            },
-            dismissButton = {
-                TextButton({ confirm = false }, Modifier.testTag("quickScan:calibrate:cancel")) {
-                    Text(strings.resolve(ContentText("btn.scan.cancel")))
-                }
-            },
-        )
-    }
 }
 
 /** The copy of the discard question: Quick Scan's "Discard this scan?" or the Guided viewfinder's (GH #325). */
@@ -1086,7 +989,7 @@ private fun DiscardDialog(
 }
 
 @Composable
-private fun EnterColorsButton(
+internal fun EnterColorsButton(
     strings: ContentStrings,
     onClick: () -> Unit,
 ) {

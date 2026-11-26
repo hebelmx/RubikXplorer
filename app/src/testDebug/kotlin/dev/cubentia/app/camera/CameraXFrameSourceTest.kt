@@ -31,6 +31,51 @@ import java.util.concurrent.Executors
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class)
 class CameraXFrameSourceTest {
+    @Test fun continuousFramesUseTheAnalyzerAndStopDuringTheCompletionHold() {
+        val source = CameraXFrameSource()
+        val activity = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+        val executor = Executors.newSingleThreadExecutor()
+        val delivered = mutableListOf<ScanFrame>()
+        val snap = testSnapshot(testHandoff(emptyList()))
+        val engine =
+            object : ContinuousScanEngine {
+                override fun processFrame(
+                    frame: YuvFrame,
+                    rotationDegrees: Int,
+                    viewWidth: Int,
+                    viewHeight: Int,
+                ): ContinuousFrame {
+                    assertNotEquals(
+                        android.os.Looper
+                            .getMainLooper()
+                            .thread,
+                        Thread.currentThread(),
+                    )
+                    assertTrue(frame.width > 0)
+                    assertEquals(90, rotationDegrees)
+                    assertEquals(360 to 480, viewWidth to viewHeight)
+                    return ContinuousFrame(snap, emptyList())
+                }
+
+                override fun reset() = error("unexpected reset")
+
+                override fun export() = error("unexpected export")
+            }
+        try {
+            source.start(activity.get(), executor, { delivered.add(it) }, {})
+            source.preview(activity.get()).layout(0, 0, 360, 480)
+            source.continuousMode(engine) { true }
+            executor.submit { source.read(dimFace()) }.get()
+            source.continuousMode(engine) { false }
+            executor.submit { source.read(dimFace()) }.get()
+            assertEquals(snap, delivered.single().continuous?.snapshot)
+        } finally {
+            source.stop()
+            executor.shutdownNow()
+            activity.pause().stop().destroy()
+        }
+    }
+
     @Test fun meteringIncludesAwbOnlyWhenAsked() {
         val afAe = FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE
         assertEquals(afAe or FocusMeteringAction.FLAG_AWB, CameraXFrameSource.meteringFlags(includeAwb = true))

@@ -1,5 +1,6 @@
 package dev.cubentia.app.camera.continuous
 
+import dev.cubentia.app.camera.ContinuousOverlayQuad
 import dev.cubentia.app.camera.StickerCenterDetection
 import dev.cubentia.app.camera.StickerCenterDetector
 import dev.cubentia.app.camera.YuvFrame
@@ -12,13 +13,6 @@ import dev.cubentia.domain.recognition.continuous.ContinuousScanSnapshot
 import dev.cubentia.domain.recognition.continuous.FaceLatticeFitter
 import dev.cubentia.domain.recognition.continuous.FittedFace
 import dev.cubentia.domain.recognition.continuous.Point2D
-
-/** Live tracked face quad projected to normalized `[0..1]` `PreviewView` coordinates. */
-internal data class ContinuousOverlayQuad(
-    val face: Face?,
-    val localFace: Face,
-    val viewCorners: List<Point2D>,
-)
 
 /** Per-frame result of the continuous Quick Scan pipeline (detector -> lattice -> sampler -> mapper). */
 internal data class ContinuousPipelineFrame(

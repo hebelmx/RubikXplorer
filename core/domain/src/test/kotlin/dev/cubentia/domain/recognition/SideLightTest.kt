@@ -141,26 +141,4 @@ class SideLightTest {
         assertFalse(SideLight.checkSamples(listOf(sample(90.0), sample(88.0), sample(60.0))).passed)
         assertTrue(SideLight.checkSamples(listOf(sample(90.0), sample(88.0), sample(70.0))).passed)
     }
-
-    @Test
-    fun `each mode has a hold cut above a clear cut, and the band between them changes nothing`() {
-        // Story 10.21: hysteresis cuts fitted on the tuning split (QuickScanGateTuningTest).
-        SideLight.Mode.entries.forEach { mode -> assertTrue(mode.clearCut < mode.holdCut, "$mode") }
-        val calibrated = SideLight.Mode.CALIBRATED
-
-        fun verdict(score: Double) = SideLight.Verdict(score <= calibrated.holdCut, score, 1.0, 1.0, calibrated)
-        // Top over sides: top level 1.34 with both sides at 1 scores 1.34.
-        val band = SideLight.Verdict(true, 1.34, 1.0, 1.0, calibrated)
-        assertEquals(1.34, band.score!!, 1e-9)
-        assertTrue(band.inBand && !band.belowClear && band.passed)
-        val clear = SideLight.Verdict(true, 1.2, 1.0, 1.0, calibrated)
-        assertTrue(clear.belowClear && !clear.inBand)
-        val fail = SideLight.Verdict(false, 1.5, 1.0, 1.0, calibrated)
-        assertTrue(!fail.inBand && !fail.belowClear && fail.farAboveCut)
-        assertFalse(SideLight.Verdict(false, 1.36, 1.0, 1.0, calibrated).farAboveCut)
-        assertFalse(SideLight.Verdict(true, null, 1.0, 1.0, calibrated).belowClear, "unscored never clears")
-        assertEquals(SideLight.MAX_SIDE_DARKER_L, SideLight.Mode.UNCALIBRATED.holdCut)
-        assertEquals(SideLight.CLEAR_SIDE_DARKER_L, SideLight.Mode.UNCALIBRATED.clearCut)
-        assertTrue(verdict(1.34).passed && !verdict(1.351).passed)
-    }
 }

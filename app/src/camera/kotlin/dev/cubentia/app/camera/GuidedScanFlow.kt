@@ -14,9 +14,7 @@ import dev.cubentia.domain.recognition.GuidedScanController
 import dev.cubentia.domain.recognition.GuidedScanEffect
 import dev.cubentia.domain.recognition.GuidedScanPlan
 import dev.cubentia.domain.recognition.Lab
-import dev.cubentia.domain.recognition.OutlinePoint
 import dev.cubentia.domain.recognition.PhysicalObservation
-import dev.cubentia.domain.recognition.QuickScanController
 import dev.cubentia.domain.recognition.ScanAssembler
 import dev.cubentia.domain.recognition.ScanResult
 import dev.cubentia.domain.recognition.ScanReview
@@ -170,14 +168,13 @@ internal object GuidedScanFlow {
     /**
      * The stickers a fallback to the Editor carries from [phase] (GH #321): the review's (the Learner's fixes included),
      * also from a retake or calibration opened from review; else the stickers [ScanReview.fromSamples] reads from the
-     * viewfinder's captured and kept faces or the corner view's captured ones, with [saved]. Null with no captured face,
-     * and for the rationale, denial and unavailable cards. A calibration opened from Quick Scan's corner view reads
-     * [quickScanCapture], the Quick Scan capture phase it returns to. Never filled from an expected state (AD-5).
+     * viewfinder's captured and kept faces or Case capture's corner view's captured ones, with [saved]. Null with no captured face,
+     * and for the rationale, denial and unavailable cards and the continuous Quick Scan (whose stickers come from its
+     * exported hand-off instead). Never filled from an expected state (AD-5).
      */
     fun fallbackStickers(
         phase: GuidedScanPhase,
         saved: CalibrationCenters?,
-        quickScanCapture: GuidedScanPhase? = null,
     ): List<Color?>? {
         fun read(samples: List<FaceSample>) = samples.takeIf { it.isNotEmpty() }?.let { ScanReview.fromSamples(it, saved).stickers }
         return when (phase) {
@@ -187,9 +184,6 @@ internal object GuidedScanFlow {
 
             is GuidedScanPhase.Calibration -> {
                 phase.fromReview?.review?.stickers
-                    ?: quickScanCapture
-                        ?.takeIf { phase.fromQuickScan && it !is GuidedScanPhase.Calibration }
-                        ?.let { fallbackStickers(it, saved) }
             }
 
             is GuidedScanPhase.Viewfinder -> {
@@ -200,7 +194,7 @@ internal object GuidedScanFlow {
                 read(phase.captured)
             }
 
-            GuidedScanPhase.Rationale, is GuidedScanPhase.Denied, GuidedScanPhase.Unavailable -> {
+            GuidedScanPhase.Continuous, GuidedScanPhase.Rationale, is GuidedScanPhase.Denied, GuidedScanPhase.Unavailable -> {
                 null
             }
         }
@@ -259,28 +253,9 @@ internal object GuidedScanFlow {
         )
 
     /**
-     * Quick Scan's corner view with *Scan face by face* (Story 10.17), or its hand-over viewfinder: "Face n of N" over the
-     * faces asked, any rotation, the kept corner faces shown as done on the mini net; null once the scan is done.
-     */
-    fun phaseOf(quick: dev.cubentia.domain.recognition.QuickScanController): GuidedScanPhase? {
-        if (quick.inCorner) {
-            return GuidedScanPhase.CornerViewfinder(
-                quick.hold,
-                quick.captured,
-                quick.coaching,
-                faceByFace = true,
-                offerCalibration = quick.calibrationOffered,
-            )
-        }
-        val grid = quick.fallback ?: return null
-        return phaseOf(grid).copy(kept = quick.kept, captured = quick.added, again = null, retake = false, handOver = true)
-    }
-
-    /**
-     * Story 10.19: the torch control [phase] shows: the Learner's choice [torchOn] in Quick Scan's corner view on a camera
-     * with a flash unit; null (no control, no torch copy) without a flash unit, before the camera is known, or in any
-     * other phase (Case capture, the Guided grid and the hand-over included). Story 10.21: the calibration phase shows it
-     * too, the same shared choice.
+     * The torch control [phase] shows: the Learner's choice [torchOn] in the continuous Quick Scan (Story 10.32) and in
+     * the calibration phase (Story 10.21) on a camera with a flash unit; null (no control, no torch copy) without a flash
+     * unit, before the camera is known, or in any other phase (Case capture, the Guided grid and the hand-over included).
      */
     fun torchControl(
         phase: GuidedScanPhase,
@@ -289,7 +264,7 @@ internal object GuidedScanFlow {
     ): Boolean? =
         torchOn.takeIf {
             hasFlash == true &&
-                ((phase is GuidedScanPhase.CornerViewfinder && phase.faceByFace) || phase is GuidedScanPhase.Calibration)
+                (phase == GuidedScanPhase.Continuous || phase is GuidedScanPhase.Calibration)
         }
 
     /**
@@ -312,16 +287,6 @@ internal object GuidedScanFlow {
     ): Boolean = phase !is GuidedScanPhase.Calibration || torchLit(phase, hasFlash, torchOn) == (applied == true)
 
     /**
-     * Story 10.21: the torch choice a calibration opens with: the corner view's own choice [current] when opened from its
-     * *Calibrate colors* offer ([fromQuickScan]; one shared choice, so a change there carries back), else on (Settings or
-     * the review).
-     */
-    fun calibrationTorch(
-        fromQuickScan: Boolean,
-        current: Boolean,
-    ): Boolean = if (fromQuickScan) current else true
-
-    /**
      * Story 10.21: the torch tag a calibration is saved with: the torch actually lit, i.e. wanted ([torchOn]) on a camera
      * with a flash unit ([hasFlash]) and [applied] by the camera; no flash or a pending or failed torch is off.
      */
@@ -332,30 +297,7 @@ internal object GuidedScanFlow {
     ): Boolean = hasFlash == true && torchOn && applied == true
 
     /**
-     * One corner frame's torch state into Quick Scan (Story 10.19): the torch wanted is the Learner's choice [torchOn] on a
-     * camera with a flash unit ([hasFlash]); [applied] is what the camera applied last, so the controller re-meters only
-     * once a toggle took effect.
-     */
-    fun syncTorch(
-        quick: QuickScanController,
-        hasFlash: Boolean?,
-        torchOn: Boolean,
-        applied: Boolean?,
-        nowMs: Long,
-    ) = quick.syncTorch(requested = hasFlash == true && torchOn, applied = applied, nowMs = nowMs)
-
-    /**
-     * The detected cube outline of [corner] for the domain (Story 10.22): the twelve quad points in analysis-frame
-     * pixels, as plain coordinates; null when no cube was detected.
-     */
-    fun outlineOf(corner: CornerFrame): List<OutlinePoint>? =
-        corner.frameQuads
-            .flatten()
-            .map { OutlinePoint(it.x, it.y) }
-            .takeIf { corner.detected && it.isNotEmpty() }
-
-    /**
-     * Whether the torch is wanted on in [phase]: only in Quick Scan's corner view or the calibration phase (Story 10.21),
+     * Whether the torch is wanted on in [phase]: only in the continuous Quick Scan or the calibration phase (Story 10.21),
      * with a flash unit, when chosen.
      */
     fun torchLit(
@@ -383,13 +325,6 @@ internal object GuidedScanFlow {
                 calibration = saved,
             )
         }
-
-    /**
-     * Quick Scan's review of [done] (Story 10.21): read with the calibration the scan matched ([QuickScanEffect.Done.calibration],
-     * null after a torch or centre mismatch, as when no calibration exists), the kept faces' blanks left blank.
-     */
-    fun quickReviewOf(done: dev.cubentia.domain.recognition.QuickScanEffect.Done): GuidedScanPhase.Review? =
-        reviewOf(listOf(GuidedScanEffect.Done(done.samples)), done.calibration, done.blanks)
 
     /** A retake's plan (Story 10.16): the fixed Guided Scan order filtered to [faces], each prompt naming only its center. */
     fun retakePlan(faces: Set<Face>): List<ScanStep> = GuidedScanPlan.steps.filter { it.face in faces }

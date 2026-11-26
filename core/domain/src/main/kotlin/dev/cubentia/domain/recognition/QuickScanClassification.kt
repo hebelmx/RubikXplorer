@@ -63,6 +63,8 @@ sealed interface CalibrationMatch {
  * colours); otherwise all of its judged stickers must be CONFIDENT.
  */
 object QuickScanClassification {
+    const val MIN_CONFIDENT = 6
+
     /**
      * The margin (ΔE to the second-nearest centre) both reads need, per colour they name, for the gate to agree (Story
      * 10.21). Fitted on the 10.20 tuning split only by `QuickScanGateTuningTest` (docs/evidence/10-21/tuning-and-replay.md):
@@ -192,7 +194,7 @@ object QuickScanClassification {
         val blanks: Set<Int>,
         val matched: Boolean,
         val hardDisagreement: Boolean,
-        val gridReason: QuickScanDiagnosis.GridReason? = null,
+        val gridReason: GridReason? = null,
     )
 
     /** [sample]'s decision among [merged] ([FaceDecision]), with the gate's per-colour [margin]. */
@@ -224,23 +226,23 @@ object QuickScanClassification {
         val reason =
             when {
                 sample.quality != CaptureQuality.ACCEPTABLE || sample.stickers.size != ScanAssembler.STICKERS -> {
-                    QuickScanDiagnosis.GridReason.QUALITY
+                    GridReason.QUALITY
                 }
 
                 unresolved -> {
-                    QuickScanDiagnosis.GridReason.UNCALIBRATED
+                    GridReason.UNCALIBRATED
                 }
 
                 hard -> {
-                    QuickScanDiagnosis.GridReason.HARD_DISAGREEMENT
+                    GridReason.HARD_DISAGREEMENT
                 }
 
                 centreUncertain -> {
-                    QuickScanDiagnosis.GridReason.CENTRE_UNCERTAIN
+                    GridReason.CENTRE_UNCERTAIN
                 }
 
                 blanks.size > allowed -> {
-                    QuickScanDiagnosis.GridReason.UNCERTAIN
+                    GridReason.UNCERTAIN
                 }
 
                 else -> {
@@ -248,64 +250,6 @@ object QuickScanClassification {
                 }
             }
         return FaceDecision(reads.gated, reason == null, blanks, matched != null, hard, reason)
-    }
-
-    /**
-     * Debug diagnostics of [sample] among [merged] ([QuickScanDiagnosis.FaceDiagnosis]): the same reads and decision as
-     * [decide], with the centre's issue, the reference used and why, and every sticker's two reads. Nothing decides on it.
-     */
-    fun diagnose(
-        sample: FaceSample,
-        merged: List<FaceSample>,
-        saved: CalibrationCenters?,
-        captureTorch: Map<Face, Boolean> = emptyMap(),
-    ): QuickScanDiagnosis.FaceDiagnosis {
-        val decision = decide(sample, merged, saved, captureTorch)
-        val matched = usable(sample.face, merged, saved, captureTorch)
-        val reads = reads(sample, merged, matched, AGREEMENT_MARGIN)
-        val centers = firstCenters(reads.self, merged)
-        val judged = { index: Int -> judged(sample, index) }
-        val stickers =
-            sample.stickers.indices.map { index ->
-                val gated = reads.gated.getOrNull(index)
-                QuickScanDiagnosis.StickerDiagnosis(
-                    color = gated?.color,
-                    confident = gated?.confidence == StickerConfidence.CONFIDENT,
-                    judged = judged(index),
-                    firstMargin = reads.firstMargins.getOrNull(index),
-                    secondColor = reads.second.getOrNull(index)?.color,
-                    secondMargin = reads.margins.getOrNull(index),
-                )
-            }
-        val centre = stickers.getOrNull(FaceSample.CENTER_INDEX)
-        val own = sample.center
-        val issue =
-            when {
-                centre?.confident == true -> null
-                sample.centerPlain == false -> QuickScanDiagnosis.CentreIssue.GUARDED
-                own == null || !own.isValid() -> QuickScanDiagnosis.CentreIssue.INVALID
-                own.l <= FrameQuality.DARK_CELL_MAX_L -> QuickScanDiagnosis.CentreIssue.DARK
-                centre?.color == null -> QuickScanDiagnosis.CentreIssue.NO_REFERENCE
-                else -> QuickScanDiagnosis.CentreIssue.UNCERTAIN
-            }
-        val guarded = (reads.self as? SelfCalibration.Calibrated)?.guarded.orEmpty()
-        return QuickScanDiagnosis.FaceDiagnosis(
-            face = sample.face,
-            quality = sample.quality,
-            centrePlain = sample.centerPlain,
-            centre = centre,
-            centreIssue = issue,
-            reference = QuickScanDiagnosis.reference(matched != null, reads.self, centers),
-            referenceColors = centers.keys,
-            calibration = matchFor(sample.face, merged, saved, captureTorch),
-            guarded = guarded + merged.filter { it.centerPlain == false }.mapNotNull { it.centerColor },
-            unresolved = (reads.self as? SelfCalibration.NeedsCalibration)?.colors.orEmpty(),
-            stickers = stickers,
-            counted = confidentJudged(sample, merged, saved, captureTorch) ?: 0,
-            confident = stickers.count { it.judged && it.confident },
-            gridReason = decision.gridReason,
-            blanks = decision.blanks,
-        )
     }
 
     /** Both reads CONFIDENT and naming different colours: beyond the gate, so the face goes to the grid. */

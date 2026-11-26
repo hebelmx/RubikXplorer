@@ -2,6 +2,7 @@ package dev.cubentia.domain.recognition
 
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.Face
+import dev.cubentia.domain.recognition.continuous.ContinuousScanHandoff
 import kotlin.math.sqrt
 
 /**
@@ -292,12 +293,6 @@ enum class Coaching {
     MOVE_UP,
     MOVE_DOWN,
     PLAIN_LIGHT_SURFACE,
-
-    /** Quick Scan corner: a side face is much darker than the top; turn so the light shines on the cube (Story 10.19). */
-    SIDES_DARK,
-
-    /** Quick Scan corner: glare while the torch is on; turn the torch off (Story 10.19). */
-    TORCH_GLARE,
 }
 
 /** What the viewfinder must do after a controller call. */
@@ -352,7 +347,7 @@ class GuidedScanController internal constructor(
     private val plan: List<ScanStep>,
     private val allowAdditionalReprompts: Boolean,
     private val reprompt: (List<FaceSample>) -> List<Face>,
-    /** Faces read elsewhere (Quick Scan's corners) that a capture must not repeat, besides the faces stored here. */
+    /** Faces read elsewhere (the faces Quick Scan kept) that a capture must not repeat, besides the faces stored here. */
     private val known: List<FaceSample> = emptyList(),
     private val initialDelayMs: Long = 0L,
 ) {
@@ -586,6 +581,26 @@ class GuidedScanController internal constructor(
     }
 
     companion object {
+        /** After Quick Scan's hand-over the face last shown is still in view: no automatic capture this long after its first frame. */
+        const val HAND_OVER_DELAY_MS = 2500L
+
+        /**
+         * The Guided viewfinder of Quick Scan's hand-over (Stories 10.17, 10.32): asks for [plan] only, never re-prompts,
+         * rejects a capture that shows a face [kept] already holds (as a repeated face), and waits [HAND_OVER_DELAY_MS]
+         * before its first automatic capture.
+         */
+        fun handOver(
+            plan: List<ScanStep>,
+            kept: ContinuousScanHandoff,
+        ): GuidedScanController =
+            GuidedScanController(
+                plan = plan,
+                allowAdditionalReprompts = false,
+                reprompt = { emptyList() },
+                known = ScanAssembler.keptSamples(kept),
+                initialDelayMs = HAND_OVER_DELAY_MS,
+            )
+
         /** Self-calibration, then the faces `ScanAssembler` cannot place; none when the scan needs calibration first. */
         fun defaultReprompt(
             samples: List<FaceSample>,

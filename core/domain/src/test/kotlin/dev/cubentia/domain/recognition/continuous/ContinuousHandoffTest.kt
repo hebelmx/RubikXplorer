@@ -743,4 +743,51 @@ class ContinuousHandoffTest {
         assertEquals(ScanGap.UNCALIBRATED, uncalPartial.gaps[Face.R])
         assertEquals(ScanGap.NO_POSE, uncalPartial.gaps[Face.B])
     }
+
+    @Test
+    fun `Story 10-32 assembleHandover with preserveUnread keeps unread kept stickers unread even when their Labs would classify`() {
+        val home = Face.entries.associateWith { face -> List(9) { Color.home(face) } }
+        val kept =
+            ContinuousScanHandoff(
+                faces =
+                    listOf(Face.U, Face.F, Face.R).associateWith { face ->
+                        ContinuousFaceHandoff(
+                            face = face,
+                            colors = home.getValue(face).mapIndexed { i, c -> c.takeUnless { face == Face.U && i == 0 } },
+                            confidence =
+                                List(9) { i ->
+                                    if (face == Face.U && i == 0) StickerConfidence.UNCERTAIN else StickerConfidence.CONFIDENT
+                                },
+                            // The unread sticker carries a Lab that classifies cleanly as white.
+                            labs = home.getValue(face).map { RecognitionFixtures.LABS.getValue(it) },
+                            orientationLocked = true,
+                        )
+                    },
+                calibration = null,
+                globalAnchored = true,
+            )
+        val added =
+            listOf(Face.D, Face.L, Face.B).map { face ->
+                FaceSample(
+                    face = face,
+                    orientationDegrees = 0,
+                    stickers = home.getValue(face).map { RecognitionFixtures.LABS.getValue(it) },
+                    quality = CaptureQuality.ACCEPTABLE,
+                    centerColor = Color.home(face),
+                    centerPlain = true,
+                )
+            }
+        // Default (Story 10.17 behaviour, unchanged): a partial hand-off with no calibration classifies the unread Lab.
+        val classified = assertInstanceOf(ScanResult.Full::class.java, ScanAssembler.assembleHandover(kept, added))
+        assertEquals(Color.WHITE, classified.facelets.colors[0])
+        assertEquals(StickerConfidence.CONFIDENT, classified.confidence[0])
+        assertNotNull(ScanReview.from(classified).stickers[0])
+
+        val preserved = assertInstanceOf(ScanResult.Full::class.java, ScanAssembler.assembleHandover(kept, added, preserveUnread = true))
+        assertEquals(StickerConfidence.UNCERTAIN, preserved.confidence[0])
+        assertNull(ScanReview.from(preserved).stickers[0])
+        // Every other kept sticker is untouched.
+        assertEquals(classified.facelets.colors.drop(1), preserved.facelets.colors.drop(1))
+        assertEquals(classified.confidence.drop(1), preserved.confidence.drop(1))
+    }
 }

@@ -29,6 +29,13 @@ class CornerDetectorBindingTest {
     @Inject
     internal lateinit var stickerCenterDetector: Optional<StickerCenterDetector>
 
+    @Inject internal lateinit var engines: Optional<ContinuousScanEngineFactory>
+
+    @Test fun continuousFactoryCreatesIndependentScanSessions() {
+        assertTrue(engines.isPresent)
+        assertTrue(engines.get().create() !== engines.get().create())
+    }
+
     @Before
     fun setup() = hilt.inject()
 
