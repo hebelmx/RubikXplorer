@@ -160,7 +160,7 @@ development_status:
   10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal: done
   10-33-continuous-quick-scan-physical-device-matrix-and-po-beta-cal: backlog
   10-34-record-and-replay-a-continuous-quick-scan-session-in-the-dev: backlog
-  10-35-retire-the-quick-scan-only-two-corner-recorder-paths: review
+  10-35-retire-the-quick-scan-only-two-corner-recorder-paths: done
   10-36-record-new-scrambles-on-the-continuous-recorder-analyse-them: backlog
   10-22-quick-scan-captures-promptly-once-the-cube-is-in-view: done
   10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads: done
@@ -3167,3 +3167,15 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-400-scan-route-tests-camera-start-wait.md"
+  - id: "epic-10-deferred-10.35-obsolete-items-no-resolution"
+    epic: 10
+    action: "The recorder action items that Story 10.35 closed as obsolete only changed status: open to done, with no resolution: line, so a later reader (12.18 triage) may take them for fixed recorder bugs; add a resolution line naming SCP 2026-11-26 retire-recorder to each (medium; deferred from 10.35 gate, sprint-status.yaml action_items)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-35-retire-the-quick-scan-only-two-corner-recorder-paths.md"
+  - id: "epic-10-deferred-10.35-stale-reader-outputs"
+    epic: 10
+    action: "Two tracked reader outputs are stale against their own commands on main: evaluateMatrix rewrites docs/spikes/oq-8-recognition-matrix.md and exportKotlinStickerReads rewrites docs/evidence/10-23/kotlin-reads.json; the drift predates 10.35 (low; deferred from 10.35)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-35-retire-the-quick-scan-only-two-corner-recorder-paths.md"
