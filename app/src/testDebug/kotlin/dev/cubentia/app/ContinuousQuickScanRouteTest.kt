@@ -150,8 +150,9 @@ class ContinuousQuickScanRouteTest {
         canComplete: Boolean = true,
         blanks: Set<FaceSlot> = setOfNotNull(blank),
         conflicts: List<FaceSlot> = emptyList(),
+        centresOnly: Boolean = false,
     ) {
-        val handoff = testHandoff(faces, anchored, blanks = blanks)
+        val handoff = testHandoff(faces, anchored, blanks = blanks, centresOnly = centresOnly)
         exported =
             if (cue == ContinuousScanCue.AllVerified && canComplete) {
                 ContinuousScanExport.Complete(CubeState.SOLVED, CubeState.SOLVED.toFacelets(), handoff)
@@ -300,10 +301,46 @@ class ContinuousQuickScanRouteTest {
         return ScanFlowContract.decode(shadow.resultCode, shadow.resultIntent)
     }
 
-    @Test fun scanFaceByFaceAfterThreeMappedFacesAsksOnlyTheRemainingFacesAndAccepts() {
+    /**
+     * Six sides mapped with U, F and R fully read and one unread sticker on each of B, L and D, so the hand-over keeps
+     * U, F and R. (Below six sides the mapper commits centres only, and no face is kept.)
+     */
+    private fun showThreeFullyReadFaces() =
+        show(Face.entries, blanks = setOf(FaceSlot(Face.B, 0), FaceSlot(Face.L, 0), FaceSlot(Face.D, 0)))
+
+    @Test fun scanFaceByFaceBelowSixSidesAsksForEveryCentreOnlyFaceAndTheReviewHasNoBlanks() {
+        quickScanActivity { scan, model ->
+            // As the mapper exports three sides: the centres only, eight unread stickers on each mapped face.
+            show(listOf(Face.U, Face.F, Face.R), centresOnly = true)
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 3/6")
+            rule.onNodeWithTag("quickScan:faceByFace").performClick()
+            settle(model)
+            rule.onNodeWithTag("scanProgress").assertTextEquals("Face 1 of 6")
+            waitForCamera(continuous = false)
+            listOf(Color.GREEN, Color.RED, Color.BLUE, Color.ORANGE, Color.WHITE, Color.YELLOW).forEach { color ->
+                camera.feed(ScanFrame(stats(color), 0))
+                shutter(model)
+            }
+            rule.waitUntil(10_000) {
+                shadowOf(Looper.getMainLooper()).idle()
+                model.phase is GuidedScanPhase.Review
+            }
+            // No sticker is left blank, so the scan can be accepted.
+            assertTrue((model.phase as GuidedScanPhase.Review).review.blanks.isEmpty())
+            if (rule.onAllNodesWithTag("review:coach").fetchSemanticsNodes().isNotEmpty()) {
+                rule.onNodeWithTag("review:coach").performClick()
+            }
+            rule.onNodeWithTag("review:accept").performScrollTo().performClick()
+            assertEquals(ScanOutcome.Accepted(CubeState.SOLVED), outcome(scan.get()))
+            val run = quickScanRuns().single()
+            assertTrue(run, " fallbackFaces=6 " in "$run " && " outcome=ACCEPTED " in "$run ")
+        }
+    }
+
+    @Test fun scanFaceByFaceWithThreeFullyReadFacesAsksOnlyTheOtherFacesAndAccepts() {
         quickScanActivity { scan, model ->
             rule.onNodeWithTag("quickScan:faceByFace").assertIsDisplayed()
-            show(listOf(Face.U, Face.F, Face.R))
+            showThreeFullyReadFaces()
             rule.onNodeWithTag("quickScan:faceByFace").assertIsDisplayed().performClick()
             settle(model)
             rule.onNodeWithTag("quickScan:counter").assertDoesNotExist()
@@ -525,7 +562,7 @@ class ContinuousQuickScanRouteTest {
     @Test fun enterColorsInTheHandOverWithNoGuidedCaptureReturnsTheKeptFaces() {
         val faces = listOf(Face.U, Face.F, Face.R)
         quickScanActivity { scan, model ->
-            show(faces)
+            showThreeFullyReadFaces()
             rule.onNodeWithTag("quickScan:faceByFace").performClick()
             settle(model)
             rule.onNodeWithTag("scanProgress").assertTextEquals("Face 1 of 3")
@@ -538,7 +575,7 @@ class ContinuousQuickScanRouteTest {
     @Test fun enterColorsInTheHandOverAfterAGuidedCaptureStillReturnsTheKeptFacesAndNeverAGuess() {
         val faces = listOf(Face.U, Face.F, Face.R)
         quickScanActivity { scan, model ->
-            show(faces)
+            showThreeFullyReadFaces()
             rule.onNodeWithTag("quickScan:faceByFace").performClick()
             settle(model)
             waitForCamera(continuous = false)

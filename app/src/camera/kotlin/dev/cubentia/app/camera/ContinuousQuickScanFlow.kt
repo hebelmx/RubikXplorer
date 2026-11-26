@@ -131,12 +131,14 @@ internal data class ContinuousQuickScanFlow(
         }
 
     /**
-     * The faces *Scan face by face* keeps from the fresh export [handoff]: none when it is unanchored, else all of them;
-     * at six sides, Guided needs only the faces still blocking verification.
+     * The faces *Scan face by face* keeps from the fresh export [handoff]: none when it is unanchored, else only those
+     * whose nine stickers the mapper committed. At any number of mapped sides Guided is asked for every other face: the
+     * absent ones and those holding a conflicted or still-unread sticker (below six sides the mapper commits centres
+     * only, so that is every mapped face); when none is, the face the conflict cue names.
      */
     fun keptForGuided(handoff: ContinuousScanHandoff): ContinuousScanHandoff {
         if (!handoff.globalAnchored) return handoff.copy(faces = emptyMap())
-        if (handoff.faces.size < Face.entries.size || snapshot is ContinuousScanSnapshot.Complete) return handoff
+        if (snapshot is ContinuousScanSnapshot.Complete) return handoff
         val requested = snapshot?.conflictedSlots.orEmpty().mapTo(mutableSetOf()) { it.face }
         handoff.faces.forEach { (face, data) -> if (data.colors.any { it == null }) requested.add(face) }
         if (requested.isEmpty()) (cue as? ContinuousScanCue.ResolveConflict)?.let { requested.add(it.face) }

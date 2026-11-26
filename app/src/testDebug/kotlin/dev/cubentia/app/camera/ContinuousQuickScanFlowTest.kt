@@ -10,11 +10,15 @@ import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.ScanReview
 import dev.cubentia.domain.recognition.StickerConfidence
 import dev.cubentia.domain.recognition.continuous.ContinuousFaceHandoff
+import dev.cubentia.domain.recognition.continuous.ContinuousFaceletMapper
 import dev.cubentia.domain.recognition.continuous.ContinuousScanCue
 import dev.cubentia.domain.recognition.continuous.ContinuousScanHandoff
 import dev.cubentia.domain.recognition.continuous.ContinuousScanSnapshot
 import dev.cubentia.domain.recognition.continuous.FaceSlot
 import dev.cubentia.domain.recognition.continuous.Point2D
+import dev.cubentia.domain.recognition.continuous.Quad2D
+import dev.cubentia.domain.recognition.continuous.QuadObservation
+import dev.cubentia.domain.recognition.continuous.RgbColor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -22,16 +26,25 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+/**
+ * A hand-off of [faces] of the solved cube. [centresOnly] is what the mapper exports below six sides: each face holds its
+ * centre and eight unread stickers (their Labs measured), since it commits no other sticker before it has seen all six
+ * centres.
+ */
 internal fun testHandoff(
     faces: Collection<Face>,
     anchored: Boolean = true,
     blank: FaceSlot? = null,
     blanks: Set<FaceSlot> = setOfNotNull(blank),
+    centresOnly: Boolean = false,
 ): ContinuousScanHandoff {
     val state = CubeState.SOLVED.toFacelets().colors
     return ContinuousScanHandoff(
         faces.associateWith { face ->
-            val colors = List(9) { i -> state[face.ordinal * 9 + i].takeUnless { FaceSlot(face, i) in blanks } }
+            val colors =
+                List(9) { i ->
+                    state[face.ordinal * 9 + i].takeUnless { FaceSlot(face, i) in blanks || (centresOnly && i != FaceSample.CENTER_INDEX) }
+                }
             ContinuousFaceHandoff(
                 face,
                 colors,
@@ -99,13 +112,19 @@ class ContinuousQuickScanFlowTest {
         assertEquals(fresh.toFallbackStickers(), unanchored.fallback(fresh))
         assertEquals(fresh, unanchored.keptForGuided(fresh))
         assertNull(unanchored.fallback(testHandoff(emptyList())))
+        // As the mapper exports them below six sides (centres only), the Editor gets the centres and Guided keeps no face.
+        val centres = testHandoff(listOf(Face.U, Face.F), centresOnly = true)
+        assertEquals(centres.toFallbackStickers(), unanchored.fallback(centres))
+        assertEquals(2, checkNotNull(unanchored.fallback(centres)).count { it != null })
+        assertTrue(unanchored.keptForGuided(centres).faces.isEmpty())
         val mapped = testHandoff(listOf(Face.U, Face.F, Face.R), blank = FaceSlot(Face.R, 0))
         val more = unanchored.feed(testSnapshot(mapped))
         assertEquals(CountAnnouncement(3, 1), more.announcement)
         assertEquals(listOf(ContinuousQuickScanFlow.Pulse.Tick), more.pulsesSince(unanchored))
         assertTrue(more.confirmClose)
         assertEquals(mapped.toFallbackStickers(), more.fallback(mapped))
-        assertEquals(mapped, more.keptForGuided(mapped))
+        // A face with an unread sticker is asked again at any count, not only at six sides.
+        assertEquals(setOf(Face.U, Face.F), more.keptForGuided(mapped).faces.keys)
         val fewer = more.feed(testSnapshot(testHandoff(listOf(Face.U, Face.F))))
         assertEquals(2, fewer.count)
         assertEquals(more.announcement, fewer.announcement)
@@ -204,6 +223,65 @@ class ContinuousQuickScanFlowTest {
         listOf(Face.B, Face.L, Face.D).forEach { face ->
             assertEquals(1, partial.stickers.subList(face.ordinal * 9, face.ordinal * 9 + 9).count { it != null })
         }
+    }
+
+    @Test fun scanFaceByFaceBelowSixSidesAsksGuidedForEveryCentreOnlyFaceAndTheReviewHasNoBlanks() {
+        (1..5).forEach { sides ->
+            val centres = testHandoff(Face.entries.take(sides), centresOnly = true)
+            val flow = ContinuousQuickScanFlow().feed(testSnapshot(centres))
+            assertEquals(sides, flow.count)
+            val kept = flow.keptForGuided(centres)
+            assertTrue(kept.globalAnchored)
+            assertTrue(kept.faces.isEmpty())
+            // Guided captures every face it was asked for: nothing is left blank, and the cube can be accepted.
+            val review = handoverReview(kept, (Face.entries - kept.faces.keys).map(::sample), null).review
+            assertTrue(review.blanks.isEmpty())
+            assertEquals(CubeState.SOLVED, review.accepted)
+        }
+    }
+
+    /**
+     * One frame of the U-F-R corner of a solved cube as the camera layer reports it: three quads (clockwise corners in
+     * view pixels), each with its nine cell colours as that side is lit.
+     */
+    private fun solvedCornerView(): List<QuadObservation> =
+        listOf(
+            Triple(RgbColor(229.0, 230.0, 232.0), 0.49, listOf(285.5 to 119.4, 438.8 to 89.2, 356.3 to 212.6, 188.1 to 224.0)),
+            Triple(RgbColor(142.0, 26.0, 29.0), 0.54, listOf(354.9 to 211.3, 439.1 to 92.1, 491.6 to 247.8, 434.5 to 378.8)),
+            Triple(RgbColor(24.0, 119.0, 51.0), 0.82, listOf(278.0 to 363.9, 186.8 to 223.0, 355.9 to 211.9, 436.4 to 379.3)),
+        ).map { (rgb, quality, corners) ->
+            QuadObservation(
+                quad = Quad2D(corners.map { (x, y) -> Point2D(x, y) }),
+                cellRgbs = List(9) { rgb },
+                cellQualities = List(9) { quality },
+                sharpness = 1.0,
+                hasGlare = false,
+            )
+        }
+
+    @Test fun aRealMapperExportBelowSixSidesAsksGuidedForEveryFaceWithUnreadStickersAndTheReviewHasNoBlanks() {
+        // The unchanged mapper on two frames of one corner: anchored with three centres confirmed and no other sticker
+        // committed, as it commits none before it has seen all six centres.
+        val mapper = ContinuousFaceletMapper()
+        val snapshot = List(2) { mapper.processFrame(it, solvedCornerView()) }.last()
+        val exported = mapper.export().handoff
+        assertTrue(exported.globalAnchored)
+        assertEquals(setOf(Face.U, Face.R, Face.F), exported.faces.keys)
+        exported.faces.forEach { (face, data) ->
+            assertEquals(List(9) { i -> Color.home(face).takeIf { i == FaceSample.CENTER_INDEX } }, data.colors)
+        }
+        val flow = ContinuousQuickScanFlow().feed(snapshot)
+        assertEquals(3, flow.count)
+        // Every mapped face holds unread stickers, so Guided is asked for all six and keeps none.
+        val kept = flow.keptForGuided(exported)
+        val asked = Face.entries - kept.faces.keys
+        assertEquals(Face.entries.toList(), asked)
+        val review = handoverReview(kept, asked.map(::sample), null).review
+        assertTrue(review.blanks.isEmpty())
+        assertEquals(CubeState.SOLVED, review.accepted)
+        // Kept as exported, the three faces would reach the Review blank around their centres: an unread sticker is
+        // never read from its measured Lab.
+        assertEquals(24, handoverReview(exported, listOf(Face.B, Face.L, Face.D).map(::sample), null).review.blanks.size)
     }
 
     // Review and Correct (PO clarification Q8).
