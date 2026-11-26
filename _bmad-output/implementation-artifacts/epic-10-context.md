@@ -45,10 +45,10 @@ A Learner can put their real cube into the app with the camera. They scan it fac
 ## Requirements & Constraints
 
 - **Never guess.** No partial or unvalidated Scan Result reaches the Solver or tutor, and uncertain stickers stay blank for the Learner. The confidently-wrong rate must be at most 0.1%, with zero silent wrong commits. A layer twisted mid-scan is detected and rejected, never stitched in.
-- **Continuous Quick Scan.** It works from any starting side, with 1–3 faces visible per frame and no fixed pose or drawn guide. It self-calibrates from the cube's six centres, so a saved calibration is optional. It must handle stickered, stickerless and pastel cubes. After a regrip it recovers only when the orientation is unambiguous.
+- **Continuous Quick Scan.** It works from any starting side, with 1–3 faces visible per frame and no fixed pose or drawn guide. It self-calibrates from the cube's six centres, so a saved calibration is optional. It must handle stickered, stickerless and pastel cubes. After a regrip it recovers only when the orientation is unambiguous, and it never locks onto a single symmetric face.
 - **GA bar.** At least 95% of scans reach a valid state with at most 3 corrections (the Guided fallback is allowed) in under 15 s. Below that bar the feature ships as BETA.
 - **Latency.** The full per-frame pipeline must run at p50 ≤ 50 ms on the Lenovo TB128XU and ≤ 20 ms on the Galaxy S24 FE. Recorder capture must not raise the analyzer p50 by more than 10%.
-- **Devices.** The Lenovo Tab M10 Plus 3rd Gen (TB128XU, no flash) is the gating minimum and the S24 FE is the mid-range gate. The Galaxy Tab S7 FE 5G is for compatibility only. Layouts must fit a phone in portrait without scrolling, and work at 200% font on the Lenovo's 600 dp width.
+- **Devices.** The Lenovo Tab M10 Plus 3rd Gen (TB128XU, no flash) is the gating minimum and the S24 FE is the mid-range gate. The Galaxy Tab S7 FE 5G is for compatibility only. Layouts must fit a phone in portrait without scrolling, and work at 200% font on the Lenovo's 600 dp width without cutting or breaking words.
 - **Privacy and size.**
   - No Learner-installable build stores, sends or logs frames. The debug fixture recorder is the only exception.
   - `CAMERA` is the only runtime permission, and the app has no internet permission.
@@ -60,6 +60,7 @@ A Learner can put their real cube into the app with the camera. They scan it fac
   - Size limits: 15 MB per continuous session and 60 MB for `Fixtures/continuous/` (CI-enforced, no LFS).
   - Every existing fixture root must keep a working reader.
 - **Acceptance.** Camera stories are accepted on the main app build from the real entry point, with the flag raised in debug, never through a debug-only launcher. Learner text comes from content strings (`checkLearnerText`). Evidence goes to `docs/evidence/<story>/`. Release-level calls (10.33, 10.36) are recorded in the PRD `.memlog.md`.
+- **Release passes.** From the first release that raises `CAMERA_SCAN` (0.11.0), the camera flows are part of the accessibility manual check, the performance pass and the recognition release gate. A release with every camera flag OFF declares no runtime permission.
 
 ## Technical Decisions
 
@@ -75,6 +76,7 @@ A Learner can put their real cube into the app with the camera. They scan it fac
   - Corner-mode capture
   - Readers of historical fixtures, such as `exportKotlinStickerReads` and `evaluateQuickScan`
 - **Shared rules.** The 10.28 count/override rule moves into a format-neutral `StickerTruthCheck` in `:core:domain`, used by both labellers.
+- **Quick Check result (10.29).** Lessons and Solution Playback share one result component. It shows the Certainty chip from `Assess` and never a numeric confidence.
 - **Model provenance.** The model's recipe, model card, SHA-256 and holdout test live in `tools/center-model/`. Retraining or replacing the model needs PO approval.
 - **AD-9 / AD-3 State.** `CalibrationRepository` is the only calibration owner, and calibration is never kept in session state or a Checkpoint. The scan flow returns a `ScanOutcome` and only the caller dispatches it. A ViewModel never mutates state. AD-13 makes offline and privacy build-enforced, and AD-17 covers glyphs, accessibility and adaptive layout.
 
@@ -87,9 +89,13 @@ A Learner can put their real cube into the app with the camera. They scan it fac
   - *Enter colors instead* opens the Editor with the confirmed stickers filled in.
   - *Torch* appears only on flash devices, starts OFF and turns off on hand-over, on leaving and in the background.
   - At 54/54, Scan Review opens with retake and Paint mode.
-- **Exit rules.** Closing Quick Scan with 0 faces mapped leaves at once; otherwise it asks "Discard this scan?". The same rule holds for Guided Scan. System Back behaves like *Close*.
-- **BETA labelling.** Quick Scan shows the shared BETA badge and tooltip, and Guided Scan has no beta label. A flag that is OFF shows no UI at all.
-- **Accessibility.** TalkBack announces side milestones, cues, a conflict face and completion.
+- **Exit rules.**
+  - Quick Scan: closing with 0 faces mapped leaves at once; otherwise it asks "Discard this scan?".
+  - Guided Scan: closing with no face captured leaves at once; with faces captured it asks "Discard the faces you captured?".
+  - Scan review: closing an unchanged review falls back to the Editor with its stickers.
+  - System Back behaves like *Close*.
+- **BETA labelling.** Quick Scan shows the shared BETA badge and tooltip, and Guided Scan has no beta label. A flag that is OFF shows no UI at all: no entry point, string or permission rationale.
+- **Accessibility.** TalkBack announces side milestones, cues, a conflict face and completion. A Quick Check Certainty is announced once.
 
 ## Cross-Story Dependencies
 

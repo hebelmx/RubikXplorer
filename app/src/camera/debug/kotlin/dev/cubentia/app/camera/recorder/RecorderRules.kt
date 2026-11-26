@@ -812,7 +812,8 @@ internal fun countRefusal(check: ColorCountCheck): String = truthRefusal(check.t
 
 /**
  * Story 10.34: the refusal line of any [StickerTruthCheck] (corner groups and continuous-session labels), identical to the
- * Story 10.28 text; unknown stickers, when there are any, are appended as `N unknown`.
+ * Story 10.28 text; unknown stickers, when there are any, are appended as `N unknown`, and unreviewed pre-fills as
+ * `N pre-filled not checked`.
  */
 internal fun truthRefusal(check: StickerTruthCheck): String =
     "Not saved: " +
@@ -824,7 +825,8 @@ internal fun truthRefusal(check: StickerTruthCheck): String =
                     count < STICKERS_PER_COLOR -> "${colorLabel(color)} $count (under)"
                     else -> null
                 }
-            } + listOfNotNull(check.unknownCount.takeIf { it > 0 }?.let { "$it unknown" })
+            } + listOfNotNull(check.unknownCount.takeIf { it > 0 }?.let { "$it unknown" }) +
+                listOfNotNull(check.unreviewedPrefills.takeIf { it > 0 }?.let { "$it pre-filled not checked" })
         ).joinToString(" · ")
 
 /** One face of a refused group shown with rings on its pre-filled stickers of over-counted colours. */

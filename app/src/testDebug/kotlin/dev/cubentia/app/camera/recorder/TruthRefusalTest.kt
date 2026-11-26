@@ -32,4 +32,33 @@ class TruthRefusalTest {
         assertEquals(dev.cubentia.domain.recognition.TruthSource.PREFILLED, truth[0].source)
         assertEquals(false, truth[0].reviewed)
     }
+
+    @Test
+    fun `continuous Save labels is locked until every pre-filled sticker is checked, then passes`() {
+        val faces = sessionPrefill(solved()).toMutableList()
+        val untouched = StickerTruthCheck.of(sessionTruth(faces))
+        assertEquals(54, untouched.unreviewedPrefills)
+        assertEquals("Save locked: tap the 54 pre-filled stickers not checked yet", continuousLabelLock(untouched))
+        assertEquals("Not saved: 54 pre-filled not checked", truthRefusal(untouched))
+        // Tapping every sticker but one still locks Save labels.
+        for (face in faces.indices) for (i in 0 until 9) if (face != 5 || i != 8) faces[face] = faces[face].tap(i)
+        assertEquals(
+            "Save locked: tap the 1 pre-filled stickers not checked yet",
+            continuousLabelLock(StickerTruthCheck.of(sessionTruth(faces))),
+        )
+        faces[5] = faces[5].tap(8)
+        val reviewed = StickerTruthCheck.of(sessionTruth(faces))
+        assertEquals(null, continuousLabelLock(reviewed))
+        assertEquals(true, reviewed.passed)
+        val labels =
+            dev.cubentia.domain.recognition.continuous.session.ContinuousSessionLabels
+                .of(sessionTruth(faces), null)
+        assertEquals(dev.cubentia.domain.recognition.continuous.session.SessionCountCheck.PASSED, labels.countCheck)
+        assertEquals(
+            dev.cubentia.domain.recognition.continuous.session.SessionCountCheck.REFUSED,
+            dev.cubentia.domain.recognition.continuous.session.ContinuousSessionLabels
+                .of(sessionTruth(sessionPrefill(solved())), "trust me")
+                .countCheck,
+        )
+    }
 }

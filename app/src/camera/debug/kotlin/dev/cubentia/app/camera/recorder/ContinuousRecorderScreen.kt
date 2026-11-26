@@ -61,6 +61,13 @@ import androidx.compose.ui.graphics.Color as UiColor
 internal fun sessionTruth(faces: List<TruthEntry>): List<StickerTruth> =
     faces.flatMap { entry -> entry.colors.indices.map { StickerTruth(entry.colors[it], entry.sources[it], entry.reviewed[it]) } }
 
+/**
+ * Story 10.34: why Save labels is locked, as `Save locked: tap the N pre-filled stickers not checked yet` (the corner
+ * flow's side-face wording, over all six faces); null when every pre-fill was reviewed.
+ */
+internal fun continuousLabelLock(check: StickerTruthCheck): String? =
+    check.unreviewedPrefills.takeIf { it > 0 }?.let { "Save locked: tap the $it pre-filled stickers not checked yet" }
+
 /** Story 10.34: six label faces pre-filled from the session's last net (54, URFDLB; null stays an explicit unknown). */
 internal fun sessionPrefill(net: List<dev.cubentia.domain.cube.Color?>): List<TruthEntry> =
     Face.entries.map { face -> TruthEntry().withPrefill(net.subList(face.ordinal * 9, face.ordinal * 9 + 9)) }
@@ -130,6 +137,12 @@ internal fun ContinuousRecorderScreen(
 
     fun saveLabels() {
         val check = StickerTruthCheck.of(sessionTruth(faces))
+        // Story 10.28 review provenance: every pre-fill is the prediction until the operator taps or colour-picks it.
+        continuousLabelLock(check)?.let { lock ->
+            refusal = null
+            labelStatus = lock
+            return
+        }
         if (check.passed) writeLabels(null) else refusal = check
     }
 
@@ -227,7 +240,10 @@ internal fun ContinuousRecorderScreen(
                         }
                     }
                 }
-                Text("Blank stickers stay explicit unknowns.", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "Blank stickers stay explicit unknowns. Tap (or colour-pick) every pre-filled sticker to check it before Save labels.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
                 refusal?.let { check ->
                     Text(truthRefusal(check), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

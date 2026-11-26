@@ -67,4 +67,39 @@ class StickerTruthCheckTest {
         assertThrows(IllegalArgumentException::class.java) { StickerTruthCheck.of(truths(solved().take(53))) }
         assertEquals(9, StickerTruthCheck.ofColors(List(9) { Color.RED }).counts[Color.RED])
     }
+
+    @Test
+    fun `an unreviewed pre-fill refuses the labels whatever the reason, even at nine of each colour`() {
+        val stickers = solved().map { StickerTruth(it, TruthSource.PREFILLED, reviewed = true) }.toMutableList()
+        stickers[5] = stickers[5].copy(reviewed = false)
+        val check = StickerTruthCheck.of(stickers)
+        assertEquals(1, check.unreviewedPrefills)
+        assertFalse(check.reviewed)
+        assertFalse(check.passed)
+        assertEquals(StickerTruthDecision.Refused, check.decide(null))
+        assertEquals(StickerTruthDecision.Refused, check.decide("looks right"))
+    }
+
+    @Test
+    fun `reviewed pre-fills and entered stickers pass, and a counts-only check (two-hold recorder) has no review gate`() {
+        val stickers =
+            solved().mapIndexed { i, color ->
+                StickerTruth(
+                    color,
+                    if (i % 2 ==
+                        0
+                    ) {
+                        TruthSource.PREFILLED
+                    } else {
+                        TruthSource.ENTERED
+                    },
+                    true,
+                )
+            }
+        val check = StickerTruthCheck.of(stickers)
+        assertEquals(0, check.unreviewedPrefills)
+        assertTrue(check.passed)
+        assertEquals(StickerTruthDecision.Passed, check.decide(null))
+        assertEquals(StickerTruthDecision.Passed, StickerTruthCheck(check.counts).decide(null))
+    }
 }

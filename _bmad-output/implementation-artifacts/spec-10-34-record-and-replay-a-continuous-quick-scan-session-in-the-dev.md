@@ -13,13 +13,6 @@ context:
 warnings: ['oversized']
 deferred:
   - summary: >-
-      Destroying FixtureRecorderActivity mid-recording (rotation, Back) orphans the continuous session's .tmp dir and writer thread.
-    evidence: |-
-      FixtureRecorderActivity.onDestroy shuts the analyzer and sessionIo executors but neither saves nor discards an active capture; the debug manifest declares no orientation lock. The other recorder modes already lose their remember state on recreation (pre-existing pattern), and the .tmp dir is never read as complete.
-    location: >-
-      app/src/camera/debug/kotlin/dev/cubentia/app/camera/recorder/FixtureRecorderActivity.kt:onDestroy
-    severity: medium
-  - summary: >-
       LiteRtStickerCenterDetector's inputScale/inputPadLeft/inputPadTop and copyModelInput are verified only by ContinuousImageReplayDeviceTest, which skips without pushed sessions.
     evidence: |-
       Unit tests use fakes (ContinuousFrameTapTest, ContinuousSessionWriterTest); LiteRT is Android-only. An instrumented case in androidTestDebug (detectRgb on a non-square RGB, assert letterbox and copied bytes) would settle it at the device gate.
@@ -33,20 +26,6 @@ deferred:
     location: >-
       docs/evidence/10-34/legacy-replay.md
     severity: medium (unverified)
-  - summary: >-
-      The step-01 regeneration of epic-10-context.md dropped rules that later Epic 10 stories rely on.
-    evidence: |-
-      Diff since the baseline removes the Guided Scan exit copy ("Discard the faces you captured?"), the unchanged-review fallback to the Editor, "never locks onto a single symmetric face", the 200% font "without cutting or breaking words" wording, the whole Release passes bullet, the 10.29 shared Quick Check result component with its Certainty chip, and "no string or permission rationale" for an OFF flag. It is compiled agent context; regenerate it (or restore those rules) before the next Epic 10 story plans from it.
-    location: >-
-      _bmad-output/implementation-artifacts/epic-10-context.md
-    severity: medium
-  - summary: >-
-      ContinuousRecorderScreen's onDispose turns off continuous mode while a session may still be recording, leaving the capture and engine live.
-    evidence: |-
-      Leave is enabled only when idle, so this is reached through activity recreation; same root cause as the deferred FixtureRecorderActivity.onDestroy item. Fix both together (stop and save/discard the capture on dispose/destroy).
-    location: >-
-      app/src/camera/debug/kotlin/dev/cubentia/app/camera/recorder/ContinuousRecorderScreen.kt:DisposableEffect
-    severity: medium
 ---
 
 <intent-contract>
@@ -135,7 +114,7 @@ Paths under `/mnt/e/Dynamic/IndFun/RubikXplorer-10-34/`. `K/` = `app/src/camera/
 ## Tasks & Acceptance
 
 **Execution:**
-- `core/domain/src/main/kotlin/dev/cubentia/domain/recognition/StickerTruthCheck.kt` -- add format-neutral check: input 54 `StickerTruth(color: Color?, source: TruthSource, reviewed: Boolean)` (or the 10.28 hold labels flattened); output counts per colour, over/under, unknown count, `passed`; `decide(reason: String?)` → PASSED / OVERRIDDEN(trimmed non-empty reason) / REFUSED; refusal text identical to today's `countRefusal` -- shared rule both labellers call; JVM test `core/domain/src/test/.../StickerTruthCheckTest.kt` (54 stickers, 9 each, unknowns, over/under, provenance, blank/whitespace reason refused).
+- `core/domain/src/main/kotlin/dev/cubentia/domain/recognition/StickerTruthCheck.kt` -- add format-neutral check: input 54 `StickerTruth(color: Color?, source: TruthSource, reviewed: Boolean)` (or the 10.28 hold labels flattened); output counts per colour, over/under, unknown count, unreviewed pre-fill count, `passed`; `decide(reason: String?)` → PASSED / OVERRIDDEN(trimmed non-empty reason) / REFUSED (always REFUSED while any `PREFILLED` sticker is unreviewed; the two-hold recorder's counts-only check keeps its per-side-face review lock); refusal text identical to today's `countRefusal` -- shared rule both labellers call; JVM test `core/domain/src/test/.../StickerTruthCheckTest.kt` (54 stickers, 9 each, unknowns, over/under, provenance, blank/whitespace reason refused).
 - `DBG/RecorderRules.kt` -- make `colorCount`/`countRefusal`/`overrideReason`/`withCountCheck` delegate to `StickerTruthCheck`; behaviour unchanged (existing `RecorderRulesTest` stays green).
 - `core/domain/src/main/kotlin/dev/cubentia/domain/recognition/continuous/session/ContinuousSession.kt` (+ `ContinuousSessionJson`) -- versioned (`schemaVersion = 1`) serializable DTOs and codec: `ContinuousSessionManifest` (sessionId, device model/manufacturer, cube, lighting, partition, modelFile + modelSha256, litertVersion, delegate "XNNPACK", threads 2, buildCommit (full hash), frameCount, framesWithObservations, imageEvery N, imageFrames, frame timing summary + per-frame timestamps/analyzer ms in frames file, rotationDegrees, analysis size, crop/letterbox params, captureSkips, droppedFrames, stopReason, outcome, latency p50/p95, latencyBaselineP50 nullable, defective + defectReasons, bytes, goldenRevision nullable, synthetic flag); `ContinuousSessionFrame` (frameIndex, timestampMs, analyzerMs, observations, peaks in model-input coords, image file name nullable); snapshot/cue DTO round-trip with `ContinuousScanSnapshot`/`ContinuousScanCue` (incl. `Complete.state` via facelets string); `ContinuousSessionLabels` (54 entries, unknown = null, countCheck + overrideReason) -- one neutral format for writer, replay and tests; round-trip JVM test keeps Kover ≥ 80%.
 - `C/ContinuousScanEngine.kt`, `K/ContinuousScanPipeline.kt`, `K/ContinuousScanEngineModule.kt`, `C/StickerCenterDetector.kt`, `K/LiteRtStickerCenterDetector.kt` -- add neutral `ContinuousFrameTap` (`wantsModelInput(frameIndex): Boolean`, `onFrame(frameIndex, observations, snapshot, detection, modelInput: ByteArray?)`) and `ContinuousScanEngineFactory.create(tap: ContinuousFrameTap? = null)`; detector gains a default-`false` `copyModelInput(into: ByteArray): Boolean` implemented by copying `inputBytes` -- capture seam with no writer in shipped code; Solve-tab callers unchanged (null tap).
@@ -280,7 +259,7 @@ Paths under `/mnt/e/Dynamic/IndFun/RubikXplorer-10-34/`. `K/` = `app/src/camera/
 - Mode picker gains *Continuous* (shown only when the engine optional is present). Before Start the operator fills the existing device/cube/light fields and a partition chip (default `UNASSIGNED`).
 - Buttons: *Start* → recording; *Stop* → stopped; then *Save* (primary) and *Discard* (set apart, confirm dialog "Discard this session?", per the UX rule that destructive recorder controls sit apart and confirm). *Baseline run* (no capture, 30 s or until Stop) stores the device's no-capture p50/p95; it writes no session.
 - Status line while recording (plain, no animation): `Recording · frame N/600 · X.X MB · skips K · sides M/6`; after auto-stop it appends the stop reason (`frame cap` / `size cap`). After Save: `Saved <sessionId> · <outcome>[ · DEFECTIVE: reasons]`. No auto-play, no live net beyond the sides count.
-- Labelling after Save (optional; skipping leaves no `labels.json`): a 54-sticker URFDLB net using the existing `TruthEntry` editor model (tap sticker → palette, auto-advance), prefilled from the session's last net with source `PREFILLED`, `reviewed=false`, exactly as the 10.28 corner flow does; blank stays an explicit unknown. *Save labels* runs `StickerTruthCheck`; refusal shows the existing refusal text and the existing `OverrideDialog` (reason required). Labels are written `labels.json.tmp` → rename.
+- Labelling after Save (optional; skipping leaves no `labels.json`): a 54-sticker URFDLB net using the existing `TruthEntry` editor model (tap sticker → palette, auto-advance), prefilled from the session's last net with source `PREFILLED`, `reviewed=false`, exactly as the 10.28 corner flow does; blank stays an explicit unknown. *Save labels* is locked until every pre-filled sticker is tapped or colour-picked (reviewed), then runs `StickerTruthCheck`; refusal shows the existing refusal text and the existing `OverrideDialog` (reason required). Labels are written `labels.json.tmp` → rename.
 - adb trigger reuses the burst receiver mechanism: `adb shell am broadcast -p com.exxerpro.cubentia -a dev.cubentia.debug.RECORDER_SESSION --es command start` (`stop|save|discard|baseline`); requires Continuous mode open; adb `discard` skips the dialog.
 
 **Outcome derivation** is automatic (no operator choice): see I/O matrix. A session the operator deliberately leaves invalid keeps its derived outcome plus labels `countCheck = OVERRIDDEN/REFUSED`.

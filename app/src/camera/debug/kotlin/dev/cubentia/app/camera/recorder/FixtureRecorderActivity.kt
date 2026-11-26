@@ -525,8 +525,11 @@ class FixtureRecorderActivity : ComponentActivity() {
         unregisterReceiver(sessionReceiver)
         burst = null
         captureRequest.getAndSet(null)?.cancel()
+        // Story 10.34: an active continuous capture is stopped and discarded; its analyzer task posts the discard to
+        // sessionIo, so sessionIo is shut down from the analyzer thread after it (both executors are single-threaded FIFO).
+        continuousController?.release()
+        analyzerExecutor.execute { sessionIo.shutdown() }
         analyzerExecutor.shutdown()
-        sessionIo.shutdown()
     }
 
     private fun startCamera(view: PreviewView) {

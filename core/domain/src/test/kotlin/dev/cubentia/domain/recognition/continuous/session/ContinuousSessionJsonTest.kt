@@ -83,8 +83,9 @@ class ContinuousSessionJsonTest {
                         } else {
                             Color.home(Face.entries[it / 9])
                         },
-                        TruthSource.PREFILLED,
-                        false,
+                        // Story 10.28 provenance: the blank is an unset unknown; every pre-fill was reviewed.
+                        if (it == 0) null else TruthSource.PREFILLED,
+                        it != 0,
                     )
                 },
                 " why ",

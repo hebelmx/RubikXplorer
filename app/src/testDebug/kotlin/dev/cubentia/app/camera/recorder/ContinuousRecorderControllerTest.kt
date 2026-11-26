@@ -246,4 +246,65 @@ class ContinuousRecorderControllerTest {
         assertEquals(SessionCountCheck.OVERRIDDEN, ContinuousSessionJson.readLabels(dir)?.countCheck)
         assertFalse(File(dir, ContinuousSessionFormat.LABELS + ".tmp").exists())
     }
+
+    @Test
+    fun `start creates the capture on io, not on the calling thread`() {
+        val writers = Writers()
+        val queued = ArrayDeque<Runnable>()
+        val c =
+            ContinuousRecorderController(analyzer(), writers, null, "TB128XU", "LENOVO", inline, { queued += it }, inline) {
+                LocalDateTime.of(2026, 11, 26, 9, 0, 0)
+            }
+        c.meta = ContinuousSessionMeta("stla", "studio")
+        c.start()
+        assertTrue(writers.setups.isEmpty())
+        assertEquals(ContinuousPhase.SAVING, c.state.value.phase)
+        c.start()
+        queued.removeFirst().run()
+        assertTrue(queued.isEmpty())
+        assertEquals(1, writers.setups.size)
+        assertEquals(ContinuousPhase.RECORDING, c.state.value.phase)
+    }
+
+    @Test
+    fun `release mid-recording stops the session and discards the capture, and a saved session is kept`() {
+        val writers = Writers()
+        val c = controller(writers)
+        c.meta = ContinuousSessionMeta("stla", "studio")
+        c.open = true
+        c.start()
+        c.release()
+        assertTrue(writers.captures.single().discarded)
+        assertFalse(c.open)
+
+        val savedWriters = Writers()
+        val s = controller(savedWriters)
+        s.meta = ContinuousSessionMeta("stla", "studio")
+        s.start()
+        s.save()
+        s.release()
+        assertFalse(savedWriters.captures.single().discarded)
+    }
+
+    @Test
+    fun `a capture created after release is discarded and never started`() {
+        val writers = Writers()
+        val queued = ArrayDeque<Runnable>()
+        val c =
+            ContinuousRecorderController(analyzer(), writers, null, "TB128XU", "LENOVO", inline, { queued += it }, inline) {
+                LocalDateTime.of(2026, 11, 26, 9, 0, 0)
+            }
+        c.meta = ContinuousSessionMeta("stla", "studio")
+        c.start()
+        c.release()
+        queued.removeFirst().run()
+        assertTrue(writers.captures.single().discarded)
+        assertEquals(ContinuousPhase.SAVING, c.state.value.phase)
+    }
+
+    private fun analyzer() =
+        ContinuousRecorderAnalyzer(
+            Optional.empty(),
+            Optional.of(ContinuousScanEngineFactory { _: ContinuousFrameTap? -> Engine(complete) }),
+        )
 }

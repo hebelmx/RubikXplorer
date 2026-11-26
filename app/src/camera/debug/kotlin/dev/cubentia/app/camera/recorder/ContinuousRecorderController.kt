@@ -70,6 +70,9 @@ internal class ContinuousRecorderController(
 
     @Volatile private var lastPostMs = 0L
 
+    /** Set by [release] (activity teardown): a capture created after it is discarded at once. */
+    @Volatile private var released = false
+
     private fun update(change: (ContinuousRecorderUi) -> ContinuousRecorderUi) = onMain.execute { ui.value = change(ui.value) }
 
     private fun say(line: String) = update { it.copy(statusLine = line) }
@@ -110,10 +113,44 @@ internal class ContinuousRecorderController(
                 partition = current.partition,
                 model = modelIdentity,
             )
-        val session = runCatching { writers.create(setup) }.getOrElse { return say("Start failed: ${it.message}") }
-        capture = session
-        ui.value = ContinuousRecorderUi(phase = ContinuousPhase.RECORDING, statusLine = continuousStatusLine(session.status))
-        onAnalyzer.execute { analyzer.startSession(session) }
+        // Busy (no controls) while the capture's directory is created on io (AD-16: no disk I/O on main).
+        ui.value = ui.value.copy(phase = ContinuousPhase.SAVING, statusLine = "Starting…")
+        io.execute {
+            val session =
+                runCatching { writers.create(setup) }.getOrElse { failure ->
+                    return@execute update { it.copy(phase = phase, statusLine = "Start failed: ${failure.message}") }
+                }
+            if (released) {
+                runCatching { session.discard() }
+                return@execute
+            }
+            capture = session
+            update { ContinuousRecorderUi(phase = ContinuousPhase.RECORDING, statusLine = continuousStatusLine(session.status)) }
+            runCatching { onAnalyzer.execute { analyzer.startSession(session) } }.onFailure {
+                capture = null
+                runCatching { session.discard() }
+            }
+        }
+    }
+
+    /**
+     * Main thread, activity teardown (rotation, Back mid-recording): stops the analyzer session and discards a capture
+     * that was never saved, on [io] after the analyzer stopped, so no `.tmp-*` dir or writer thread is left behind. A
+     * save already under way finishes normally.
+     */
+    fun release() {
+        released = true
+        open = false
+        val phase = ui.value.phase
+        val unsaved = capture.takeIf { phase == ContinuousPhase.RECORDING || phase == ContinuousPhase.STOPPED }
+        if (unsaved != null) capture = null
+        onAnalyzer.execute {
+            if (unsaved != null || phase == ContinuousPhase.BASELINE) {
+                analyzer.stop()
+                analyzer.clear()
+            }
+            unsaved?.let { session -> io.execute { runCatching { session.discard() } } }
+        }
     }
 
     fun stop() {
