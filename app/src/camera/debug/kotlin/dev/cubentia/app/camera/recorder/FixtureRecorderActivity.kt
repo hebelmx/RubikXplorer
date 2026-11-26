@@ -36,12 +36,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.AndroidEntryPoint
 import dev.cubentia.app.camera.CameraXFrameSource
+import dev.cubentia.app.camera.ContinuousFrameGeometry
+import dev.cubentia.app.camera.ContinuousScanEngineFactory
+import dev.cubentia.app.camera.ContinuousSessionWriterFactory
 import dev.cubentia.app.camera.CornerDetector
 import dev.cubentia.app.camera.CornerFrame
 import dev.cubentia.app.camera.CornerGuide
-import dev.cubentia.app.camera.CornerLocator
 import dev.cubentia.app.camera.CornerPoint
-import dev.cubentia.app.camera.CornerReader
 import dev.cubentia.app.camera.ExposureLocks
 import dev.cubentia.app.camera.FrameReader
 import dev.cubentia.app.camera.Settle
@@ -140,6 +141,12 @@ internal interface RecorderCamera {
     fun remeterCorner(includeAwb: Boolean) = remeter()
 
     fun changeExposure(delta: Int): String
+
+    /** Story 10.34: the continuous session controls; null when `QUICK_SCAN` does not compose the engine (mode hidden). */
+    val continuous: ContinuousRecorderController? get() = null
+
+    /** Story 10.34: Continuous mode reads every frame with the continuous engine only. */
+    fun continuousMode(enabled: Boolean) = Unit
 }
 
 /**
@@ -150,6 +157,19 @@ internal interface RecorderCamera {
 class FixtureRecorderActivity : ComponentActivity() {
     @Inject
     internal lateinit var cornerDetector: Optional<CornerDetector>
+
+    /** Story 10.34: the Solve-tab continuous engine (present only when `QUICK_SCAN` composes it) and the debug writer. */
+    @Inject
+    internal lateinit var continuousEngines: Optional<ContinuousScanEngineFactory>
+
+    @Inject
+    internal lateinit var sessionWriters: Optional<ContinuousSessionWriterFactory>
+
+    private val recorderAnalyzer by lazy { ContinuousRecorderAnalyzer(cornerDetector, continuousEngines) }
+    private val sessionIo = Executors.newSingleThreadExecutor()
+    private var continuousController: ContinuousRecorderController? = null
+
+    @Volatile private var continuousMode = false
 
     private val analyzerExecutor = Executors.newSingleThreadExecutor()
     private val latestFrame = AtomicReference<FrameMeasurements?>(null)
@@ -205,8 +225,26 @@ class FixtureRecorderActivity : ComponentActivity() {
             ) = startBurst(intent)
         }
 
+    private val sessionReceiver =
+        object : BroadcastReceiver() {
+            override fun onReceive(
+                context: Context,
+                intent: Intent,
+            ) {
+                continuousController?.command(intent.getStringExtra("command").orEmpty(), intent.getStringExtra("label"))
+            }
+        }
+
     private val recorderCamera =
         object : RecorderCamera {
+            override val continuous: ContinuousRecorderController? get() = continuousController
+
+            override fun continuousMode(enabled: Boolean) {
+                continuousMode = enabled && continuousController != null
+                continuousController?.open = continuousMode
+                if (enabled) cornerMode(false)
+            }
+
             override val autoRemeters: State<Int> get() = autoRemeterCount
 
             override val detectedQuads: State<List<List<CornerPoint>>> get() = this@FixtureRecorderActivity.detectedQuads
@@ -255,8 +293,23 @@ class FixtureRecorderActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Story 10.34: Continuous mode exists only with the engine (QUICK_SCAN composes camera/continuous) and the writer.
+        if (recorderAnalyzer.continuousAvailable && sessionWriters.isPresent) {
+            continuousController =
+                ContinuousRecorderController(
+                    analyzer = recorderAnalyzer,
+                    writers = sessionWriters.get(),
+                    modelIdentity = continuousEngines.get().modelIdentity,
+                    deviceModel = android.os.Build.MODEL,
+                    deviceManufacturer = android.os.Build.MANUFACTURER,
+                    onAnalyzer = analyzerExecutor,
+                    io = sessionIo,
+                    onMain = ContextCompat.getMainExecutor(this),
+                )
+        }
         setContent { MaterialTheme { Surface { FixtureRecorderScreen(recorderCamera) } } }
         ContextCompat.registerReceiver(this, burstReceiver, IntentFilter(RecorderBurst.ACTION), ContextCompat.RECEIVER_EXPORTED)
+        ContextCompat.registerReceiver(this, sessionReceiver, IntentFilter(SESSION_ACTION), ContextCompat.RECEIVER_EXPORTED)
     }
 
     /** Starts a burst from the adb broadcast's extras; a burst already running is replaced. */
@@ -469,9 +522,11 @@ class FixtureRecorderActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(burstReceiver)
+        unregisterReceiver(sessionReceiver)
         burst = null
         captureRequest.getAndSet(null)?.cancel()
         analyzerExecutor.shutdown()
+        sessionIo.shutdown()
     }
 
     private fun startCamera(view: PreviewView) {
@@ -558,6 +613,7 @@ class FixtureRecorderActivity : ComponentActivity() {
 
     /** Analyzer thread: measure, answer a pending capture with the same image, and decide on an automatic re-meter. */
     private fun analyze(image: ImageProxy) {
+        if (continuousMode) return analyzeContinuous(image)
         val frame = measure(image)
         latestFrame.set(frame)
         val bursting = burst
@@ -575,7 +631,7 @@ class FixtureRecorderActivity : ComponentActivity() {
                 null
             }
         val yuv = if (guide != null) with(FrameReader) { image.asYuvFrame() } else null
-        val corner = if (guide != null && yuv != null) CornerReader.read(yuv, guide, cornerDetector.orElse(CornerLocator)) else null
+        val corner = if (guide != null && yuv != null) recorderAnalyzer.readCorner(yuv, guide) else null
         publishOutline(corner, crop, rotation)
         val detectedNow = corner?.detected == true
         // Story 10.19: meter like Quick Scan, on the first detected frame after a request or of a new detection episode.
@@ -640,6 +696,29 @@ class FixtureRecorderActivity : ComponentActivity() {
                 autoRemeterCount.intValue++
             }
         }
+    }
+
+    /**
+     * Story 10.34, analyzer thread: Continuous mode runs only the injected continuous engine (no grid measure, no corner
+     * reader), timing each frame, and hands the frame to the session writer through the engine's tap.
+     */
+    private fun analyzeContinuous(image: ImageProxy) {
+        val crop = image.cropRect
+        val rotation = image.imageInfo.rotationDegrees
+        val yuv = with(FrameReader) { image.asYuvFrame() }
+        val (viewWidth, viewHeight) = viewSize
+        val geometry = ContinuousFrameGeometry(rotation, image.width, image.height, crop.left, crop.top, crop.right, crop.bottom)
+        recorderAnalyzer.analyze(
+            RecorderMode.CONTINUOUS,
+            yuv,
+            null,
+            rotation,
+            viewWidth,
+            viewHeight,
+            image.imageInfo.timestamp / NANOS_PER_MS,
+            geometry,
+        )
+        continuousController?.onAnalyzed(SystemClock.elapsedRealtime())
     }
 
     /** Shows the detected outline as view fractions; cleared when nothing is detected or not in corner mode. */
@@ -855,5 +934,13 @@ class FixtureRecorderActivity : ComponentActivity() {
 
     private companion object {
         const val CAPTURE_TIMEOUT_MS = 3000L
+
+        /**
+         * Story 10.34 adb trigger (Continuous mode open):
+         * `adb shell am broadcast -p com.exxerpro.cubentia -a dev.cubentia.debug.RECORDER_SESSION --es command start`
+         * (`stop|save|discard|baseline`; optional `--es label <name>`).
+         */
+        const val SESSION_ACTION = "dev.cubentia.debug.RECORDER_SESSION"
+        const val NANOS_PER_MS = 1_000_000L
     }
 }

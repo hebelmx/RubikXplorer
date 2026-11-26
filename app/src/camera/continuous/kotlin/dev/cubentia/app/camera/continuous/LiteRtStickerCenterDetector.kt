@@ -56,6 +56,9 @@ internal class LiteRtStickerCenterDetector
         private var initAttempted = false
         private var closed = false
         private val inputBytes = ByteArray(StickerCenterModelContract.INPUT_BYTES)
+
+        /** Whether [inputBytes] holds the model input of the last [detect] (Story 10.34 [copyModelInput]). */
+        private var inputValid = false
         private val yuvScratch = StickerCenterModelTransform.YuvInputScratch()
         private val inputBuffer: ByteBuffer =
             ByteBuffer.allocateDirect(StickerCenterModelContract.INPUT_BYTES).order(ByteOrder.nativeOrder())
@@ -79,11 +82,13 @@ internal class LiteRtStickerCenterDetector
             check(!debuggable || !onMainThread()) { "StickerCenterDetector.detect must not run on the main thread" }
             if (frame.left < 0 || frame.top < 0 || frame.width <= 0 || frame.height <= 0) return StickerCenterDetection.EMPTY
             synchronized(lock) {
+                inputValid = false
                 val active = ensureSession() ?: return StickerCenterDetection.EMPTY
                 val params =
                     StickerCenterModelTransform.fillYuvInput(frame, rotationDegrees, inputBytes, yuvScratch)
                         ?: return StickerCenterDetection.EMPTY
                 val dtMs = runInference(active) ?: return StickerCenterDetection.EMPTY
+                inputValid = true
                 val peaks =
                     StickerCenterModelTransform.decodePeaks(
                         output = outputFloats,
@@ -101,9 +106,20 @@ internal class LiteRtStickerCenterDetector
                     uprightWidth = params.uprightWidth,
                     uprightHeight = params.uprightHeight,
                     inferenceMs = dtMs,
+                    inputScale = params.scale,
+                    inputPadLeft = params.padLeft,
+                    inputPadTop = params.padTop,
                 )
             }
         }
+
+        /** Story 10.34: a copy of the last [detect]'s model input, for the debug recorder's frame tap only. */
+        override fun copyModelInput(into: ByteArray): Boolean =
+            synchronized(lock) {
+                if (!inputValid || into.size < StickerCenterModelContract.INPUT_BYTES) return false
+                System.arraycopy(inputBytes, 0, into, 0, StickerCenterModelContract.INPUT_BYTES)
+                true
+            }
 
         /**
          * Packed RGB still-parity helper kept inside `app/src/camera/continuous/` so instrumented tests
@@ -120,10 +136,12 @@ internal class LiteRtStickerCenterDetector
                 return StickerCenterDetection.EMPTY
             }
             synchronized(lock) {
+                inputValid = false
                 val active = ensureSession() ?: return StickerCenterDetection.EMPTY
                 val params =
                     StickerCenterModelTransform.fillRgbArrayInput(rgb, width, height, inputBytes) ?: return StickerCenterDetection.EMPTY
                 val dtMs = runInference(active) ?: return StickerCenterDetection.EMPTY
+                inputValid = true
                 val peaks =
                     StickerCenterModelTransform.decodePeaks(
                         output = outputFloats,
@@ -143,6 +161,9 @@ internal class LiteRtStickerCenterDetector
                     uprightWidth = params.uprightWidth,
                     uprightHeight = params.uprightHeight,
                     inferenceMs = dtMs,
+                    inputScale = params.scale,
+                    inputPadLeft = params.padLeft,
+                    inputPadTop = params.padTop,
                 )
             }
         }

@@ -39,6 +39,14 @@ abstract class CornerDetectorOptionalModule {
     internal abstract fun cornerDetector(): CornerDetector
 }
 
+/** Story 10.34 (AD-9 Frames): the debug recorder's continuous session writer; bound only from the debug camera source set. */
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class ContinuousSessionWriterOptionalModule {
+    @BindsOptionalOf
+    internal abstract fun writerFactory(): ContinuousSessionWriterFactory
+}
+
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class ContinuousScanEngineOptionalModule {

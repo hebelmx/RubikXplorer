@@ -1,5 +1,6 @@
 package dev.cubentia.app.camera.continuous
 
+import dev.cubentia.app.camera.ContinuousFrameTap
 import dev.cubentia.app.camera.ContinuousOverlayQuad
 import dev.cubentia.app.camera.StickerCenterDetection
 import dev.cubentia.app.camera.StickerCenterDetector
@@ -33,8 +34,13 @@ internal class ContinuousScanPipeline(
     private val detector: StickerCenterDetector,
     private val sampler: ContinuousFaceSampler = ContinuousFaceSampler(),
     private val mapper: ContinuousFaceletMapper = ContinuousFaceletMapper(),
+    /** Story 10.34: the debug recorder's neutral frame tap; null on the Solve tab. */
+    private val tap: ContinuousFrameTap? = null,
 ) {
     private var lastSnapshot: ContinuousScanSnapshot? = null
+
+    /** Reused model-input copy handed to [tap] on the frames it asks for (allocated only when it asks). */
+    private var modelInput: ByteArray? = null
 
     fun processFrame(
         frameIndex: Int,
@@ -57,6 +63,7 @@ internal class ContinuousScanPipeline(
                     invariantViolationCount = 0,
                     pendingFragmentFaces = 0,
                 )
+            tap?.onFrame(frameIndex, emptyList(), snapshot, StickerCenterDetection.EMPTY, null)
             return ContinuousPipelineFrame(
                 snapshot = snapshot,
                 detection = StickerCenterDetection.EMPTY,
@@ -74,6 +81,16 @@ internal class ContinuousScanPipeline(
             }
         val snapshot = mapper.processFrame(frameIndex, observations)
         lastSnapshot = snapshot
+        tap?.let { t ->
+            val input =
+                if (t.wantsModelInput(frameIndex)) {
+                    val buffer = modelInput ?: ByteArray(StickerCenterModelContract.INPUT_BYTES).also { modelInput = it }
+                    buffer.takeIf { detector.copyModelInput(it) }
+                } else {
+                    null
+                }
+            t.onFrame(frameIndex, observations, snapshot, detection, input)
+        }
         val overlays =
             snapshot.trackedQuads.map { tracked ->
                 ContinuousOverlayQuad(

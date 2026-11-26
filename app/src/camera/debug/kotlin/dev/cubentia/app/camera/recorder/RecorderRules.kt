@@ -6,6 +6,8 @@ import dev.cubentia.domain.recognition.CalibrationCenters
 import dev.cubentia.domain.recognition.CaptureQuality
 import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.Lab
+import dev.cubentia.domain.recognition.StickerTruthCheck
+import dev.cubentia.domain.recognition.StickerTruthDecision
 import dev.cubentia.domain.recognition.TruthSource
 import kotlin.math.PI
 import kotlin.math.cos
@@ -771,7 +773,7 @@ internal fun recordedTorch(
  */
 
 /** How many stickers of each colour a real cube has. */
-internal const val STICKERS_PER_COLOR = 9
+internal const val STICKERS_PER_COLOR = StickerTruthCheck.STICKERS_PER_COLOR
 
 /** The two corner holds of a group. */
 private val CORNER_HOLDS = listOf(1, 2)
@@ -784,34 +786,46 @@ internal data class CornerHoldLabels(
     val reviewed: List<List<Boolean>>,
 )
 
-/** A group's colour counts over both holds, centres included; [over] and [under] hold the off colours and their counts. */
+/**
+ * A group's colour counts over both holds, centres included; [over] and [under] hold the off colours and their counts.
+ * Story 10.34: the rule itself is the format-neutral [StickerTruthCheck] in `:core:domain` (a corner group's two holds
+ * flattened to its 54 stickers), shared with the continuous-session labeller.
+ */
 internal data class ColorCountCheck(
     val counts: Map<Color, Int>,
 ) {
-    val over: Map<Color, Int> get() = counts.filterValues { it > STICKERS_PER_COLOR }
-    val under: Map<Color, Int> get() = counts.filterValues { it < STICKERS_PER_COLOR }
-    val passed: Boolean get() = over.isEmpty() && under.isEmpty()
+    val truth: StickerTruthCheck get() = StickerTruthCheck(counts)
+    val over: Map<Color, Int> get() = truth.over
+    val under: Map<Color, Int> get() = truth.under
+    val passed: Boolean get() = truth.passed
 }
 
 /** The count check on the latest labels of holds 1 and 2; null until both holds are present. */
 internal fun colorCount(holds: Map<Int, CornerHoldLabels>): ColorCountCheck? {
     if (CORNER_HOLDS.any { it !in holds }) return null
     val labels = CORNER_HOLDS.flatMap { hold -> holds.getValue(hold).colors.flatten() }
-    return ColorCountCheck(Color.entries.associateWith { color -> labels.count { it == color } })
+    return ColorCountCheck(StickerTruthCheck.ofColors(labels).counts)
 }
 
 /** The refusal line, e.g. `Not saved: White 10 (over) · Blue 8 (under)`, off colours in [Color.entries] order. */
-internal fun countRefusal(check: ColorCountCheck): String =
+internal fun countRefusal(check: ColorCountCheck): String = truthRefusal(check.truth)
+
+/**
+ * Story 10.34: the refusal line of any [StickerTruthCheck] (corner groups and continuous-session labels), identical to the
+ * Story 10.28 text; unknown stickers, when there are any, are appended as `N unknown`.
+ */
+internal fun truthRefusal(check: StickerTruthCheck): String =
     "Not saved: " +
-        Color.entries
-            .mapNotNull { color ->
+        (
+            Color.entries.mapNotNull { color ->
                 val count = check.counts[color] ?: 0
                 when {
                     count > STICKERS_PER_COLOR -> "${colorLabel(color)} $count (over)"
                     count < STICKERS_PER_COLOR -> "${colorLabel(color)} $count (under)"
                     else -> null
                 }
-            }.joinToString(" · ")
+            } + listOfNotNull(check.unknownCount.takeIf { it > 0 }?.let { "$it unknown" })
+        ).joinToString(" · ")
 
 /** One face of a refused group shown with rings on its pre-filled stickers of over-counted colours. */
 internal data class RefusalFace(
@@ -839,7 +853,7 @@ internal fun overCountedPrefills(
     }
 
 /** The override reason: the trimmed [text], or null when it is empty or spaces only (no override then). */
-internal fun overrideReason(text: String): String? = text.trim().takeIf { it.isNotEmpty() }
+internal fun overrideReason(text: String): String? = StickerTruthCheck.overrideReason(text)
 
 /** The hold to capture next: the first of 1 and 2 not [complete], else 3 (both written). */
 internal fun nextCornerHold(complete: Set<Int>): Int = CORNER_HOLDS.firstOrNull { it !in complete } ?: (CORNER_HOLDS.last() + 1)
@@ -852,14 +866,20 @@ internal fun withCountCheck(
     manifest: dev.cubentia.domain.recognition.CornerGroupManifest,
     check: ColorCountCheck,
     reason: String?,
-): dev.cubentia.domain.recognition.CornerGroupManifest {
-    val trimmed = reason?.let(::overrideReason)
-    return when {
-        check.passed -> manifest.copy(countCheck = dev.cubentia.domain.recognition.CornerCountCheck.PASSED, overrideReason = null)
-        trimmed != null -> manifest.copy(countCheck = dev.cubentia.domain.recognition.CornerCountCheck.OVERRIDDEN, overrideReason = trimmed)
-        else -> manifest.copy(countCheck = dev.cubentia.domain.recognition.CornerCountCheck.REFUSED, overrideReason = null)
+): dev.cubentia.domain.recognition.CornerGroupManifest =
+    when (val decision = check.truth.decide(reason)) {
+        StickerTruthDecision.Passed -> {
+            manifest.copy(countCheck = dev.cubentia.domain.recognition.CornerCountCheck.PASSED, overrideReason = null)
+        }
+
+        is StickerTruthDecision.Overridden -> {
+            manifest.copy(countCheck = dev.cubentia.domain.recognition.CornerCountCheck.OVERRIDDEN, overrideReason = decision.reason)
+        }
+
+        StickerTruthDecision.Refused -> {
+            manifest.copy(countCheck = dev.cubentia.domain.recognition.CornerCountCheck.REFUSED, overrideReason = null)
+        }
     }
-}
 
 /** The side faces of a hold (index 1 and 2), whose pre-fills must each be tapped or colour-picked before Confirm face. */
 private val SIDE_FACE_INDEXES = setOf(1, 2)

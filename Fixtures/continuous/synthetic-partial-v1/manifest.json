@@ -1,0 +1,57 @@
+{
+    "schemaVersion": 1,
+    "sessionId": "synthetic-partial-v1",
+    "synthetic": true,
+    "createdAt": "2026-11-26T00:00:00Z",
+    "device": {
+        "model": "synthetic (SyntheticCubeStream)",
+        "manufacturer": "synthetic"
+    },
+    "cube": "SyntheticCubeStream scenario 4_mid_solve_f2l_symmetric_regrip (seed 404), first 96 frames",
+    "lighting": "synthetic stickerless palette",
+    "partition": "UNASSIGNED",
+    "model": {
+        "file": "none (synthetic observations)",
+        "sha256": "none",
+        "litertVersion": "none",
+        "delegate": "none",
+        "threads": 0
+    },
+    "buildCommit": "62e9565945a57063e36a32108f8566ab9e99f95e",
+    "frameCount": 96,
+    "framesWithObservations": 83,
+    "imageEvery": 0,
+    "imageFrames": 0,
+    "geometry": {
+        "rotationDegrees": 0,
+        "analysisWidth": 640,
+        "analysisHeight": 480,
+        "cropLeft": 0,
+        "cropTop": 0,
+        "cropRight": 640,
+        "cropBottom": 480,
+        "uprightWidth": 640,
+        "uprightHeight": 480,
+        "inputSize": 256,
+        "letterboxScale": 0.4,
+        "padLeft": 0,
+        "padTop": 32
+    },
+    "timing": {
+        "firstTimestampMs": 0,
+        "lastTimestampMs": 3135,
+        "durationMs": 3135,
+        "meanFrameIntervalMs": 33.0
+    },
+    "captureSkips": 0,
+    "droppedFrames": 0,
+    "stopReason": "OPERATOR",
+    "outcome": "PARTIAL",
+    "latencyP50Ms": null,
+    "latencyP95Ms": null,
+    "latencyBaselineP50Ms": null,
+    "defective": false,
+    "defectReasons": [],
+    "bytes": 136223,
+    "goldenRevision": null
+}

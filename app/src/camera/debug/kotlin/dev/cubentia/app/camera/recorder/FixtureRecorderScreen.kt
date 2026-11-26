@@ -158,6 +158,22 @@ private data class Placement(
  */
 @Composable
 internal fun FixtureRecorderScreen(camera: RecorderCamera) {
+    // Story 10.34: Continuous mode is offered only when the continuous engine is composed (AD-18).
+    val continuous = camera.continuous
+    var continuousMode by remember { mutableStateOf(false) }
+    if (continuousMode && continuous != null) {
+        ContinuousRecorderScreen(camera, continuous, onLeave = { continuousMode = false })
+    } else {
+        FaceCornerRecorderScreen(camera, onContinuous = continuous?.let { { continuousMode = true } })
+    }
+}
+
+/** The per-face and corner recorder (Stories 10.12–10.28), unchanged by Story 10.34 apart from the mode entry. */
+@Composable
+private fun FaceCornerRecorderScreen(
+    camera: RecorderCamera,
+    onContinuous: (() -> Unit)?,
+) {
     val context = LocalContext.current
     val initialPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
     var hasPermission by remember { mutableStateOf(initialPermission) }
@@ -1004,6 +1020,13 @@ internal fun FixtureRecorderScreen(camera: RecorderCamera) {
             torchOn,
             hasFlash = hasFlash == true,
             onDismiss = { editingMeta = false },
+            onContinuous =
+                onContinuous?.let { open ->
+                    {
+                        editingMeta = false
+                        open()
+                    }
+                },
         ) { newCube, newLight, newMode, newDirection, newTorch ->
             // A torch change is a new capture condition: a new group, like a new light direction. A new cube, light or
             // (Story 10.20) torch state is a new capture context: earlier centers and truth never carry over.
@@ -1338,7 +1361,7 @@ private fun RefusalNets(
  * yet are italic, checked ones upright, entered ones bold; [ringed] stickers get a magenta ring with the fill unchanged.
  */
 @Composable
-private fun Net(
+internal fun Net(
     modifier: Modifier,
     entry: TruthEntry,
     onSelect: ((Int) -> Unit)?,
@@ -1386,7 +1409,7 @@ private fun Net(
 
 /** 2×3 palette in editor order with glyphs. */
 @Composable
-private fun Palette(
+internal fun Palette(
     modifier: Modifier,
     highlighted: Color?,
     done: Set<Color>,
@@ -1500,6 +1523,7 @@ private fun MetaDialog(
     torchOn: Boolean,
     hasFlash: Boolean,
     onDismiss: () -> Unit,
+    onContinuous: (() -> Unit)? = null,
     onSave: (String, String, Boolean, LightDirection?, Boolean) -> Unit,
 ) {
     var newTorch by remember { mutableStateOf(torchOn) }
@@ -1528,6 +1552,8 @@ private fun MetaDialog(
                     androidx.compose.material3.Checkbox(checked = newMode, onCheckedChange = { newMode = it })
                     Text("Corner mode")
                 }
+                // Story 10.34: the third mode, shown only when the continuous engine is composed.
+                onContinuous?.let { open -> OutlinedButton(onClick = open) { Text("Continuous session…") } }
                 if (newMode) {
                     // Story 10.19: the group manifest records where the light comes from; the replay scores front-lit groups.
                     Text("Light direction", style = MaterialTheme.typography.labelLarge)

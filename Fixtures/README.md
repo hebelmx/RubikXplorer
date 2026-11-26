@@ -99,3 +99,12 @@ hold as a schema-3 JSON file alongside its downscaled upright JPEG.
 ```sh
 adb pull /sdcard/Android/data/com.exxerpro.cubentia/files/Fixtures/corner Fixtures/
 ```
+
+### Continuous Quick Scan sessions (Story 10.34)
+
+`continuous/<sessionId>/` holds operator-curated sessions of the debug recorder's *Continuous session* mode: a manifest
+written last, one neutral observation line and one mapper snapshot line per frame, optional operator `labels.json` (truth,
+separate from predictions) and every third frame's 256 × 256 model-input PNG. `./gradlew :checkFixtureSize` (in `check`)
+caps each session at 15,000,000 B and the folder at 60,000,000 B. Replay with `./gradlew :core:domain:replayContinuousSession`;
+the format, operator procedure, golden refresh and image replay are in [`continuous/README.md`](continuous/README.md). The two
+checked-in `synthetic-*-v1` sessions are generated from `SyntheticCubeStream` and flagged `synthetic: true`.

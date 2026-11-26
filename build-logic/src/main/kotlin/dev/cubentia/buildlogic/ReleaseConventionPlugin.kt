@@ -9,6 +9,7 @@ import dev.cubentia.buildlogic.policy.FeatureFlagLevels
 import dev.cubentia.buildlogic.policy.ReleaseInputs
 import dev.cubentia.buildlogic.tasks.CheckCameraSizeTask
 import dev.cubentia.buildlogic.tasks.CheckReleaseSizeTask
+import dev.cubentia.buildlogic.tasks.GenerateBuildInfoTask
 import dev.cubentia.buildlogic.tasks.GenerateKeepRulesTask
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -163,6 +164,25 @@ class ReleaseConventionPlugin : Plugin<Project> {
                         }
                         if (variant.debuggable) {
                             variant.sources.manifests.addStaticManifestFile("src/camera/debug/AndroidManifest.xml")
+                            // Story 10.34: the debug recorder stamps each continuous session with the full build commit
+                            // and the catalog LiteRT version, read from this generated debug-only asset (never BuildConfig).
+                            val buildInfo =
+                                tasks.register<GenerateBuildInfoTask>(
+                                    "generate${variant.name.replaceFirstChar { it.uppercase() }}CubentiaBuildInfo",
+                                ) {
+                                    commit.set(
+                                        providers
+                                            .exec {
+                                                commandLine("git", "rev-parse", "HEAD")
+                                                workingDir = rootDir
+                                                isIgnoreExitValue = true
+                                            }.standardOutput.asText
+                                            .map { it.trim() },
+                                    )
+                                    litertVersion.set(libs.findVersion("litert").map { it.requiredVersion }.orElse("unknown"))
+                                    outputDirectory.set(layout.buildDirectory.dir("generated/cubentia/build-info/${variant.name}"))
+                                }
+                            variant.sources.assets?.addGeneratedSourceDirectory(buildInfo, GenerateBuildInfoTask::outputDirectory)
                         }
                     }
                 }

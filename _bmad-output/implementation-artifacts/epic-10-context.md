@@ -4,7 +4,7 @@
 
 ## Goal
 
-A Learner can put their real cube into the app with the camera: scan it face by face, correct and calibrate colours, solve straight from the scan, check physical Moves with a Quick Check, and use Quick Scan as the faster path. Quick Scan is now a continuous facelet scan: the Learner turns the cube in front of the camera and a 6-face map fills in, replacing the parked two-corner pipeline. All of it is v1.0 scope and flag-gated: there is no v1.1 release any more. Camera code merges to `main` with release flags OFF. A feature reaches users only when the PO raises its flag at a release (Story 10.11), based on measured accuracy; OFF is a valid level. The first camera release is 0.11.0, with the Guided Scan at GA, Placement at BETA, and Quick Scan at BETA only if the continuous port and its device matrix pass. Every flow keeps a manual fallback and never produces a guessed state.
+A Learner can put their real cube into the app with the camera. They scan it face by face, correct and calibrate colours, solve straight from the scan, and check physical Moves with a Quick Check. Quick Scan is the faster path. It is now a continuous facelet scan: the Learner turns the cube in front of the camera and a 6-face map fills in. This replaces the parked two-corner pipeline. All of it is v1.0 scope and flag-gated (v1.1 is retired). Camera code merges to `main` with release flags OFF, and a feature reaches users only when the PO raises its flag at a release (Story 10.11), based on measured accuracy. The first camera release is 0.11.0: Guided Scan at GA, Placement at BETA, and Quick Scan at BETA only if the continuous port and its evidence support it. The debug-only continuous fixture recorder (10.34–10.36) adds session record/replay. That replay drives the measured `QUICK_SCAN` decision and the fixes. Every flow keeps a manual fallback, and none produces a guessed state.
 
 ## Stories
 
@@ -31,64 +31,72 @@ A Learner can put their real cube into the app with the camera: scan it face by 
 - Story 10.21: Quick Scan keeps the side faces it reads well
 - Story 10.22: Quick Scan captures promptly once the cube is in view
 - Story 10.23: A shadow sticker reader runs beside the Kotlin reads
-- Stories 10.24–10.27: dropped (replaced by the continuous Quick Scan, 10.30–10.33); do not start
+- Stories 10.24–10.27: dropped (superseded by continuous Quick Scan); do not start
 - Story 10.28: The fixture recorder checks nine of each colour before it saves a corner group
 - Story 10.29: Solution Playback shows the same Quick Check result as Lessons
 - Story 10.30: Port continuous facelet lattice fitter and cube mapper to pure JVM
 - Story 10.31: Wire LiteRT v2 INT8 sticker-center detector, split `continuous` source set, and retire shadow reader
 - Story 10.32: Continuous Quick Scan live viewfinder, growing net, Guided fallback, and Review hand-off
 - Story 10.33: Continuous Quick Scan physical-device matrix and PO BETA call
+- Story 10.34: Record and replay a continuous Quick Scan session in the developer fixture recorder
+- Story 10.35: Retire the Quick-Scan-only two-corner recorder paths
+- Story 10.36: Record new scrambles on the continuous recorder, analyse them, and improve continuous Quick Scan
 
 ## Requirements & Constraints
 
-- **Never guess.** No partial or unvalidated Scan Result reaches the Solver or tutor. Uncertain stickers stay blank for the Learner. The confidently-wrong rate target is at most 0.1%, with zero silent wrong commits. A mid-scan layer twist is detected and rejected, never stitched in.
-- **Continuous Quick Scan behaviour.** It works from any starting side with 1 to 3 faces visible per frame, with no fixed corner pose and no drawn guide. It self-calibrates from the cube's own six centres, so a saved calibration is optional and never required. It must work on stickered, stickerless and pastel cubes. After a regrip it recovers only when the orientation is unambiguous, and it never locks onto a single symmetric face.
-- **Quick Scan GA bar.** At least 95% of scans reach a valid state with at most 3 corrections (the Guided fallback is allowed), in under 15 s. Below that bar it ships as BETA.
-- **Latency.** Full per-frame pipeline p50: 50 ms or less on the Lenovo TB128XU, 20 ms or less on the Galaxy S24 FE.
-- **Devices.** The Lenovo Tab M10 Plus 3rd Gen (TB128XU, no flash) is the gating minimum. The Galaxy S24 FE is the mid-range gate. The Galaxy Tab S7 FE 5G is for compatibility only. Layout must fit a phone in portrait without scrolling, and work at 200% font on the Lenovo's 600 dp width without cutting or breaking words.
-- **Privacy and size.** Frames stay in memory and are never stored, sent or logged. `CAMERA` is the only runtime permission, and there is still no internet permission. The release must stay under 30,000,000 B, checked by `:app:checkCameraSize` and by a real minified 0.11.0-profile build. 16 KB ELF alignment is required. No ML Kit, Play-services ML or OpenCV.
-- **Exit and review rules.**
-  - Guided Scan: closing with no face captured leaves at once. With faces captured it asks "Discard the faces you captured?".
-  - Quick Scan: closing leaves at once at 0 mapped faces. Otherwise it asks "Discard this scan?".
-  - Scan review: closing an unchanged review falls back to the Editor with its stickers.
-  - System Back behaves the same as *Close*.
-- **Acceptance.** Camera stories are accepted on the main app build from their real entry point, with the flag raised in debug. A debug-only launcher is never the gate. Learner text comes from content strings (`checkLearnerText`). Device evidence goes to `docs/evidence/<story>/`.
-- **Release passes.** From the first release that raises `CAMERA_SCAN` (0.11.0), the camera flows are part of the accessibility manual check, the performance pass and the recognition release gate. A release with every camera flag OFF declares no runtime permission.
-- **Fixtures.** Held-out groups are never used for tuning. The recorder refuses a corner group that does not have exactly 9 of each colour, unless the operator gives a written override reason.
+- **Never guess.** No partial or unvalidated Scan Result reaches the Solver or tutor, and uncertain stickers stay blank for the Learner. The confidently-wrong rate must be at most 0.1%, with zero silent wrong commits. A layer twisted mid-scan is detected and rejected, never stitched in.
+- **Continuous Quick Scan.** It works from any starting side, with 1–3 faces visible per frame and no fixed pose or drawn guide. It self-calibrates from the cube's six centres, so a saved calibration is optional. It must handle stickered, stickerless and pastel cubes. After a regrip it recovers only when the orientation is unambiguous.
+- **GA bar.** At least 95% of scans reach a valid state with at most 3 corrections (the Guided fallback is allowed) in under 15 s. Below that bar the feature ships as BETA.
+- **Latency.** The full per-frame pipeline must run at p50 ≤ 50 ms on the Lenovo TB128XU and ≤ 20 ms on the Galaxy S24 FE. Recorder capture must not raise the analyzer p50 by more than 10%.
+- **Devices.** The Lenovo Tab M10 Plus 3rd Gen (TB128XU, no flash) is the gating minimum and the S24 FE is the mid-range gate. The Galaxy Tab S7 FE 5G is for compatibility only. Layouts must fit a phone in portrait without scrolling, and work at 200% font on the Lenovo's 600 dp width.
+- **Privacy and size.**
+  - No Learner-installable build stores, sends or logs frames. The debug fixture recorder is the only exception.
+  - `CAMERA` is the only runtime permission, and the app has no internet permission.
+  - The release must stay under 30,000,000 B, checked by `:app:checkCameraSize` and by a real minified 0.11.0-profile build. 16 KB ELF alignment is required.
+  - No ML Kit, Play-services ML or OpenCV.
+- **Fixtures.**
+  - Held-out data is never used for tuning. A session and everything derived from it stay in one partition.
+  - Each recorder group must have exactly 9 of each colour unless the operator gives a written reason.
+  - Size limits: 15 MB per continuous session and 60 MB for `Fixtures/continuous/` (CI-enforced, no LFS).
+  - Every existing fixture root must keep a working reader.
+- **Acceptance.** Camera stories are accepted on the main app build from the real entry point, with the flag raised in debug, never through a debug-only launcher. Learner text comes from content strings (`checkLearnerText`). Evidence goes to `docs/evidence/<story>/`. Release-level calls (10.33, 10.36) are recorded in the PRD `.memlog.md`.
 
 ## Technical Decisions
 
-- **Camera isolation.** Only `app/src/camera/` touches pixels and calls `Interpreter`. Main code reaches the camera only through optional Hilt ports (`@BindsOptionalOf`); with no binding, every scan entry point is hidden.
-- **Continuous pipeline.** The detector and the reader are split across two places:
-  - **Detector.** `LiteRtStickerCenterDetector` lives in `app/src/camera/continuous/`. It uses the clean-room `sticker_centers_v2_int8.tflite` model (369.4 KB) on LiteRT 2.3.2 with XNNPACK CPU on 2 threads, off the main thread. It sends only neutral 2D sticker-centre points, per-cell colour statistics and quality scalars into the domain.
-  - **Reader of record.** `FaceLatticeFitter` and `ContinuousFaceletMapper` are pure JVM code in `:core:domain` (`recognition.continuous`). They must be deterministic and match the PC spike exactly.
-- **Mapper output.** A completed scan is put into `Orientation.HOME` (WHITE on U, GREEN on F) and goes straight into `ScanReview`. Confirmed faces are exported in `ScanAssembler`'s kept-face format for the Guided hand-over, which keeps them without reclassifying. `ScanAssembler` is still the only code that rotates samples for the Guided Scan, the Editor and per-face retake.
-- **Flags compose the build.** `QUICK_SCAN` above OFF composes `camera/continuous/`. `CASE_RECOGNITION` alone composes the legacy `camera/corner/` model, and it stays OFF in 0.11.0 and v1.0.0. LiteRT is included only when either flag is above OFF.
-- **Shadow reader retired.** The Story 10.23 shadow reader is removed. `ShadowReaderPolicy` stays as a release guard against any `sticker_reader*.tflite` asset or `camera/sticker/` class.
-- **Model provenance.** The training and evaluation recipe lives in `tools/center-model/`, with a model card, the full SHA-256 and a holdout-disjointness test.
-- **Two-corner code removal.** The Quick-Scan-only two-corner code is removed. `CornerLocator`, `CornerReader` and `CornerGuide` stay, because `CASE_RECOGNITION` and the fixture recorder still use them.
-- **Calibration.** `CalibrationRepository` is the only owner of calibration. Calibration is never stored in session state or a Checkpoint.
-- **State changes.** The scan flow returns a `ScanOutcome`, and only the caller dispatches it. Solution Playback actions go through `SessionEvent` → `reduce()`. A ViewModel or composable never mutates state.
-- **Quick Check result (10.29).** Lessons and Solution Playback share one result component. It shows the Certainty chip from `Assess` and never a numeric confidence.
+- **AD-9 Camera isolation.** Only `app/src/camera/` touches pixels or calls `Interpreter`. Main code reaches the camera only through optional `@BindsOptionalOf` ports (`ScanLauncher`, `StickerCenterDetector`). With no binding, entry points are hidden. Only neutral data enters `:core:domain`: 2D sticker centres, per-cell colour statistics and quality scalars.
+- **AD-9 Continuous pipeline.** The detector is `LiteRtStickerCenterDetector` in `app/src/camera/continuous/`. It runs the clean-room `sticker_centers_v2_int8.tflite` (378,288 B) on LiteRT 2.3.2 with XNNPACK on 2 threads, off the main thread. The reader of record is `FaceLatticeFitter` + `ContinuousFaceletMapper`: pure JVM in `:core:domain` (`recognition.continuous`), deterministic and at parity with the PC spike. A complete scan is canonicalized to `Orientation.HOME` (AD-2) and goes into `ScanReview`. Confirmed faces are exported in `ScanAssembler`'s kept-face format. `ScanAssembler` stays the only rotator for Guided, Editor, retake and hand-over. Mapper outputs are sealed snapshots and cue enums (AD-12).
+- **AD-9 Frames (amended 2026-11-25, confirmed by the architect; this clears 10.34's start gate).** On operator request, the debug-only recorder may keep one bounded continuous session in app-specific debug storage. A session holds ordered detector inputs or downscaled frames with their transform, the observations and a manifest. The writer is reached only through an optional binding from the debug camera source set, and shipped `continuous/` code holds no writer. Two replay paths:
+  - State replay runs on neutral observations in the `:core:domain` evaluation source set.
+  - Image replay runs only as an instrumented debug test, because LiteRT is Android-only.
+- **AD-15 Debug tools.** Debug-only source sets hold developer tools only. The recorder is not release scope and gates neither 10.11 nor any tag. A build-logic `FixtureWriterPolicy` sits beside `ShadowReaderPolicy` and rejects writer classes in every non-debuggable variant.
+- **AD-18 Flags compose the build.** `QUICK_SCAN` above OFF composes `camera/continuous/`. `CASE_RECOGNITION` alone composes the legacy `camera/corner/` model, and it stays OFF in 0.11.0 and v1.0.0. LiteRT is included only if either flag is above OFF. Debug levels follow wiring: raise a flag in debug only in the PR that wires its entry point.
+- **Retired code.** The Story 10.23 shadow reader is removed, but `ShadowReaderPolicy` stays as a release guard. Two-corner Quick Scan code is removed only once its consumers are inventoried and a legacy replay has been archived, and a disabled flag alone does not count as proof that code is dead. These stay for Case capture and the recorder:
+  - `CornerLocator`, `CornerReader` and `CornerGuide`
+  - Corner-mode capture
+  - Readers of historical fixtures, such as `exportKotlinStickerReads` and `evaluateQuickScan`
+- **Shared rules.** The 10.28 count/override rule moves into a format-neutral `StickerTruthCheck` in `:core:domain`, used by both labellers.
+- **Model provenance.** The model's recipe, model card, SHA-256 and holdout test live in `tools/center-model/`. Retraining or replacing the model needs PO approval.
+- **AD-9 / AD-3 State.** `CalibrationRepository` is the only calibration owner, and calibration is never kept in session state or a Checkpoint. The scan flow returns a `ScanOutcome` and only the caller dispatches it. A ViewModel never mutates state. AD-13 makes offline and privacy build-enforced, and AD-17 covers glyphs, accessibility and adaptive layout.
 
 ## UX & Interaction Patterns
 
-- **Quick Scan screen.** It shows the live preview with outlines around the tracked faces, a compact growing URFDLB net using the colour-blind glyphs from `StickerAppearance`, a "Sides mapped: N/6" count, and one inline cue line. The cues cover: bring the cube into view, turn to show the remaining sides, tilt for an adjacent face, tilt away from the light, a conflict face, a layer turned mid-scan, and all 54 verified.
+- **Quick Scan screen.** A live preview with tracked face outlines and a compact growing URFDLB net using the `StickerAppearance` colour-blind glyphs. It shows "Sides mapped: N/6" and one inline cue line: bring the cube into view, turn, tilt for an adjacent face, tilt away from the light, conflict face, layer turned, or all 54 verified.
 - **Controls.**
   - *Reset* clears the map in place.
-  - *Scan face by face* is always visible. It keeps the confirmed faces and opens the Guided Scan for the missing faces only. Back from there returns to Quick Scan with the faces intact.
-  - *Enter colors instead* opens the Editor, pre-filled with the confirmed stickers.
-  - Once all 54 stickers are verified, Scan Review opens, with per-face retake and Paint mode.
-- **Torch.** The toggle appears only on devices with a flash and is OFF by default. It turns off on hand-over, on leaving and when the app goes to the background.
-- **BETA labelling.** Quick Scan shows the shared BETA badge and tooltip. The GA Guided Scan has no beta label. A flag that stays OFF shows no entry point, string or permission rationale.
-- **Accessibility.** TalkBack announces side-count milestones, cues, a conflict face and completion. A Quick Check Certainty is announced once.
+  - *Scan face by face* keeps confirmed faces and opens Guided for the missing ones; Back returns to Quick Scan.
+  - *Enter colors instead* opens the Editor with the confirmed stickers filled in.
+  - *Torch* appears only on flash devices, starts OFF and turns off on hand-over, on leaving and in the background.
+  - At 54/54, Scan Review opens with retake and Paint mode.
+- **Exit rules.** Closing Quick Scan with 0 faces mapped leaves at once; otherwise it asks "Discard this scan?". The same rule holds for Guided Scan. System Back behaves like *Close*.
+- **BETA labelling.** Quick Scan shows the shared BETA badge and tooltip, and Guided Scan has no beta label. A flag that is OFF shows no UI at all.
+- **Accessibility.** TalkBack announces side milestones, cues, a conflict face and completion.
 
 ## Cross-Story Dependencies
 
-- **Remaining order:** 10.30 → 10.31 → 10.32 → 10.33, then the 10.11 run that raises `QUICK_SCAN`. 10.30 is device-free. 10.31 needs an R8 benchmark on both gating devices. 10.33 records the PO's BETA call in the PRD memlog.
-- **10.11:** depends on 12.3, 12.4 and 13.6 and runs before 12.5. Its first run, 0.11.0, raises `CAMERA_SCAN` to GA and `PLACEMENT` to BETA. `QUICK_SCAN` goes to BETA in the same run only if 10.30–10.33 are done; otherwise it follows in a later 0.11.x run.
-- **12.5:** promotes a new v1.0.0 tag cut from main, with the same flag levels.
-- **Privacy page:** the site's privacy page must update before the tag.
-- **Reused behaviour:** 10.32 reuses the review (10.3), solve and Editor fallback (10.15), per-face retake (10.16) and Guided hand-over (10.17).
-- **10.29:** done in v1.0. Its deferred TalkBack and 200% font device check is an open action item, not a v1.0.0 tag gate. It also touches Lessons' physical mode (Epic 8 and Story 14.3 flows).
-- **Epic 11:** Placement (11.2) shares the Guided viewfinder's exit rule. Case recognition is v1.0 and flag-gated like the rest; `CASE_RECOGNITION` keeps the legacy corner model, and Story 10.11 sets its level per release.
+- **Order:** 10.30 → 10.31 → 10.32 → 10.33 → 10.34 → 10.35 → 10.36 → 10.11.
+  - 10.30 and 10.35 are device-free. 10.31 needs an R8 benchmark on both gating devices.
+  - Fix stories routed from 10.33 do not block 10.34.
+- **`QUICK_SCAN` call:** a BETA call at 10.33 lets 10.11 start before 10.36. An OFF call moves the decision to 10.36's replay analysis. A BETA call that rests on post-10.33 enhancements needs at least 5 live Solve-tab scans on the Lenovo.
+- **Recorder chain:** 10.34 builds on the recorders from 10.12, 10.20 and 10.28. 10.35 needs 10.34's on-device capture and replay demonstrations. 10.36 uses 10.33's report as its baseline and the whole-corpus replay as its regression gate.
+- **10.11:** needs 12.3, 12.4, 13.6 and 12.18. It runs before 12.5, which tags v1.0.0 with the same flag levels. The site privacy page must update before the tag.
+- **Reused behaviour:** 10.32 reuses 10.3, 10.15, 10.16 and 10.17. Epic 11 Placement shares the Guided exit rule, and Case recognition keeps the legacy corner model.
