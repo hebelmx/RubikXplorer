@@ -3048,3 +3048,15 @@ action_items:
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-390-quick-scan-detector-unavailable-fallback.md"
+  - id: "issue-390-deferred-first-open-shows-live-scan-briefly"
+    epic: 10
+    action: "In a fresh app process with a broken detector model, continuous Quick Scan shows the live scan and the bring-into-view cue until the first analysed frame latches the detector, because the model loads lazily; accept it or hold the cue until the first frame has been analysed (low; deferred from #390, GuidedScanActivity.kt:636)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-390-quick-scan-detector-unavailable-fallback.md"
+  - id: "issue-390-deferred-face-by-face-tap-before-calibration-load"
+    epic: 10
+    action: "A Scan face by face tap on a reopened Quick Scan unavailable card before the calibration load finishes is reset back to the card and leaves a stale hand-over; skip the post-load phase reset when the viewfinder is a hand-over, with a test (low; deferred from #390, GuidedScanActivity.kt:175)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-390-quick-scan-detector-unavailable-fallback.md"
