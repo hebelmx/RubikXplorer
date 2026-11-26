@@ -42,6 +42,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.window.core.layout.WindowSizeClass
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.preferences.LocalHaptics
 import dev.cubentia.app.preferences.LocalRenderStyle
@@ -53,8 +54,8 @@ import dev.cubentia.domain.recognition.continuous.FaceSlot
 import kotlinx.coroutines.channels.ReceiveChannel
 import dev.cubentia.domain.text.Text as ContentText
 
-/** Below this height (the compact window height class) the landscape panel pairs *Review and Correct* with *Enter colors instead*. */
-private val SHORT_PANEL_HEIGHT = 480.dp
+/** Below this height (the compact window height class, AD-17) the two-pane panel pairs *Review and Correct* with *Enter colors instead*. */
+private val SHORT_PANEL_HEIGHT = WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND.dp
 
 @Composable
 internal fun ContinuousQuickScanScreen(
@@ -156,7 +157,8 @@ internal fun ContinuousQuickScanScreen(
         }
     }
     BoxWithConstraints(Modifier.fillMaxSize().testTag("quickScan:continuous")) {
-        if (maxWidth > maxHeight) {
+        // AD-17: the same width-class rule as the Guided viewfinder this screen hands over to.
+        if (scanTwoPane(maxWidth, maxHeight)) {
             Row(Modifier.fillMaxSize()) {
                 camera(Modifier.weight(1f).fillMaxHeight())
                 panel(Modifier.weight(1f).fillMaxHeight(), this@BoxWithConstraints.maxHeight < SHORT_PANEL_HEIGHT)

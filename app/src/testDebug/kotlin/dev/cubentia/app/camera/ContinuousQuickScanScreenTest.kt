@@ -2,12 +2,20 @@ package dev.cubentia.app.camera
 
 import android.app.Application
 import android.os.Build
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
@@ -19,16 +27,19 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.preferences.LocalHaptics
+import dev.cubentia.app.ui.theme.CubeTokens
 import dev.cubentia.app.ui.theme.CubentiaTheme
 import dev.cubentia.domain.content.ContentLoadResult
 import dev.cubentia.domain.content.ContentLoader
 import dev.cubentia.domain.content.ContentSource
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.recognition.continuous.ContinuousScanCue
+import dev.cubentia.domain.recognition.continuous.Point2D
 import kotlinx.coroutines.channels.Channel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -174,7 +185,7 @@ class ContinuousQuickScanScreenTest {
     }
 
     /** The fill of the button [tag], sampled inside its left end, clear of its label. */
-    private fun fill(tag: String): androidx.compose.ui.graphics.Color {
+    private fun fill(tag: String): Color {
         val image = rule.onNodeWithTag(tag).captureToImage()
         val x = with(rule.density) { 16.dp.roundToPx() }
         return image.toPixelMap()[x, image.height / 2]
@@ -200,6 +211,46 @@ class ContinuousQuickScanScreenTest {
         feed(ContinuousScanCue.LayerTwistDetected)
         assertEquals(fill("quickScan:faceByFace"), fill("quickScan:reviewAndCorrect"))
         assertTrue(fill("quickScan:reset") != fill("quickScan:reviewAndCorrect"))
+    }
+
+    /**
+     * Two panes at 600 dp in portrait (AD-17): the overlay covers exactly the preview, the left half of the window, so an
+     * outline's view fractions land on the picture they were measured on.
+     */
+    @Test
+    @Config(qualifiers = "w600dp-h960dp-port")
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun faceOutlinesStayOnThePreviewInTheTwoPaneLayoutAtSixHundredDpPortrait() {
+        val corners = listOf(Point2D(0.2, 0.25), Point2D(0.8, 0.25), Point2D(0.8, 0.75), Point2D(0.2, 0.75))
+        val state = ContinuousQuickScanFlow(outlines = mapOf(OutlineKey(Face.F, anchored = false) to TrackedOutline(corners)))
+        rule.setContent {
+            CubentiaTheme {
+                GuidedScanScreen(GuidedScanPhase.Continuous, strings, GuidedScanActions(), continuous = state) {
+                    Box(Modifier.fillMaxSize().background(Color.Black).testTag("preview"))
+                }
+            }
+        }
+        val root = rule.onRoot().fetchSemanticsNode().boundsInRoot
+        val preview = rule.onNodeWithTag("preview").fetchSemanticsNode().boundsInRoot
+        assertEquals(Rect(root.left, root.top, root.left + root.width / 2, root.bottom), preview)
+        assertEquals(preview, rule.onNodeWithTag("scanViewfinder").fetchSemanticsNode().boundsInRoot)
+        assertTrue(
+            rule
+                .onNodeWithTag("quickScan:net")
+                .fetchSemanticsNode()
+                .boundsInRoot.left >= preview.right,
+        )
+        val pixels = rule.onNodeWithTag("scanViewfinder").captureToImage().toPixelMap()
+
+        fun at(
+            x: Double,
+            y: Double,
+        ) = pixels[(x * preview.width).toInt(), (y * preview.height).toInt()].toArgb()
+        // The middle of each side of the outline, in fractions of the preview; nothing is drawn inside it.
+        for ((x, y) in listOf(0.5 to 0.25, 0.8 to 0.5, 0.5 to 0.75, 0.2 to 0.5)) {
+            assertEquals("outline at $x, $y", CubeTokens.stickerHighlight.toArgb(), at(x, y))
+        }
+        assertEquals(Color.Black.toArgb(), at(0.5, 0.5))
     }
 
     @Test fun confirmAndRejectFallBackToALongPressBelowApi30() {

@@ -73,7 +73,7 @@ Refs (binding, copied from the story): FR-22, FR-23, FR-25 · NFR-7, NFR-10, NFR
 - AD-3: the scan flow only returns a `ScanOutcome`; the Solve tab's caller dispatches it. No ViewModel or composable mutates session state.
 - AD-9 / AD-18: all camera code stays in `app/src/camera/`. Base camera code (`app/src/camera/kotlin`) never references `dev.cubentia.app.camera.continuous.*`; it reaches the pipeline only through an optional Hilt port (`@BindsOptionalOf`), so a variant with `QUICK_SCAN` OFF and another camera flag on still compiles. `QUICK_SCAN` stays `BETA` in debug and `OFF` in release; with it OFF no Quick Scan UI shows.
 - AD-13: frames stay in memory on the analyzer thread; nothing is stored, logged or sent. No new permission.
-- AD-17: stickers in the net use the shared `StickerAppearance` glyphs; the screen fits a phone in portrait without scrolling and at 200% font on 600 dp width; landscape tablets put the preview left and the panel right.
+- AD-17: stickers in the net use the shared `StickerAppearance` glyphs; the screen fits a phone in portrait without scrolling and at 200% font on 600 dp width; from the medium window width class (600 dp, the same rule as the Guided viewfinder) and in any landscape window the preview is left and the panel right.
 - All Learner text comes from `en.json` through `ContentStrings.resolve(Text(key, args))`.
 - The mapper and pipeline are single-threaded: every `processFrame`, `reset` and `export` call runs on the analyzer executor.
 - Never guess: only stickers the mapper committed are shown, kept or handed on; blanks stay blank.

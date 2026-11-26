@@ -35,9 +35,15 @@ class ContinuousQuickScanLargeFontTest {
 
     @Test fun phoneAtDoubleFont() = fits()
 
+    /** The medium width class in portrait (the Lenovo, AD-17): preview left, panel right, the four actions stacked. */
     @Test
     @Config(qualifiers = "w600dp-h960dp-port", fontScale = 2.0f)
-    fun tabletAtDoubleFont() = fits()
+    fun tabletAtDoubleFont() = fits(twoPane = true, pairedLastRow = false)
+
+    /** Just under the medium width class a portrait window still stacks the preview above the panel. */
+    @Test
+    @Config(qualifiers = "w599dp-h960dp-port", fontScale = 2.0f)
+    fun portraitJustUnderTheMediumWidthAtDoubleFont() = fits(pairedLastRow = false)
 
     @Test
     @Config(qualifiers = "w360dp-h640dp-port", fontScale = 1f)
@@ -45,24 +51,26 @@ class ContinuousQuickScanLargeFontTest {
 
     @Test
     @Config(qualifiers = "w960dp-h600dp-land")
-    fun landscapeTablet() = fits(landscape = true)
+    fun landscapeTablet() = fits(twoPane = true)
 
     /** A landscape phone is narrower than 600 dp in neither direction a tablet is: it still gets preview left, panel right. */
     @Test
     @Config(qualifiers = "w640dp-h360dp-land", fontScale = 1f)
-    fun landscapePhone() = fits(landscape = true, pairedLastRow = true)
+    fun landscapePhone() = fits(twoPane = true, pairedLastRow = true)
 
     /** Exactly at the 480 dp switch the panel is not short yet: the four actions stay stacked. */
     @Test
     @Config(qualifiers = "w800dp-h480dp-land", fontScale = 1f)
-    fun landscapeAtTheShortPanelSwitch() = fits(landscape = true, pairedLastRow = false)
+    fun landscapeAtTheShortPanelSwitch() = fits(twoPane = true, pairedLastRow = false)
 
     /**
-     * [pairedLastRow]: whether *Review and Correct* shares the last row with *Enter colors instead* (the short landscape
-     * panel) or sits above it (every other layout); null leaves the arrangement unchecked.
+     * [twoPane]: whether the panel sits right of the preview (the medium width class and up, or any landscape window) or
+     * below it (a compact-width portrait window). [pairedLastRow]: whether *Review and Correct* shares the last row with
+     * *Enter colors instead* (the short landscape panel) or sits above it (every other layout); null leaves the
+     * arrangement unchecked.
      */
     private fun fits(
-        landscape: Boolean = false,
+        twoPane: Boolean = false,
         pairedLastRow: Boolean? = null,
     ) {
         var touch = 0f
@@ -107,15 +115,22 @@ class ContinuousQuickScanLargeFontTest {
             if (tag in
                 tags
             ) {
-                assertTrue("$tag $bounds, camera $camera", if (landscape) bounds.left >= camera.right else bounds.top >= camera.bottom)
+                assertTrue("$tag $bounds, camera $camera", if (twoPane) bounds.left >= camera.right else bounds.top >= camera.bottom)
             }
             if (tag in buttons + listOf("scanClose", "quickScan:torch")) {
                 assertTrue("$tag touch height", bounds.height >= touch - 0.5f)
             }
         }
-        if (pairedLastRow == null) return
 
         fun bounds(tag: String) = rule.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
+        // The preview takes the whole first pane, and *Close* and the torch on it never overlap, however narrow the pane.
+        assertTrue("camera $camera, root $root", if (twoPane) camera.height == root.height else camera.width == root.width)
+        assertTrue(
+            "scanClose ${bounds("scanClose")}, torch ${bounds("quickScan:torch")}",
+            bounds("scanClose").right <= bounds("quickScan:torch").left,
+        )
+        if (pairedLastRow == null) return
+
         val faceByFace = bounds("quickScan:faceByFace")
         val review = bounds("quickScan:reviewAndCorrect")
         val enterColors = bounds("scanEnterColors")

@@ -74,6 +74,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.window.core.layout.WindowSizeClass
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.preferences.LocalHaptics
 import dev.cubentia.app.render.StickerGlyph
@@ -230,7 +231,18 @@ internal class FrozenCapture(
 )
 
 private const val VIEWFINDER_HEIGHT_FRACTION = 0.45f
-private val EXPANDED_WIDTH = 600.dp
+
+/**
+ * AD-17: whether a scan screen filling a [width]×[height] window shows two panes, the viewfinder left and its panel
+ * right: from the medium window width class (600 dp, the Lenovo in portrait), and in any window wider than tall (a
+ * phone in landscape). Otherwise the viewfinder is stacked above the panel. Shared by the Guided viewfinder, the
+ * calibration viewfinder and the continuous Quick Scan, so a hand-over between them never changes the arrangement.
+ */
+internal fun scanTwoPane(
+    width: Dp,
+    height: Dp,
+): Boolean = width >= WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND.dp || width > height
+
 private const val NET_COLUMNS = 4
 private const val NET_ROWS = 3
 private const val SIDE = 3
@@ -422,7 +434,7 @@ private fun Viewfinder(
     val highlighted = setOfNotNull(phase.step?.face)
     val showCorner = cornerHold != null || frozen?.shrink == false
     BoxWithConstraints(Modifier.fillMaxSize().onGloballyPositioned { geometry.origin = it.boundsInRoot().topLeft }) {
-        val wide = maxWidth >= EXPANDED_WIDTH || maxWidth > maxHeight
+        val wide = scanTwoPane(maxWidth, maxHeight)
         if (wide) {
             Row(Modifier.fillMaxSize()) {
                 Box(Modifier.weight(1f).fillMaxHeight()) {
@@ -1096,7 +1108,7 @@ private fun CalibrationViewfinder(
     }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val cameraHeight = maxHeight * VIEWFINDER_HEIGHT_FRACTION
-        if (maxWidth >= EXPANDED_WIDTH || maxWidth > maxHeight) {
+        if (scanTwoPane(maxWidth, maxHeight)) {
             Row(Modifier.fillMaxSize()) {
                 Box(Modifier.weight(1f).fillMaxHeight()) { CameraArea(geometry, preview, torch = torch) }
                 Box(Modifier.weight(1f)) { panel() }
