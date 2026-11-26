@@ -129,10 +129,7 @@ class QuickCheckRouteTest {
             try {
                 rule.waitForIdle()
                 val vm = ViewModelProvider(scan.get())[GuidedScanViewModel::class.java]
-                rule.waitUntil(10_000) {
-                    shadowOf(android.os.Looper.getMainLooper()).idle()
-                    source.starts > 0
-                }
+                rule.awaitScanCamera { source.starts > 0 }
                 val actual = original.apply(FaceTurn(Face.R, Turn.COUNTERCLOCKWISE))
                 Face.entries.filter { it in pending.faces }.forEach { face ->
                     assertEquals(GuidedScanPlan.reprompt(face), vm.controller.step)
@@ -168,10 +165,7 @@ class QuickCheckRouteTest {
             val priorStarts = source.starts
             val fullScan = Robolectric.buildActivity(GuidedScanActivity::class.java, full.intent).setup()
             try {
-                rule.waitUntil(10_000) {
-                    shadowOf(android.os.Looper.getMainLooper()).idle()
-                    source.starts > priorStarts
-                }
+                rule.awaitScanCamera { source.starts > priorStarts }
                 val vm = ViewModelProvider(fullScan.get())[GuidedScanViewModel::class.java]
                 val actual =
                     host.state.value.expected
@@ -305,10 +299,7 @@ class QuickCheckRouteTest {
             try {
                 rule.waitForIdle()
                 val vm = ViewModelProvider(scan.get())[GuidedScanViewModel::class.java]
-                rule.waitUntil(10_000) {
-                    shadowOf(android.os.Looper.getMainLooper()).idle()
-                    source.starts > 0
-                }
+                rule.awaitScanCamera { source.starts > 0 }
                 assertEquals(pending.faces, vm.quickFaces)
                 val actual = host.state.value.expected
                 Face.entries.filter { it in pending.faces }.forEach { face ->
@@ -375,10 +366,7 @@ class QuickCheckRouteTest {
             try {
                 rule.waitForIdle()
                 val vm = ViewModelProvider(scan.get())[GuidedScanViewModel::class.java]
-                rule.waitUntil(10_000) {
-                    shadowOf(android.os.Looper.getMainLooper()).idle()
-                    source.starts > 0
-                }
+                rule.awaitScanCamera { source.starts > 0 }
                 val actual = host.state.value.expected
                 val asked = mutableListOf<Face>()
                 repeat(4 * Face.entries.size) {

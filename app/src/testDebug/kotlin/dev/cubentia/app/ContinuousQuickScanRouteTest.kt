@@ -1518,10 +1518,7 @@ class ContinuousQuickScanRouteTest {
     }
 
     private fun waitForCamera(continuous: Boolean) {
-        rule.waitUntil(10_000) {
-            shadowOf(Looper.getMainLooper()).idle()
-            camera.receiver != null && camera.continuous == continuous
-        }
+        rule.awaitScanCamera { camera.receiver != null && camera.continuous == continuous }
     }
 
     private fun stats(color: Color) = FrameStats(List(9) { CellReading(ScanRouteTest.labs.getValue(color), true) }, 120.0, 0.0, 100.0, 12)

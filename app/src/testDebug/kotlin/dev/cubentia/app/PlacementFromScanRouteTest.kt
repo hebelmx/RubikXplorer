@@ -141,10 +141,7 @@ class PlacementFromScanRouteTest {
             val started = activity.nextStartedActivityForResult.intent
             val scan = Robolectric.buildActivity(GuidedScanActivity::class.java, started).setup()
             try {
-                rule.waitUntil(10_000) {
-                    shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(16))
-                    camera.starts > 0
-                }
+                rule.awaitScanCamera { camera.starts > 0 }
                 rule.waitForIdle()
                 val viewModel = ViewModelProvider(scan.get())[GuidedScanViewModel::class.java]
                 val colors = CubeState.SOLVED.toFacelets().colors

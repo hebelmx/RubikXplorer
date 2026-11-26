@@ -105,7 +105,7 @@ class CaseRecognitionRouteTest {
                 }
                 rule.onNodeWithTag("calibration:save").performClick()
                 waitFor("quickScan:counter")
-                rule.waitUntil(10_000) { camera.corner && camera.receiver != null }
+                rule.awaitScanCamera { camera.corner && camera.receiver != null }
                 assertEquals(true, runBlocking { repository.load() } is CalibrationLoad.Loaded)
                 rule.onNodeWithTag("quickScan:counter").assertTextEquals("1 / 2")
                 rule.onNodeWithText("Hold yellow on top, with one corner facing you.").assertIsDisplayed()
