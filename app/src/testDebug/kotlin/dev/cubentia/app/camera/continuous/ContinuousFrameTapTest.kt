@@ -52,6 +52,8 @@ class ContinuousFrameTapTest {
 
     private fun detector(copies: Boolean) =
         object : StickerCenterDetector {
+            override val unavailable = false
+
             override fun detect(
                 frame: YuvFrame,
                 rotationDegrees: Int,

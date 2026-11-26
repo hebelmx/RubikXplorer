@@ -68,6 +68,8 @@ class ContinuousRecorderAnalyzerTest {
         val frames = mutableListOf<Int>()
         var exports = 0
 
+        override val detectorUnavailable = false
+
         override fun processFrame(
             frame: YuvFrame,
             rotationDegrees: Int,

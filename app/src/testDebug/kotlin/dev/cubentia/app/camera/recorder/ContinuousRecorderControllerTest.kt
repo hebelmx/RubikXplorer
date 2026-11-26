@@ -54,6 +54,8 @@ class ContinuousRecorderControllerTest {
     private class Engine(
         val export: ContinuousScanExport,
     ) : ContinuousScanEngine {
+        override val detectorUnavailable = false
+
         override fun processFrame(
             frame: YuvFrame,
             rotationDegrees: Int,
