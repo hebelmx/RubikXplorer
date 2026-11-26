@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-26-2026 02:52'
+last_updated: '11-26-2026 04:33'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -157,7 +157,7 @@ development_status:
   10-29-solution-playback-shows-the-same-quick-check-result-as-lesso: done
   10-30-port-continuous-facelet-lattice-fitter-and-cube-mapper-to-pu: done
   10-31-wire-litert-v2-int8-sticker-center-detector-split-continuous: done
-  10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal: review
+  10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal: done
   10-33-continuous-quick-scan-physical-device-matrix-and-po-beta-cal: backlog
   10-34-record-and-replay-a-continuous-quick-scan-session-in-the-dev: backlog
   10-35-retire-the-quick-scan-only-two-corner-recorder-paths: backlog
@@ -2952,3 +2952,81 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-31-wire-litert-v2-int8-sticker-center-detector-split-continuous.md"
+  - id: "epic-10-deferred-10.32-calibration-restarts-quick-scan"
+    epic: 10
+    action: "Decide whether a Color Calibration saved from a Quick Scan review should still restart Quick Scan with an empty map, given the continuous scan calibrates itself (medium; deferred from 10.32, GuidedScanActivity.kt saveCalibration)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
+  - id: "epic-10-deferred-10.32-early-review-corrections-leak"
+    epic: 10
+    action: "Stop a Color Calibration saved from an early Review (Review and Correct) carrying that Review's corrections into later Reviews, and add a route test (medium; deferred from 10.32, GuidedScanActivity.kt:1101)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
+  - id: "epic-10-deferred-10.32-landscape-phone-200pct-fit"
+    epic: 10
+    action: "Verify on a landscape phone at 200% font that every Quick Scan action stays reachable without scrolling (medium, unverified; deferred from 10.32)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
+  - id: "epic-10-deferred-10.32-no-cube-metering"
+    epic: 10
+    action: "Check Quick Scan reads on dark and bright backgrounds with the torch on and off, and add focus and exposure metering on the cube if reads are poor (medium, unverified; deferred from 10.32, ScanFrameSource.kt:401)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
+  - id: "epic-10-deferred-10.32-planning-lacks-review-and-correct"
+    epic: 10
+    action: "Describe the Review and Correct action, the keep-only-fully-read-faces hand-over rule and the two-pane layout from 600 dp in the Story 10.32 acceptance criteria and the UX Quick Scan capture row through bmad-correct-course (medium; deferred from 10.32)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
+  - id: "epic-10-deferred-10.32-net-drawing-untested"
+    epic: 10
+    action: "Add a test of what the continuous Quick Scan net draws: sticker fill, colour-blind glyph and conflict outline (medium; deferred from 10.32, ContinuousQuickScanScreenTest.kt)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
+  - id: "epic-10-deferred-10.32-talkback-device-pass"
+    epic: 10
+    action: "Confirm with TalkBack on a device that Sides mapped N/6 is spoken once per increase and is not read twice on swipe; the stable-node fix is unverified on device (medium; deferred from 10.32, ContinuousQuickScanScreen.kt:107)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
+  - id: "epic-10-deferred-10.32-haptics-rate-limit-and-api29"
+    epic: 10
+    action: "Rate-limit the conflict and twist haptic and make it distinct from the completion pulse on API 29 (low; deferred from 10.32, ContinuousQuickScanFlow.kt:116)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
+  - id: "epic-10-deferred-10.32-device-findings-for-10-33"
+    epic: 10
+    action: "Carry the 2026-11-25 hands-on findings into the Story 10.33 device matrix: slow start to map filling, stalls with unread stickers (Lenovo 6 to 8 unread at 6/6, Galaxy S24 FE 22 unread), one orange-for-red misread, and whether a saved Color Calibration changes reads (medium; deferred from 10.32)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
+  - id: "epic-10-deferred-10.32-tablet-net-too-small"
+    epic: 10
+    action: "Enlarge the Quick Scan net on tablets; the product owner found it small on the Lenovo (low; deferred from 10.32, ContinuousQuickScanScreen.kt)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
+  - id: "epic-10-deferred-10.32-retire-kept-2-corner-code"
+    epic: 10
+    action: "Retire the 2-corner code kept for the Story 10.23 tools (QuickScanClassification.kt, CenterCheck, unused SideLight members) and reclaim the camera class bytes when the tools move to the continuous pipeline, per SCP 2026-11-25 continuous-fixture-recorder (low; deferred from 10.32)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
+  - id: "epic-10-deferred-10.32-guided-enter-colors-unseeded"
+    epic: 10
+    action: "Decide whether Enter colors instead from the hand-over Guided viewfinder should seed the Editor with the stickers Quick Scan mapped when no face was kept (low; deferred from 10.32, GuidedScanActivity.kt)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
+  - id: "epic-10-deferred-10.32-detector-session-never-closed"
+    epic: 10
+    action: "Close the LiteRT sticker-centre detector session when the scan view model is cleared so the interpreter is not held for the life of the process (low; deferred from 10.32, ContinuousScanEngineModule.kt:21)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
