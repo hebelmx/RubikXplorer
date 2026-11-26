@@ -115,7 +115,9 @@ internal sealed interface GuidedScanPhase {
         /**
          * Story 10.32, *Review and Correct*: this review was opened from a continuous Quick Scan that is not complete.
          * Back from it returns to that live scan with nothing of the review kept, and *Close* always asks first. Kept by
-         * `copy` through edits, a retake and a trip to calibration.
+         * `copy` through edits, a retake and a calibration that is opened and left by Back. A calibration that is saved
+         * from it follows the older review rule instead: the scan restarts with an empty map and the review's corrections
+         * are carried into the next review (an open product decision).
          */
         val early: Boolean = false,
     ) : GuidedScanPhase

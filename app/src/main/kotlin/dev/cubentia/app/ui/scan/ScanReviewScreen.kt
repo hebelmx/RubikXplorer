@@ -99,8 +99,9 @@ private enum class DiscardAction { CLOSE, ENTER_COLORS }
  * fixes for the caller's Editor, so nothing is discarded.
  *
  * Story 10.32 (*Review and Correct*): with [onBack], system Back in review mode calls it at once, changed or not and
- * with no question, and *Close* always asks "Discard this scan?" ([onClose] is then never called). An open dialog and
- * retake mode keep their own Back. Without [onBack] nothing changes.
+ * with no question, and *Close* always asks "Discard this scan?"; *Discard* then calls [onDiscard], so a caller that
+ * passes [onBack] passes its own [onDiscard] too (the default is [onClose], which is otherwise never called then). An open
+ * dialog and retake mode keep their own Back. Without [onBack] nothing changes.
  */
 @Composable
 fun ScanReviewScreen(

@@ -658,6 +658,8 @@ class ContinuousQuickScanRouteTest {
             assertTrue(run, " fallbackFaces=0 " in "$run " && " outcome=ACCEPTED " in "$run ")
             // The run line tells a scan finished by hand in an early review from one the camera finished.
             assertTrue(run, " earlyReview=1 " in "$run ")
+            // On that line each blank filled by hand counts as a correction, like a sticker changed by hand.
+            assertTrue(run, " corrections=6 " in "$run ")
         }
     }
 
@@ -694,6 +696,23 @@ class ContinuousQuickScanRouteTest {
             assertEquals(false, camera.torchCalls.last())
             rule.onNodeWithTag("quickScan:torch").assert(hasText("Torch off"))
             rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 6/6")
+        }
+    }
+
+    @Test fun enterColorsInACalibrationOpenedFromTheEarlyReviewStillMarksTheRunAsAnEarlyReview() {
+        quickScanActivity { scan, model ->
+            showStalled()
+            val opened = openEarlyReview(model)
+            rule.runOnIdle { model.phase = opened.copy(offerCalibration = true) }
+            rule.onNodeWithTag("review:calibrate:offer").performScrollTo().performClick()
+            rule.onNodeWithTag("review:calibrate:confirm").performClick()
+            settle(model)
+            assertTrue(model.phase is GuidedScanPhase.Calibration)
+            // The scan ends from the calibration, not from the review itself: the run line still carries the mark.
+            rule.onNodeWithTag("scanEnterColors").performClick()
+            assertEquals(ScanOutcome.FellBackToEditor(opened.review.stickers), outcome(scan.get()))
+            val run = quickScanRuns().single()
+            assertTrue(run, " outcome=FELL_BACK_TO_EDITOR " in "$run " && " earlyReview=1 " in "$run ")
         }
     }
 
@@ -864,6 +883,11 @@ class ContinuousQuickScanRouteTest {
             assertEquals(earlyBlanks - 21, retaken.review.blanks)
             assertEquals(Color.GREEN, retaken.review.stickers[21])
             assertEquals(11, retaken.review.selected)
+            // The early review is read with the hand-off's own centres, so one retaken face does not bring up the calibration offer.
+            assertEquals(opened.calibration, retaken.calibration)
+            assertTrue(retaken.calibration != null)
+            assertTrue(!retaken.offerCalibration)
+            rule.onNodeWithTag("review:calibrate:offer").assertDoesNotExist()
             // Back drops the retake with the rest of the review.
             rule.onNodeWithTag("review:accept").assertExists()
             scan.get().onBackPressedDispatcher.onBackPressed()

@@ -934,7 +934,8 @@ internal class GuidedScanViewModel : ViewModel() {
      * Main thread: *Review and Correct* (Story 10.32, Q8). Scan Review opens on a fresh export, with the torch off:
      * confirmed stickers as read, unread and conflicted ones blank, the shown snapshot's conflicted stickers first to
      * check. An export that is already complete opens the completed scan's review instead. The engine, the shown
-     * [continuous] state and a latched twist are not touched, so [backOutOfEarlyReview] finds the scan as it was.
+     * [continuous] state and a latched twist are not touched, so [backOutOfEarlyReview] finds the scan as it was. The one
+     * exception is a calibration saved from this review ([saveCalibration]), which restarts the scan with an empty map.
      */
     fun reviewAndCorrect() {
         if (!continuous.reviewAndCorrectOffered()) return
@@ -950,7 +951,8 @@ internal class GuidedScanViewModel : ViewModel() {
     /**
      * Main thread: Back from an early review (Story 10.32, Q8): the live continuous scan again, with its camera-built
      * map, count and any latched twist as they were, and the torch off. Nothing done in the review is kept: its colours
-     * and retakes go with it (a held or frozen capture and a running retake included).
+     * and retakes go with it (a held or frozen capture and a running retake included). A calibration saved from the
+     * review never comes back here: [saveCalibration] restarts the scan and keeps the review's corrections.
      */
     fun backOutOfEarlyReview() {
         if ((phase as? GuidedScanPhase.Review)?.early != true) return
