@@ -200,7 +200,7 @@ A Learner can open a data-defined Lesson, see its Objective, watch an explained 
 A Learner can enter any cube's colors, get a verified Solution from the in-house Solver, and step through it with a plain note per Move.
 **Absorbs:** E02 (Solver), E08 (Solution Playback).
 **FRs covered:** FR-14 (editor), FR-15, FR-16. **Also:** NFR-3, NFR-11, AR-12, AR-20, UX-DR16, UX-DR25.
-*(SCP 2026-11-24 github-issue-triage: Story 3.9, cold solver preparation, #104, is v1.1 scope and reopens the epic; it never gates the v1.0 release.)* *(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope. Story 3.9 is v1.0 scope; it does not gate the v1.0.0 tag; Epic 3 is in-progress until 3.9 is done or re-triaged. This supersedes the 2026-11-24 "v1.1 scope" wording.)*
+*(SCP 2026-11-24 github-issue-triage: Story 3.9, cold solver preparation, #104, is v1.1 scope and reopens the epic; it never gates the v1.0 release.)* *(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope. Story 3.9 is v1.0 scope; it does not gate the v1.0.0 tag; Epic 3 is in-progress until 3.9 is done or re-triaged. This supersedes the 2026-11-24 "v1.1 scope" wording.)* *(SCP 2026-11-25 close-104: Story 3.9 is done (PO accepted the 3.51 s baseline, no mitigation); Epic 3 is done again.)*
 
 ### Epic 4: Get help when I go wrong (P0.2, weeks 4–5)
 When a Learner makes a mistake, the tutor names what happened with honest Certainty, offers the next hint rung, and leads back by undo or the shortest Guided recovery, with assistance adapting to their history.
@@ -974,7 +974,7 @@ So that I am not left waiting on "Preparing the solver."
 
 **Refs:** FR-15 · NFR-3, NFR-11 · AD-8, AD-16 · Stories 3.3, 3.8, 12.2 · #104
 
-**Depends on** Story 3.8. **v1.0 scope; does not gate the v1.0.0 tag**. **Human gate:** a measurement session on the physical Lenovo Tab M10 Plus 3rd Gen (TB128XU), the minimum reference device. *(SCP 2026-11-24 github-issue-triage, #104: the cold-preparation follow-up to Story 3.8; bundled pruning tables did not remove the per-process move-table build, 12.6 s debug median and ≤ 10.5 s release-equivalent on the Lenovo.)* *(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope. This supersedes the 2026-11-24 "v1.1 scope" wording.)*
+**Depends on** Story 3.8. **v1.0 scope; does not gate the v1.0.0 tag**. **Human gate:** a measurement session on the physical Lenovo Tab M10 Plus 3rd Gen (TB128XU), the minimum reference device. *(SCP 2026-11-24 github-issue-triage, #104: the cold-preparation follow-up to Story 3.8; bundled pruning tables did not remove the per-process move-table build, 12.6 s debug median and ≤ 10.5 s release-equivalent on the Lenovo.)* *(SCP 2026-11-25 retire-v1-1: v1.1 is retired; v1.0 scope. This supersedes the 2026-11-24 "v1.1 scope" wording.)* *(SCP 2026-11-25 close-104: Story 3.9 closed without a mitigation. The PO accepted the measured baseline, cold Accept → Solution median 3.51 s (3.39–5.76 s, 5 runs, `benchmark` build, Lenovo TB128XU; `docs/benchmarks.md` § Story 3.9 baseline), as the target. AC1's separate preparation/search timing is waived (search for the measured cube is negligible); AC3–AC4 do not apply because no mitigation is made. #104 closed.)*
 
 **Acceptance Criteria:**
 
@@ -2978,9 +2978,9 @@ So that scanning feels effortless and I can fall back to face-by-face capture at
 **When** the mapper completes
 **Then** Quick Scan opens Story 10.3 Scan Review (with Story 10.16 per-face retake, `#323` suspect ranking, and Paint mode) and returns standard `ScanOutcome` to the Solve tab (Solution Playback or seeded Editor fallback)
 
-**Given** obsolete 2-corner Quick Scan code no longer used by `CASE_RECOGNITION` or `FixtureRecorderActivity`
+**Given** obsolete 2-corner Quick Scan code no longer used by `CASE_RECOGNITION`, `FixtureRecorderActivity` (including `RecorderBurst`), the evaluation tasks or `ScanDiagnostics`
 **When** this story merges
-**Then** Quick-Scan-only 2-corner domain/UI code and tests (`QuickScan.kt`, `QuickScanClassification.kt`, `CornerHold.kt`, `QuickScanDiagnosis.kt`, `SideLight.kt`, and obsolete 2-corner branches in `GuidedScanActivity`/`GuidedScanScreen`) are cleanly removed while keeping `CornerLocator`/`CornerReader`/`CornerGuide` intact for `CASE_RECOGNITION` and `FixtureRecorderActivity`, and `:app:checkCameraSize` confirms reclaimed class-byte headroom
+**Then** `QuickScan.kt`, `QuickScanDiagnosis.kt` and the obsolete 2-corner branches in `GuidedScanActivity`/`GuidedScanScreen` are removed with their tests; `CornerHold.kt` and `SideLight.kt` are trimmed to what Case capture and the recorder use; `QuickScanClassification.kt`, `exportKotlinStickerReads` and `evaluateQuickScan` are kept; `CornerLocator`/`CornerReader`/`CornerGuide` stay intact; any retired legacy replay has its last revision and command recorded in `docs/evidence/10-32/`; and `:app:checkCameraSize` passes with the class-byte change explained in that evidence *(SCP 2026-11-25 continuous-fixture-recorder: aligned with the 10.32 PO scope Q7, superseding the original removal list.)*
 
 **Given** Robolectric Compose UI, route, accessibility, and layout tests
 **When** `./gradlew spotlessCheck build` runs
@@ -3009,6 +3009,8 @@ So that I can make an informed BETA call for Story 10.11's `0.11.0` camera relea
 **Given** the evidence report (with Lenovo TB128XU as gating minimum)
 **When** the PO makes the release-level decision
 **Then** the PO records the `QUICK_SCAN` decision (`BETA` for Story 10.11's `0.11.0` release, or `OFF` with routed issues) in the PRD `.memlog.md`, closing `scp-2026-11-24-quick-scan-raise-preconditions`
+
+*(SCP 2026-11-25 continuous-fixture-recorder, approved: two deferred follow-ups come after Stories 10.30–10.33 — A, record and replay a continuous Quick Scan session in the developer fixture recorder; B, retire the Quick-Scan-only two-corner recorder and exporter paths after A. Story numbers are assigned when scheduled; fix stories routed from 10.33 do not block A.)*
 
 ## Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition
 

@@ -1,0 +1,39 @@
+{
+  "device": "Lenovo TB128XU (HA1S28MM), Android 13 / API 33",
+  "build": "benchmark (R8, not debuggable)",
+  "revision": "e14a9fe0cee3593055dead84e2a1a1d5fda507d4",
+  "date": "2026-11-25",
+  "method": "fresh process (am force-stop + am start), Solve > Enter colors, paint the cube after U (54 stickers), screenrecord while tapping Accept; frames classified against reference frames (editor / preparing / playback); elapsed = first playback frame - first preparing frame",
+  "runs": [
+    {
+      "run": 1,
+      "preparingAt": 2.062378,
+      "playbackAt": 5.8882,
+      "acceptToSolutionS": 3.826
+    },
+    {
+      "run": 2,
+      "preparingAt": 2.336222,
+      "playbackAt": 5.722122,
+      "acceptToSolutionS": 3.386
+    },
+    {
+      "run": 3,
+      "preparingAt": 2.308522,
+      "playbackAt": 8.063522,
+      "acceptToSolutionS": 5.755
+    },
+    {
+      "run": 4,
+      "preparingAt": 2.423078,
+      "playbackAt": 5.843622,
+      "acceptToSolutionS": 3.421
+    },
+    {
+      "run": 5,
+      "preparingAt": 2.335422,
+      "playbackAt": 5.845256,
+      "acceptToSolutionS": 3.51
+    }
+  ]
+}

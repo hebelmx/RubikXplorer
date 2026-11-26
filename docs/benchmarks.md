@@ -135,8 +135,8 @@ frames per iteration. At 30 Hz, 4.8 s provides 144 vsyncs. Setup fails when `ani
 Reduce Motion snaps the net instead of animating it. Results land in
 `macrobenchmark/build/outputs/connected_android_test_additional_output/`.
 
-Reference-device measurement of the retargeted benchmark is pending under
-[issue #106](https://github.com/hebelmx/RubikXplorer/issues/106).
+Reference-device baselines of the retargeted benchmark were measured on 2026-11-25 (#106, closed); see
+[Reference-device baselines (#106, 2026-11-25)](#reference-device-baselines-106-2026-11-25).
 
 It measures the `:app` `benchmark` build type: a copy of release (R8, resource shrinking, keep
 rules, release feature-flag levels, release `DebugOptions`), debug-signed so it installs, and
@@ -193,6 +193,24 @@ GL frame timing for the reference devices (face turns and View Rotation) of the 
 measured with the in-app `onDrawFrame` log, is in
 [the OQ-3 spike report](spikes/oq-3-3d-rendering.md#reference-device-re-measurement-story-111); the
 production renderer is measured by `Cube3DFrameBenchmark` (Story 12.2, below).
+
+### Reference-device baselines (#106, 2026-11-25)
+
+Run on 2026-11-25 at `db8d8840` plus the editor fix below. Build: `benchmark`, `CompilationMode.Full`, 5 WARM iterations, `animator_duration_scale` 1.0 on both devices. Each iteration plays the Solution Playback 2D net (`Net2DRenderer`) for the 4.8 s window. Raw files are in [evidence/issue-106/](evidence/issue-106/): benchmark JSON, Gradle log and run conditions per device.
+
+**Editor fix.** The Manual Cube Editor now accepts only when all six faces are entered, so the old setup (four painted stickers) left Accept disabled. It then clicked the "Accept" text, which reports enabled even while its button is disabled, and failed with "Missing Solution Playback Play". `openSolutionPlayback` now paints every non-centre sticker (the UF/UB edge flip plus every other sticker's own colour) and waits for the clickable, enabled Accept button. This is test code only.
+
+| Device | Frames per iteration (`frameCount`, min–max) | `frameDurationCpuMs` P50 / P90 / P95 / P99 | `frameOverrunMs` P50 / P90 / P95 / P99 | Notes |
+| --- | --- | --- | --- | --- |
+| **Lenovo TB128XU** (minimum), Android 13 / API 33, 60 Hz | 311–322 (median 315) | **22.06 / 27.06** / 30.35 / 47.30 ms | 11.55 / 19.35 / 28.85 / 41.81 ms | `cpuLocked: true` as the library reads this kernel (limitation 6) |
+| **Galaxy S24 FE** (mid), Android 17 / API 37, 60 Hz | 305–307 (median 306) | **11.03 / 15.31** / 17.86 / 26.29 ms | −3.96 / 1.49 / 3.52 / 11.04 ms | `cpuLocked: false`, wireless debugging |
+
+Every iteration recorded more than 300 frames and more than 300 UI frames, so the benchmark's minimum-frame guards (≥ 100 UI frames, ≥ 7 Moves) cannot pass vacuously, as the Story 1.11 run did (frameCount = 1).
+
+**Against NFR-2** (≥ 30 FPS on the minimum device, 60 FPS target on mid-range):
+
+- **Lenovo (minimum): met.** Median CPU frame time is 22.06 ms (about 45 FPS of CPU work). Measured from frame start, with the 16.67 ms deadline plus overrun, the median frame takes about 28.2 ms (about 35 FPS). P90 CPU time is 27.06 ms, within the AD-4 p90 ≤ 33.3 ms gate. The overrun reading is stricter: its p90 frame takes about 36.0 ms, so roughly the slowest 10 % of 2D net frames fall below 30 FPS while the net animates.
+- **S24 FE (mid): 60 FPS target met at the median, close at p90.** P90 CPU time is 15.31 ms, within 16.67 ms. Overrun is −3.96 ms at P50 and +1.49 ms at P90, so roughly 10 % of frames are slightly late for 60 Hz.
 
 ## Story 12.2: production 3D renderer frame rate and input latency (NFR-1, NFR-2), Macrobenchmark
 
@@ -686,7 +704,7 @@ margin to the 3 s timeout.
 | NFR-13/AC3 rotation keeps state and layout follows window class | 7/7 flows with default settings (#119 harness); 7/7 with orientation requests honored; 0/7 with default settings on the old harness (it could not rotate) | 7/7 | 7/7 | **yes**, with default settings (#119 harness, 2026-11-19, 7/7) and with the PO-accepted override |
 | 3.8 StrictMode: no main-thread disk access | 0 violations | 10 platform-only (waived, #107) | — | **yes**, no waiver needed |
 | 3.8 first-run delivery rule G ≤ 5 s (decides delivery, not a pass criterion) | 14.35 s | 10.01 s | — | fails, so bundled (as on the Tab) |
-| #104 per-process preparation (accepted for v1.0, no threshold) | 12.6 s debug; ≤ 10.5 s release (coarse) | 8.3 s; ≤ 7.6–7.8 s | — | n/a, about 1.5× the Tab |
+| #104 per-process preparation (accepted by the PO; #104 closed 2026-11-25) | 12.6 s debug; ≤ 10.5 s release (coarse); **3.51 s median cold Accept → Solution, release-equivalent (2026-11-25)** | 8.3 s; ≤ 7.6–7.8 s | — | n/a, about 1.5× the Tab |
 
 NFR-1 is responsiveness (input acknowledged ≤ 100 ms) and NFR-2 is rendering (≥ 30 FPS on the minimum
 device); earlier drafts of this table had the two labels swapped.
@@ -698,19 +716,19 @@ Decisions by the product owner (SCP 2026-11-12), which replace the questions thi
 - **AC3 method:** running the Key Flow suite with `wm set-ignore-orientation-request false` (restored
   afterwards) is an accepted method on this device. A rotation path that works with default settings is
   the #119 harness change above; it passed 7/7 on this device on 2026-11-19.
-- **#104:** about 10.5 s release-equivalent preparation per process stays accepted for v1.0 and is
-  tracked in #104 (Story 3.9, v1.0 scope, not a tag gate). The preparing copy was reworded so it promises no duration (#123).
+- **#104:** per-process preparation is accepted for v1.0. The 2026-11-25 re-measure gave a
+  cold Accept → Solution median 3.51 s (3.39–5.76 s) on the release-equivalent build, 2026-11-25 (§ Story 3.9 baseline); the PO accepted it and closed #104 with no optimization (SCP 2026-11-25 close-104). The preparing copy was reworded so it promises no duration (#123).
 
 ### Known limitations on the minimum device (#119)
 
 | # | Limitation | Measured | Disposition |
 | --- | --- | --- | --- |
-| 2 | Per-process solver preparation is long | 12.6 s debug (median, n = 5); ≤ 10.5 s release-equivalent (coarse) | **Accepted for v1.0; speed-up tracked in #104 (Story 3.9, v1.0 scope, not a tag gate).** The copy no longer promises "a few seconds": `msg.solve.preparing` now reads "Preparing the solver." (`core/domain/src/main/resources/content/strings/en.json`, #262; earlier wording #123). A second solve in the same process goes straight to playback. |
+| 2 | Per-process solver preparation is long | 12.6 s debug (median, n = 5); ≤ 10.5 s release-equivalent (coarse) | **Accepted (PO 2026-11-25).** Re-measured as cold Accept → Solution median 3.51 s (3.39–5.76 s) on the release-equivalent build, 2026-11-25; #104 closed with no optimization (SCP 2026-11-25 close-104). The copy no longer promises "a few seconds": `msg.solve.preparing` now reads "Preparing the solver." (`core/domain/src/main/resources/content/strings/en.json`, #262; earlier wording #123). A second solve in the same process goes straight to playback. |
 | 3 | First-time table generation is long | G = 14.35 s | **Accepted.** Generation runs only on the fallback path (bundled tables are selected, Story 3.8 rule G ≤ 5 s), once per install. The first-use copy ("This can take a little while.") promises no duration. |
 | 4 | View Rotation drops a few frames | 5 of 1,990 intervals > 33.3 ms (max 40.2 ms); median 59.69 FPS; p90 19.66 ms | **Accepted.** Within NFR-2 (≥ 30 FPS) and the AD-4 p90 ≤ 33.3 ms gate. None seen on the Samsung devices. |
 | 5 | Face-turn input latency is higher than on the Samsung devices | p90 53.39 ms, max 57.52 ms | **Accepted.** Within NFR-1 (≤ 100 ms). |
 | 6 | Macrobenchmark reports `cpuLocked: true` | Clocks were not locked (`scaling_min_freq` < `scaling_max_freq` on every cluster) | **Accepted** as the library's reading of this kernel; the flag does not describe the run conditions. |
-| 7 | Release-equivalent preparation timing is coarse | `uiautomator` dumps take 2–3 s here, so 10.46–10.49 s are upper bounds | **Accepted** as an upper bound; a precise release-build measurement belongs to #104 (the k recalibration for #105 is done, 2026-11-25). |
+| 7 | Release-equivalent preparation timing is coarse | `uiautomator` dumps take 2–3 s here, so 10.46–10.49 s are upper bounds | **Superseded** by the 2026-11-25 screen-recording measurement (§ Story 3.9 baseline: 3.51 s median). The k recalibration for #105 is done, 2026-11-25. |
 
 Items 1 (rotation harness) and 8 (script line endings) are the harness changes in the AC3 subsection.
 
@@ -741,12 +759,36 @@ The tail (max about 64× the median) causes no failure, so no slow-case investig
 The data gives no case for device tiers on the 3 s budget. The Story 3.8 timeout (debug build) does not
 reproduce on a release-equivalent build. This closes #105.
 
+## Story 3.9 baseline: cold Accept → Solution on the minimum device, 2026-11-25
+
+This is a coarse baseline for #104, measured before any Story 3.9 code. It covers the production path a Learner takes: a fresh app process (`am force-stop` + `am start`), *Solve* → *Enter colors*, the cube after U entered in the Manual Cube Editor (54 stickers), then **Accept**.
+
+- **Build and device:** `benchmark` build (R8, not debuggable) at revision `e14a9fe0`, Lenovo TB128XU `HA1S28MM`, Android 13 (API 33). USB powered, battery 100 %, thermal status 0 at the start and end of the session.
+- **Method:** each Accept is captured with `screenrecord`. The frames are classified against reference frames (editor / "Preparing the solver." / Solution playback) by [`classify_frames.py`](evidence/story-3-9/classify_frames.py). Elapsed time is the first playback frame minus the first "Preparing" frame; "Preparing" appears in the frame right after the tap. Resolution is one frame (about 17–33 ms).
+
+| Run | Accept → Solution on screen |
+| --- | --- |
+| 1 | 3.826 s |
+| 2 | 3.386 s |
+| 3 | 5.755 s |
+| 4 | 3.421 s |
+| 5 | 3.510 s |
+| **Median (min–max)** | **3.510 s (3.386–5.755 s)** |
+
+A sixth run, used to set up the method and not counted, gave 3.82 s from accessibility and logcat timestamps.
+
+**Reading.** This is about a third of the "≤ 10.5 s release-equivalent" upper bound from 2026-11-11 (`95d708f`). That earlier figure came from polling `uiautomator` dumps, which take 2–3 s each and load the CPU on this device, so it over-stated the wait. The figure here covers move-table preparation, pruning-table load and search together. Story 3.9 AC1 still needs them timed separately; for a 1-move cube, search is negligible (corpus median 23 ms). For comparison, the solve-corpus runner on the same device and build prepares its tables in 4.95 s (#105 section).
+
+**Decision (PO, 2026-11-25):** accepted as is for this low-end minimum device; no optimization. Story 3.9 is closed and #104 is closed (SCP 2026-11-25 close-104).
+
+Raw: [runs and JSON](evidence/story-3-9/) (`run1.mp4`–`run5.mp4`, `accept-to-solution-lenovo-tb128xu.json`, `conditions-lenovo-tb128xu.txt`).
+
 ## Out of scope
 
 - The product owner waived the Story 1.11 2D net reference-device baselines for v1.0. Device
-  measurement of the benchmark retargeted to Solution Playback is pending under
-  [issue #106](https://github.com/hebelmx/RubikXplorer/issues/106).
+  measurement of the benchmark retargeted to Solution Playback was done on 2026-11-25 (#106, closed); see
+  [Reference-device baselines (#106, 2026-11-25)](#reference-device-baselines-106-2026-11-25).
 - The release-equivalent recalibration of k (#105) is done; see the 2026-11-25 section above. The
   per-process preparation (about 8 s on the Tab S7 FE, 12.6 s debug / ≤ 10.5 s release-equivalent on the
-  minimum Lenovo): #104 (Story 3.9, v1.0 scope, not a tag gate). Story 12.2 measured both as they are and did not tune them.
+  minimum Lenovo): measured again on 2026-11-25 (3.51 s median cold Accept → Solution, release-equivalent) and accepted; #104 closed with no optimization. Story 12.2 measured both as they are and did not tune them.
 - Camera, scan and Quick Check flows (Key Flows 4, 5 and 9 steps 1–3): from 0.11.0 (action item retire-v1-1-camera-flow-passes).
