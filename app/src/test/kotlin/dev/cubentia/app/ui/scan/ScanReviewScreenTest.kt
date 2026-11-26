@@ -120,6 +120,7 @@ class ScanReviewScreenTest {
     private var closed = false
     private var enterColors: (() -> Unit)? = null
     private var retake: ((Set<Face>) -> Unit)? = null
+    private var back: (() -> Unit)? = null
     private var calibrate: (() -> Unit)? = null
     private var coachPending by mutableStateOf(false)
     private var coachDismissed = 0
@@ -163,6 +164,7 @@ class ScanReviewScreenTest {
             onEnterColors = enterColors,
             onRetake = retake,
             onCalibrate = calibrate,
+            onBack = back,
             coachMarkPending = coachPending,
             onCoachMarkDismissed = {
                 coachPending = false
@@ -1092,6 +1094,84 @@ class ScanReviewScreenTest {
         assertFalse(closed)
     }
 
+    // Story 10.32, Review and Correct: the early review's Back and Close.
+
+    @Test fun `with onBack, Back leaves an unchanged review at once with no question`() {
+        var backs = 0
+        back = { backs++ }
+        launch()
+        rule.runOnIdle { backDispatcher.onBackPressed() }
+        rule.onNodeWithTag("review:discard").assertDoesNotExist()
+        assertEquals(1, backs)
+        assertFalse(closed)
+    }
+
+    @Test fun `with onBack, Back leaves a changed review at once with no question`() {
+        var backs = 0
+        back = { backs++ }
+        launch()
+        rule.onNodeWithTag("swatch:WHITE").performScrollTo().performClick()
+        assertEquals(Color.WHITE, review.stickers[7])
+        rule.runOnIdle { backDispatcher.onBackPressed() }
+        rule.onNodeWithTag("review:discard").assertDoesNotExist()
+        assertEquals(1, backs)
+        assertFalse(closed)
+    }
+
+    @Test fun `with onBack, an already edited review still leaves by Back with no question`() {
+        var backs = 0
+        back = { backs++ }
+        launch(edited = true)
+        rule.runOnIdle { backDispatcher.onBackPressed() }
+        rule.onNodeWithTag("review:discard").assertDoesNotExist()
+        assertEquals(1, backs)
+    }
+
+    @Test fun `with onBack, Close always asks, Cancel keeps the review and Discard calls onDiscard`() {
+        var backs = 0
+        var discarded = 0
+        var kept = 0
+        rule.setContent {
+            backDispatcher = checkNotNull(LocalOnBackPressedDispatcherOwner.current).onBackPressedDispatcher
+            CubentiaTheme {
+                ScanReviewScreen(review, strings, { review = it }, {}, { kept++ }, onDiscard = { discarded++ }, onBack = { backs++ })
+            }
+        }
+        // Nothing was changed, and Close still asks.
+        rule.onNodeWithTag("review:close").performScrollTo().performClick()
+        rule.onNodeWithTag("review:discard").assertExists()
+        rule.onNodeWithText("Discard this scan?").assertExists()
+        // The open question keeps Back to itself (the dialog closes on Back): the screen offers no Back of its own.
+        rule.runOnIdle { assertFalse(backDispatcher.hasEnabledCallbacks()) }
+        rule.onNodeWithTag("review:discard:cancel").performClick()
+        rule.onNodeWithTag("review:discard").assertDoesNotExist()
+        assertEquals(Triple(0, 0, 0), Triple(kept, discarded, backs))
+        // After a change it asks as well; Cancel keeps the work, Discard ends through onDiscard, never onClose.
+        rule.onNodeWithTag("swatch:WHITE").performScrollTo().performClick()
+        rule.onNodeWithTag("review:close").performScrollTo().performClick()
+        rule.onNodeWithTag("review:discard:cancel").performClick()
+        assertEquals(Color.WHITE, review.stickers[7])
+        rule.onNodeWithTag("review:close").performScrollTo().performClick()
+        rule.onNodeWithTag("review:discard:confirm").performClick()
+        assertEquals(Triple(0, 1, 0), Triple(kept, discarded, backs))
+    }
+
+    @Test fun `with onBack, Back in retake mode only leaves retake mode`() {
+        var backs = 0
+        back = { backs++ }
+        retake = {}
+        launch()
+        rule.onNodeWithTag("review:retakeFaces").performScrollTo().performClick()
+        rule.onNodeWithTag("review:retake:start").assertExists()
+        rule.runOnIdle { backDispatcher.onBackPressed() }
+        rule.onNodeWithTag("review:retake:start").assertDoesNotExist()
+        rule.onNodeWithTag("review:accept").assertExists()
+        assertEquals(0, backs)
+        rule.runOnIdle { backDispatcher.onBackPressed() }
+        assertEquals(1, backs)
+        assertFalse(closed)
+    }
+
     @Test fun calibrationOfferRequiresConfirmation() {
         var calls = 0
         val strings = ContentStrings((ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle.strings)
@@ -1563,6 +1643,31 @@ class ScanReviewScreenTest {
         // A paint-mode change still asks before Close discards it.
         rule.onNodeWithTag("review:close").performScrollTo().performClick()
         rule.onNodeWithTag("review:discard").assertExists()
+    }
+
+    @Test fun `a paint-mode stroke keeps the stickers to check first, so the selection still goes to the next of them`() {
+        // Blank: 2, 7 (U), 12 (R) and 20 (F); 7 and 20 are to be checked first (Story 10.32, Review and Correct).
+        val blank = setOf(2, 7, 12, 20)
+        val colors =
+            CubeState.SOLVED
+                .toFacelets()
+                .colors
+                .mapIndexed { i, color -> color.takeUnless { i in blank } }
+        review = ScanReview(colors, 7, checkFirst = setOf(7, 20))
+        launch()
+        longPress("swatch:WHITE")
+        rule.onNodeWithTag("sticker:2").performClick()
+        rule.waitForIdle()
+        assertEquals(Color.WHITE, review.stickers[2])
+        assertEquals(7, review.selected)
+        assertEquals(setOf(7, 20), review.checkFirst)
+        tapToStop("swatch:WHITE")
+        assertNotPainting()
+        // Setting the selected sticker moves on to the other sticker to check, not to the nearer blank 12.
+        rule.onNodeWithTag("swatch:WHITE").performScrollTo().performClick()
+        assertEquals(Color.WHITE, review.stickers[7])
+        assertEquals(20, review.selected)
+        assertEquals(setOf(7, 20), review.checkFirst)
     }
 
     @Test fun `a whole face is fixed with one long-press and a tap per sticker, the center tap ignored`() {

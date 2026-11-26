@@ -14,7 +14,7 @@ import kotlin.math.floor
 
 /**
  * Story 10.21's tuning helper: fits the per-colour agreement gate ([QuickScanClassification.AGREEMENT_MARGIN]), the
- * calibration match's centre closeness ([QuickScanClassification.MAX_CENTRE_DELTA_E]), the confident-count wait ([QuickScanController.MIN_CONFIDENT]) and the light check's hold and clear cuts ([SideLight]) on
+ * calibration match's centre closeness ([QuickScanClassification.MAX_CENTRE_DELTA_E]), the confident-count wait ([QuickScanClassification.MIN_CONFIDENT]) and the light check's hold and clear cuts ([SideLight]) on
  * the 10.20 **tuning split only**, and asserts the committed constants are the fitted ones. Only the folders the group
  * index names `tuning` are ever decoded here: held-out groups are never read by fitting code. The fit is written to
  * `build/reports/quick-scan/tuning-10-21.md` (docs/evidence/10-21/tuning-and-replay.md quotes it).
@@ -447,7 +447,7 @@ class QuickScanGateTuningTest {
             assertEquals(centreDeltaE.getValue(color), QuickScanClassification.MAX_CENTRE_DELTA_E.getValue(color), 1e-9, "$color centre ΔE")
             assertEquals(margins.getValue(color), QuickScanClassification.AGREEMENT_MARGIN.getValue(color), 1e-9, "$color margin")
         }
-        assertEquals(wait, QuickScanController.MIN_CONFIDENT)
+        assertEquals(wait, QuickScanClassification.MIN_CONFIDENT)
         assertEquals(uncalibratedHold, SideLight.MAX_SIDE_DARKER_L, 1e-9)
         assertEquals(uncalibratedClear, SideLight.CLEAR_SIDE_DARKER_L, 1e-9)
         assertEquals(calibratedHold, SideLight.MAX_TOP_OVER_SIDES_RATIO, 1e-9)

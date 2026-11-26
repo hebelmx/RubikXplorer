@@ -4,7 +4,7 @@
 
 ## Goal
 
-A Learner can put their real cube into the app with the camera: scan it face by face, correct and calibrate colours, solve straight from the scan, check physical Moves with a Quick Check, and use Quick Scan as the faster path. Quick Scan is now a continuous facelet scan: the Learner turns the cube in front of the camera and a 6-face map fills in, replacing the parked two-corner pipeline. Camera code merges to `main` with release flags OFF. A feature reaches users only when the PO raises its flag at a release, based on measured accuracy. The first camera release is 0.11.0, with the Guided Scan at GA, Placement at BETA, and Quick Scan at BETA only if the continuous port and its device matrix pass. Every flow keeps a manual fallback and never produces a guessed state.
+A Learner can put their real cube into the app with the camera: scan it face by face, correct and calibrate colours, solve straight from the scan, check physical Moves with a Quick Check, and use Quick Scan as the faster path. Quick Scan is now a continuous facelet scan: the Learner turns the cube in front of the camera and a 6-face map fills in, replacing the parked two-corner pipeline. All of it is v1.0 scope and flag-gated: there is no v1.1 release any more. Camera code merges to `main` with release flags OFF. A feature reaches users only when the PO raises its flag at a release (Story 10.11), based on measured accuracy; OFF is a valid level. The first camera release is 0.11.0, with the Guided Scan at GA, Placement at BETA, and Quick Scan at BETA only if the continuous port and its device matrix pass. Every flow keeps a manual fallback and never produces a guessed state.
 
 ## Stories
 
@@ -53,6 +53,7 @@ A Learner can put their real cube into the app with the camera: scan it face by 
   - Scan review: closing an unchanged review falls back to the Editor with its stickers.
   - System Back behaves the same as *Close*.
 - **Acceptance.** Camera stories are accepted on the main app build from their real entry point, with the flag raised in debug. A debug-only launcher is never the gate. Learner text comes from content strings (`checkLearnerText`). Device evidence goes to `docs/evidence/<story>/`.
+- **Release passes.** From the first release that raises `CAMERA_SCAN` (0.11.0), the camera flows are part of the accessibility manual check, the performance pass and the recognition release gate. A release with every camera flag OFF declares no runtime permission.
 - **Fixtures.** Held-out groups are never used for tuning. The recorder refuses a corner group that does not have exactly 9 of each colour, unless the operator gives a written override reason.
 
 ## Technical Decisions
@@ -89,5 +90,5 @@ A Learner can put their real cube into the app with the camera: scan it face by 
 - **12.5:** promotes a new v1.0.0 tag cut from main, with the same flag levels.
 - **Privacy page:** the site's privacy page must update before the tag.
 - **Reused behaviour:** 10.32 reuses the review (10.3), solve and Editor fallback (10.15), per-face retake (10.16) and Guided hand-over (10.17).
-- **10.29:** v1.1 scope, after 10.7. It also touches Lessons' physical mode (Epic 8 and Story 14.3 flows).
-- **Epic 11:** Placement (11.2) shares the Guided viewfinder's exit rule. `CASE_RECOGNITION` keeps the legacy corner model.
+- **10.29:** done in v1.0. Its deferred TalkBack and 200% font device check is an open action item, not a v1.0.0 tag gate. It also touches Lessons' physical mode (Epic 8 and Story 14.3 flows).
+- **Epic 11:** Placement (11.2) shares the Guided viewfinder's exit rule. Case recognition is v1.0 and flag-gated like the rest; `CASE_RECOGNITION` keeps the legacy corner model, and Story 10.11 sets its level per release.

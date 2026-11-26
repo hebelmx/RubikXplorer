@@ -866,7 +866,7 @@ class QuickScanSideFaceReplayTest {
             appendLine("- label-exclusions.json SHA-256: ${exclusionsHash()}")
             appendLine("- ${skippedLine()}")
             appendLine("- agreement margins: ${QuickScanClassification.AGREEMENT_MARGIN.entries.joinToString { "${it.key}=${it.value}" }}")
-            appendLine("- confident-count wait N: ${QuickScanController.MIN_CONFIDENT}")
+            appendLine("- confident-count wait N: ${QuickScanClassification.MIN_CONFIDENT}")
             appendLine(
                 "- light cuts: uncalibrated hold ${SideLight.MAX_SIDE_DARKER_L} / clear ${SideLight.CLEAR_SIDE_DARKER_L}; " +
                     "calibrated hold ${SideLight.MAX_TOP_OVER_SIDES_RATIO} / clear ${SideLight.CLEAR_TOP_OVER_SIDES_RATIO}",
@@ -967,11 +967,13 @@ class QuickScanSideFaceReplayTest {
                 appendLine("- ${group.name}: $holds; trips by scan mode: ${lightTrips(group)}")
             }
             appendLine()
-            appendLine("## Confident-count wait on the captured frames (N = ${QuickScanController.MIN_CONFIDENT}, scan-time calibration)")
+            appendLine(
+                "## Confident-count wait on the captured frames (N = ${QuickScanClassification.MIN_CONFIDENT}, scan-time calibration)",
+            )
             appendLine()
             groups.filter { it.baseline && it.split != null }.forEach { group ->
                 val counts = confidentCounts(group)
-                val delayed = counts.filter { it.second < QuickScanController.MIN_CONFIDENT }.map { it.first }
+                val delayed = counts.filter { it.second < QuickScanClassification.MIN_CONFIDENT }.map { it.first }
                 appendLine(
                     "- ${group.name} (${group.split?.name?.lowercase()}): " + counts.joinToString { "hold ${it.first} ${it.second}/27" } +
                         "; delayed by the wait: ${delayed.ifEmpty { listOf("none") }.joinToString()}",

@@ -48,6 +48,8 @@ import dev.cubentia.app.ui.theme.isDarkTheme
 import dev.cubentia.application.port.CalibrationLoad
 import dev.cubentia.application.port.CalibrationRepository
 import dev.cubentia.application.port.CalibrationWrite
+import dev.cubentia.application.port.FeatureFlag
+import dev.cubentia.application.port.FeatureFlags
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.recognition.CalibrationCenters
 import dev.cubentia.domain.recognition.CaptureQuality
@@ -58,13 +60,17 @@ import dev.cubentia.domain.recognition.FrameQuality
 import dev.cubentia.domain.recognition.GuidedScanController
 import dev.cubentia.domain.recognition.GuidedScanEffect
 import dev.cubentia.domain.recognition.GuidedScanPlan
-import dev.cubentia.domain.recognition.QuickScanController
-import dev.cubentia.domain.recognition.QuickScanEffect
 import dev.cubentia.domain.recognition.ScanReview
+import dev.cubentia.domain.recognition.continuous.ContinuousScanExport
+import dev.cubentia.domain.recognition.continuous.ContinuousScanHandoff
+import dev.cubentia.domain.recognition.continuous.ContinuousScanSnapshot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Optional
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import javax.inject.Inject
@@ -103,6 +109,10 @@ class GuidedScanActivity : ComponentActivity() {
 
     @Inject internal lateinit var frameSource: ScanFrameSource
 
+    @Inject internal lateinit var continuousFactory: Optional<ContinuousScanEngineFactory>
+
+    @Inject lateinit var featureFlags: FeatureFlags
+
     private var cameraStarted = false
     private var previewReady by mutableStateOf(false)
 
@@ -132,6 +142,11 @@ class GuidedScanActivity : ComponentActivity() {
         if (phase == GuidedScanPhase.Rationale) phase = GuidedScanFlow.initialPhase(hasPermission())
         scan.calibrationMode = intent.getBooleanExtra(CALIBRATION_MODE, false)
         scan.quickScanMode = intent.getBooleanExtra(EXTRA_QUICK_SCAN, false)
+        if (scan.quickScanMode && !scan.calibrationLoaded) {
+            scan.engine = continuousFactory.orElse(null)?.takeIf { featureFlags.isEnabled(FeatureFlag.QUICK_SCAN) }?.create()
+            scan.quickStartedAt = ScanDiagnostics.startRun()
+            scan.torchOn = false
+        }
         scan.caseCorners = intent.getIntExtra(EXTRA_CASE_CAPTURE, 0).takeIf { it in 1..2 }
         val solveScan =
             !scan.calibrationMode &&
@@ -153,7 +168,6 @@ class GuidedScanActivity : ComponentActivity() {
                         .getOrNull()
                         ?.takeIf { it.isNotEmpty() && it.size < 6 && (scan.saved ?: scan.runScan) != null }
                 withContext(scan.analyzerExecutor.asCoroutineDispatcher()) { scan.controller = scan.newController() }
-                if (scan.quickScanMode && scan.quickScan == null) scan.quickScan = QuickScanController(scan.saved)
                 val corners = scan.caseCorners
                 val saved = scan.saved
                 if (corners != null && saved != null) scan.caseCapture = CaseCaptureController(saved, corners)
@@ -178,9 +192,6 @@ class GuidedScanActivity : ComponentActivity() {
 
                             calibration?.fromReview != null -> phase = calibration.fromReview
 
-                            // Back from calibration opened in Quick Scan's corner view returns to it (Story 10.19).
-                            calibration?.fromQuickScan == true -> returnToCornerView()
-
                             else -> closeOrConfirm()
                         }
                     }
@@ -190,7 +201,15 @@ class GuidedScanActivity : ComponentActivity() {
                     permission.launch(Manifest.permission.CAMERA)
                 },
                 // Like Close, never leave while a calibration write is in flight.
-                onEnterColors = { if (!scan.saving) finishWith(fallBackToEditor()) },
+                onEnterColors = {
+                    if (phase == GuidedScanPhase.Continuous) {
+                        scan.exportContinuous { exported ->
+                            scan.editorOutcome = ScanOutcome.FellBackToEditor(scan.continuous.fallback(exported.handoff))
+                        }
+                    } else if (!scan.saving) {
+                        finishWith(fallBackToEditor())
+                    }
+                },
                 onOpenSettings = {
                     runCatching {
                         startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
@@ -224,20 +243,12 @@ class GuidedScanActivity : ComponentActivity() {
                 onSave = { scan.saveCalibration(updateCalibration, frameSource.torchApplied()) },
                 onUseAnyway = { decide { now -> scan.guidedController()?.onUseAnyway(now).orEmpty() } },
                 onFreezeEnd = { id -> scan.endFreeze(id) },
-                onFaceByFace = { switchToFaceByFace() },
-                // Story 10.19: the choice carries across holds, the hand-over and the background; the analyzer re-meters.
+                onFaceByFace = scan::switchToFaceByFace,
+                onReset = scan::resetContinuous,
+                onReviewAndCorrect = scan::reviewAndCorrect,
+                // Story 10.32: Quick Scan's torch choice survives a Reset and a rotation; hand-over and background turn it off.
                 // Story 10.21: locked in calibration from the first kept swatch until it is saved or left.
                 onToggleTorch = { if (!GuidedScanFlow.torchLocked(phase)) scan.torchOn = !scan.torchOn },
-                // Story 10.19 (PO 2026-11-21): the corner view's calibration offer, routed as the review's is.
-                onCalibrate = {
-                    if (phase is GuidedScanPhase.CornerViewfinder && scan.quickScanMode && !scan.confirmDiscard) {
-                        scan.captureCalibration = false
-                        scan.calibrationMeterColor = null
-                        // Story 10.21: the corner view's torch choice is the calibration's (one shared choice).
-                        scan.torchOn = GuidedScanFlow.calibrationTorch(fromQuickScan = true, current = scan.torchOn)
-                        phase = GuidedScanPhase.Calibration(fromQuickScan = true)
-                    }
-                },
                 onDiscardConfirm = {
                     scan.confirmDiscard = false
                     finishWith(ScanOutcome.Cancelled)
@@ -268,7 +279,6 @@ class GuidedScanActivity : ComponentActivity() {
                         if (!scan.saving) {
                             when {
                                 calibration?.fromReview != null -> phase = calibration.fromReview
-                                calibration?.fromQuickScan == true -> returnToCornerView()
                                 else -> finishWith(ScanOutcome.Cancelled)
                             }
                         }
@@ -279,8 +289,12 @@ class GuidedScanActivity : ComponentActivity() {
                         when {
                             retakeFrom != null -> scan.backOutOfRetake(retakeFrom)
 
-                            // Back from Quick Scan's hand-over returns to its corner view (Story 10.17, PO Q1).
+                            // Back from Quick Scan's hand-over returns to Quick Scan with the map intact (Stories 10.17, 10.32).
                             viewfinder?.handOver == true -> scan.backOutOfHandOver()
+
+                            // Story 10.32: an early review's Back is the review screen's own; this covers the moment
+                            // before that screen is composed, so Back never ends the scan from an early review.
+                            (phase as? GuidedScanPhase.Review)?.early == true -> scan.backOutOfEarlyReview()
 
                             else -> closeOrConfirm()
                         }
@@ -305,6 +319,17 @@ class GuidedScanActivity : ComponentActivity() {
                     }
                     LaunchedEffect(scan.calibrationFinished) {
                         if (scan.calibrationFinished) finishWith(ScanOutcome.Cancelled)
+                    }
+                    LaunchedEffect(scan.editorOutcome) {
+                        scan.editorOutcome?.let(::finishWith)
+                    }
+                    ContinuousQuickScanHaptics(scan.pulses)
+                    val deadline = scan.continuous.reviewAtMs
+                    LaunchedEffect(deadline, phase::class, scan.confirmDiscard, scan.busy) {
+                        if (deadline != null && phase == GuidedScanPhase.Continuous && !scan.confirmDiscard && !scan.busy) {
+                            delay((deadline - SystemClock.elapsedRealtime()).coerceAtLeast(0))
+                            scan.completeContinuous()
+                        }
                     }
                     val ready = previewReady && scan.calibrationLoaded
                     val torchLit = GuidedScanFlow.torchLit(phase, scan.hasFlash, scan.torchOn)
@@ -350,7 +375,7 @@ class GuidedScanActivity : ComponentActivity() {
                                             scan.captureCalibration = false
                                             scan.calibrationMeterColor = null
                                             // Story 10.21: a calibration opened from the review starts with the torch on.
-                                            scan.torchOn = GuidedScanFlow.calibrationTorch(fromQuickScan = false, current = scan.torchOn)
+                                            scan.torchOn = true
                                             phase =
                                                 GuidedScanPhase.Calibration(
                                                     fromReview = reviewPhase,
@@ -362,6 +387,7 @@ class GuidedScanActivity : ComponentActivity() {
                                 },
                             onAccept = { finishWith(ScanOutcome.Accepted(it, scan.runScanColorsToReturn())) },
                             // GH #321: Close with no change keeps the scan for the Editor; Discard (after a change) cancels.
+                            // An early review (Story 10.32) always asks on Close, so it only ever reaches onDiscard.
                             onClose = { finishWith(fallBackToEditor()) },
                             onDiscard = { finishWith(ScanOutcome.Cancelled) },
                             enterColorsAsks = !seedsEditor,
@@ -379,6 +405,8 @@ class GuidedScanActivity : ComponentActivity() {
                                 scan.coachMarkPending = false
                                 lifecycleScope.launch(Dispatchers.IO) { ScanCoachMarkRecord.markSeen(applicationContext) }
                             },
+                            // Story 10.32: Back from an early review returns to the live scan; Close there always asks.
+                            onBack = if (reviewPhase.early) scan::backOutOfEarlyReview else null,
                         )
                     } else {
                         GuidedScanScreen(
@@ -387,8 +415,7 @@ class GuidedScanActivity : ComponentActivity() {
                             actions,
                             scan.frozen,
                             offerEnterColors = solveScan,
-                            detectedCornerQuads = scan.detectedCornerQuads,
-                            cornerThumbnail = scan.cornerThumbnail,
+                            continuous = scan.continuous,
                             confirmDiscard = scan.confirmDiscard,
                             discardKind = if (plainGuidedViewfinder(phase)) DiscardKind.GuidedFaces else DiscardKind.Scan,
                             cornerTorch = GuidedScanFlow.torchControl(phase, scan.hasFlash, scan.torchOn),
@@ -420,8 +447,13 @@ class GuidedScanActivity : ComponentActivity() {
         frameSource.suspendTorch(false)
     }
 
-    /** Story 10.19: the torch is off while the app is in the background; the choice comes back with the corner view. */
+    /** The torch is off while the app is in the background; a calibration's choice comes back, Quick Scan's stays off. */
     override fun onStop() {
+        // Story 10.32: the background turns the torch off for good; a rotation keeps the Learner's choice.
+        if (phase == GuidedScanPhase.Continuous && !isChangingConfigurations) {
+            scan.torchOn = false
+            frameSource.torch(false)
+        }
         frameSource.suspendTorch(true)
         super.onStop()
     }
@@ -456,12 +488,7 @@ class GuidedScanActivity : ComponentActivity() {
 
             is GuidedScanPhase.CornerViewfinder -> {
                 analyzerExecutor.execute {
-                    if (scan.caseCorners != null) {
-                        captureCase { it.onShutter() }
-                    } else {
-                        // Story 10.22: a manual capture is logged as trigger=manual, at the time of the press.
-                        captureCorner { it.onShutter(SystemClock.elapsedRealtime()) }
-                    }
+                    captureCase { it.onShutter() }
                 }
             }
 
@@ -472,19 +499,37 @@ class GuidedScanActivity : ComponentActivity() {
     }
 
     /**
-     * Close, and system Back when no retake, hand-over or calibration handles it first: asks "Discard this scan?" when it would drop at least one face
-     * Quick Scan captured, kept or read in its hand-over (Story 10.17), and "Discard the faces you captured?" when it
-     * would drop a face of a plain Guided 6-face viewfinder (GH #325); otherwise the scan ends Cancelled at once.
+     * Close, and system Back when no retake, hand-over, calibration or early review handles it first: asks "Discard this
+     * scan?" when it would drop at least one side Quick Scan mapped, or one face it kept or read in its hand-over (Story
+     * 10.17), and "Discard the faces you captured?" when it would drop a face of a plain Guided 6-face viewfinder
+     * (GH #325); otherwise the scan ends Cancelled at once. An early review (Story 10.32, *Review and Correct*) never
+     * comes here: its Back returns to the live scan, and its *Close* asks in the review screen itself.
      */
     private fun closeOrConfirm() {
         val current = phase
         val faces =
             when {
-                plainGuidedViewfinder(current) -> (current as GuidedScanPhase.Viewfinder).captured.isNotEmpty()
-                !scan.quickScanMode -> false
-                current is GuidedScanPhase.CornerViewfinder -> current.captured.isNotEmpty()
-                current is GuidedScanPhase.Viewfinder && current.handOver -> (current.kept + current.captured).isNotEmpty()
-                else -> false
+                plainGuidedViewfinder(current) -> {
+                    (current as GuidedScanPhase.Viewfinder).captured.isNotEmpty()
+                }
+
+                !scan.quickScanMode -> {
+                    false
+                }
+
+                current == GuidedScanPhase.Continuous -> {
+                    scan.continuous.confirmClose
+                }
+
+                // The hand-over viewfinder: when it would drop the map Back returns to (one or more mapped sides, as on
+                // the continuous screen), a face Quick Scan kept or a face captured here.
+                current is GuidedScanPhase.Viewfinder && current.handOver -> {
+                    scan.continuous.confirmClose || scan.handoff?.faces?.isNotEmpty() == true || current.captured.isNotEmpty()
+                }
+
+                else -> {
+                    false
+                }
             }
         if (faces) scan.confirmDiscard = true else finishWith(ScanOutcome.Cancelled)
     }
@@ -497,36 +542,20 @@ class GuidedScanActivity : ComponentActivity() {
     private fun plainGuidedViewfinder(current: GuidedScanPhase): Boolean =
         current is GuidedScanPhase.Viewfinder && current.fromReview == null && !current.handOver && scan.isGuidedRun
 
-    /**
-     * *Scan face by face* (Story 10.17): the switch runs on the analyzer thread; its hand-over viewfinder replaces the
-     * corner view now, or once a capture freeze ends. A tap once the hand-over or Done has started changes nothing.
-     */
-    private fun switchToFaceByFace() {
-        if (phase !is GuidedScanPhase.CornerViewfinder || !scan.quickScanMode) return
-        analyzerExecutor.execute {
-            val quick = scan.quickScan ?: return@execute
-            val effect = quick.switchToFaceByFace() ?: return@execute
-            quick.drainEvents().forEach(ScanDiagnostics::onHoldEvent)
-            ScanDiagnostics.onHandOver(quick.lastHandOver)
-            val next = GuidedScanFlow.phaseOf(quick)
-            val review = quickReview(effect as? QuickScanEffect.Done)
-            ContextCompat.getMainExecutor(this).execute {
-                if (phase !is GuidedScanPhase.CornerViewfinder) return@execute
-                if (next != null) scan.holdTransition(next)
-                if (review != null) scan.publish(review)
-            }
-        }
-    }
-
-    /**
-     * GH #321: the fallback to the Editor, with the stickers of the current phase (a calibration opened from Quick Scan's
-     * corner view reads the Quick Scan capture it returns to); none in Case capture.
-     */
     private fun fallBackToEditor(): ScanOutcome.FellBackToEditor {
         if (scan.caseCorners != null) return ScanOutcome.FellBackToEditor(null)
         val current = phase
-        val quickScanCapture = scan.capturePhase().takeIf { current is GuidedScanPhase.Calibration && current.fromQuickScan }
-        return ScanOutcome.FellBackToEditor(GuidedScanFlow.fallbackStickers(current, scan.saved, quickScanCapture))
+        val kept = scan.handoff
+        if (current is GuidedScanPhase.Viewfinder && current.handOver && kept != null) {
+            val stickers =
+                if (current.captured.isEmpty()) {
+                    kept.toFallbackStickers().takeIf { kept.faces.isNotEmpty() }
+                } else {
+                    handoverReview(kept, current.captured, scan.saved).review.stickers
+                }
+            return ScanOutcome.FellBackToEditor(stickers)
+        }
+        return ScanOutcome.FellBackToEditor(GuidedScanFlow.fallbackStickers(current, scan.saved))
     }
 
     private fun finishWith(capture: ScanOutcome) {
@@ -553,19 +582,16 @@ class GuidedScanActivity : ComponentActivity() {
                 review?.corrections,
                 outcome,
             )
-        }
-        val quick = scan.quickScan
-        val started = scan.quickStartedAt
-        if (scan.quickScanMode && !scan.quickLogged) {
+        } else if (scan.quickScanMode && !scan.quickLogged) {
+            // Story 10.32: one run line per Quick Scan, for `evaluateQuickScan` and the device pass (debug only).
             scan.quickLogged = true
-            dev.cubentia.app.ScanDiagnostics.onQuickScanRun(
-                started,
-                quick?.fallbackFaces?.size ?: 0,
-                quick?.repromptFaces?.size ?: 0,
+            ScanDiagnostics.onQuickScanRun(
+                scan.quickStartedAt,
+                scan.guidedFacesAsked,
                 review?.corrections,
-                outcome,
-                review?.review?.stickers,
                 review?.initialStickers,
+                outcome,
+                earlyReview = review?.early == true,
             )
         }
         val (code, data) =
@@ -579,7 +605,8 @@ class GuidedScanActivity : ComponentActivity() {
     }
 
     private fun cameraPhase() =
-        phase is GuidedScanPhase.Viewfinder || phase is GuidedScanPhase.CornerViewfinder || phase is GuidedScanPhase.Calibration
+        phase == GuidedScanPhase.Continuous || phase is GuidedScanPhase.Viewfinder || phase is GuidedScanPhase.CornerViewfinder ||
+            phase is GuidedScanPhase.Calibration
 
     private fun startCamera() {
         if (!previewReady || cameraStarted || !hasPermission() || !scan.calibrationLoaded || !cameraPhase()) return
@@ -587,14 +614,8 @@ class GuidedScanActivity : ComponentActivity() {
         frameSource.cornerMode(phase is GuidedScanPhase.CornerViewfinder)
         // Story 10.21: the torch may be lit in the calibration phase too.
         frameSource.calibrationMode(phase is GuidedScanPhase.Calibration)
-        if (phase is GuidedScanPhase.CornerViewfinder) {
-            // Story 10.22: the hold's timeline starts when its viewfinder opens (analyzer thread owns the controller).
-            val entered = SystemClock.elapsedRealtime()
-            analyzerExecutor.execute {
-                val quick = scan.quickScan ?: return@execute
-                quick.viewEntered(entered)
-                quick.drainEvents().forEach(ScanDiagnostics::onHoldEvent)
-            }
+        frameSource.continuousMode(scan.engine.takeIf { phase == GuidedScanPhase.Continuous }) {
+            phase == GuidedScanPhase.Continuous && !scan.analysisHeld && !scan.busy && !scan.confirmDiscard
         }
         frameSource.start(this, analyzerExecutor, ::analyze) { if (cameraPhase()) phase = GuidedScanPhase.Unavailable }
     }
@@ -604,6 +625,24 @@ class GuidedScanActivity : ComponentActivity() {
         val now = SystemClock.elapsedRealtime()
         // No capture decision runs while the discard question is open (Story 10.17, GH #325).
         if (scan.freeze.isFrozen(now) || scan.confirmDiscard) return
+        if (phase == GuidedScanPhase.Continuous) {
+            val continuous = frame.continuous ?: return
+            // The revision first: a Reset landing after the busy check then drops this frame on main (its revision is older).
+            val revision = scan.revision
+            if (scan.analysisHeld || scan.busy) return
+            scan.analysisHeld = continuous.snapshot.twistDetected || continuous.snapshot is ContinuousScanSnapshot.Complete
+            val flash = frameSource.hasFlashUnit()
+            ContextCompat.getMainExecutor(this).execute {
+                if (phase == GuidedScanPhase.Continuous && scan.revision == revision && !isFinishing) {
+                    if (flash != null) scan.hasFlash = flash
+                    val before = scan.continuous
+                    scan.continuous = before.next(continuous, now)
+                    scan.continuous.pulsesSince(before).forEach { scan.pulses.trySend(it) }
+                }
+            }
+            return
+        }
+        if (frame.continuous != null) return
         val rotation = frame.rotationDegrees
         val stats = frame.stats
         // One snapshot: main may leave calibration while this frame is read.
@@ -656,39 +695,6 @@ class GuidedScanActivity : ComponentActivity() {
             captureCase { it.onFrame(corner.detected, corner.faces, now) }
             return
         }
-        val quick = scan.quickScan
-        if (quick?.inCorner == true) {
-            val corner = frame.corner ?: return
-            if (scan.quickStartedAt == null) scan.quickStartedAt = ScanDiagnostics.startRun()
-            // Story 10.19: the flash unit is known once a camera is bound; the torch state drives glare coaching, and a
-            // torch change re-meters only once the camera applied it.
-            val flash = frameSource.hasFlashUnit()
-            if (flash != null && flash != scan.hasFlash) ContextCompat.getMainExecutor(this).execute { scan.hasFlash = flash }
-            // The torch turning on clears a running light fail (PO 2026-11-21): logged on the hold's timeline.
-            GuidedScanFlow.syncTorch(quick, flash, scan.torchOn, frameSource.torchApplied(), now)
-            val settled = frameSource.settled()
-            // Story 10.22: the outline crosses to the domain as plain coordinates; steadiness and re-metering follow it.
-            val outline = GuidedScanFlow.outlineOf(corner)
-            val quads = scan.cornerOverlaySmoother.update(corner.normalizedQuads)
-            ContextCompat.getMainExecutor(this).execute { scan.detectedCornerQuads = quads }
-            // The light check runs in the domain over these faces (calibrated when a saved calibration exists).
-            val measured = captureCorner { it.onFrame(corner.detected, corner.faces, now, settled, outline) }
-            // Story 10.21 device session (debug only): why the few-confident wait held this frame, rate-limited.
-            if (measured) ScanDiagnostics.onFewConfident(quick, now)
-            // A frozen frame is not run through the domain: its verdict is not this frame's, so none is logged.
-            dev.cubentia.app.ScanDiagnostics
-                .onCornerFrame(
-                    now,
-                    corner.detected,
-                    corner.faces,
-                    corner.score,
-                    quick.light.takeIf { measured },
-                    quick.lightHeld,
-                    quick.torchLit,
-                    scan.saved,
-                )
-            return
-        }
         if (frame.corner != null) return
         val active = scan.guidedController() ?: return
         if (!isQuickCheck && scan.isGuidedRun && scan.guidedStartedAt == null) scan.guidedStartedAt = ScanDiagnostics.startRun()
@@ -716,74 +722,6 @@ class GuidedScanActivity : ComponentActivity() {
         }
     }
 
-    /** Runs [decision] on the Quick Scan controller and applies its effects; false when it did not run (frozen, not in the corner view). */
-    private fun captureCorner(decision: (QuickScanController) -> List<QuickScanEffect>): Boolean {
-        val quick = scan.quickScan ?: return false
-        val now = SystemClock.elapsedRealtime()
-        if (scan.freeze.isFrozen(now) || !quick.inCorner) return false
-        val offered = quick.calibrationOffered
-        val effects = decision(quick)
-        // Story 10.22: every state change of the hold, as it happens, with its time since the hold began.
-        val events = quick.drainEvents()
-        events.forEach(ScanDiagnostics::onHoldEvent)
-        // A lost cube ends the exposure lock (once, as it becomes lost); the next detection re-meters.
-        if (events.any { it.kind == dev.cubentia.domain.recognition.CornerHoldEventKind.CUBE_LOST }) frameSource.releaseExposure()
-        if (!offered && quick.calibrationOffered) {
-            ScanDiagnostics.onCalibrationOffer(hold = quick.hold, heldMs = quick.lightHeldSince?.let { now - it })
-        }
-        val capture = effects.filterIsInstance<QuickScanEffect.CornerCaptured>().firstOrNull()
-        if (capture != null) {
-            scan.freeze.start(now)
-            quick.lastCapture?.let(ScanDiagnostics::onCornerCapture)
-            ScanDiagnostics.onCornerCaptureReads(quick)
-            // Story 10.22: the exposure lock ends with the capture; hold 1's white balance is carried to hold 2.
-            frameSource.releaseExposure()
-        }
-        // Story 10.21 device session (debug only): the faces kept and sent to the grid, and why.
-        if (effects.any { it is QuickScanEffect.Done || it is QuickScanEffect.Fallback }) ScanDiagnostics.onHandOver(quick.lastHandOver)
-        val next = GuidedScanFlow.phaseOf(quick)
-        val review = quickReview(effects.filterIsInstance<QuickScanEffect.Done>().firstOrNull())
-        val includeAwb = quick.hold == 1
-        ContextCompat.getMainExecutor(this).execute {
-            if (phase !is GuidedScanPhase.CornerViewfinder) return@execute
-            if (capture != null) {
-                shutterSound.play()
-                val snap = frameSource.snapshot()
-                scan.cornerThumbnail = snap
-                scan.frozen = FrozenCapture(++scan.captures, Face.U, snap, shrink = false)
-            }
-            if (next != null && phase != next) {
-                // Hold leaving the corner viewfinder (e.g. Capture 2 -> Guided fallback) until the 400 ms cue finishes.
-                if (capture != null && next !is GuidedScanPhase.CornerViewfinder) {
-                    scan.holdTransition(next)
-                } else {
-                    phase = next
-                }
-            }
-            if (review != null) scan.publish(review)
-        }
-        // Story 10.19: metering on the detected cube; its settle signal resets now, before the next frame is read. Only in
-        // the corner view: the source also skips it once corner mode is off (the Guided grid took over meanwhile).
-        if (QuickScanEffect.Remeter in effects && phase is GuidedScanPhase.CornerViewfinder) frameSource.meterCube(includeAwb = includeAwb)
-        return true
-    }
-
-    private fun quickReview(done: QuickScanEffect.Done?): GuidedScanPhase.Review? = done?.let(GuidedScanFlow::quickReviewOf)
-
-    /**
-     * Main thread: *Close* or Back from a calibration opened in Quick Scan's corner view (Story 10.21): back to the corner
-     * view, its light coaching hold cleared so the offer needs a fresh hold (analyzer thread owns the controller).
-     */
-    private fun returnToCornerView() {
-        phase = scan.capturePhase()
-        val now = SystemClock.elapsedRealtime()
-        analyzerExecutor.execute {
-            val quick = scan.quickScan ?: return@execute
-            quick.returnFromCalibration(now)
-            quick.drainEvents().forEach(ScanDiagnostics::onHoldEvent)
-        }
-    }
-
     /** A shutter or override decision on the analyzer thread; none runs while a capture is frozen. */
     private fun decide(decision: (Long) -> List<GuidedScanEffect>) {
         analyzerExecutor.execute {
@@ -802,17 +740,14 @@ class GuidedScanActivity : ComponentActivity() {
             return
         }
         val vm = scan
-        val quick = scan.quickScan
-        val handingOver = quick?.fallback != null
-        val quickDone = quick?.onGuidedEffects(effects) as? QuickScanEffect.Done
-        // Story 10.21 device session (debug only): each face the hand-over captured, and its end.
-        if (quick != null && handingOver) {
-            effects.filterIsInstance<GuidedScanEffect.Capture>().firstOrNull()?.let { ScanDiagnostics.onGuidedCapture(quick, it.sample) }
-            if (quickDone != null) ScanDiagnostics.onGuidedEnd("done", quick.keptFaces, quick.added.map { it.face })
-        }
-        val state = if (quick == null) GuidedScanFlow.phaseOf(controller, scan.quickFaces != null) else GuidedScanFlow.phaseOf(quick)
+        val handoff = scan.handoff.takeIf { (phase as? GuidedScanPhase.Viewfinder)?.handOver == true }
+        val active = scan.guidedController() ?: return
+        val state =
+            GuidedScanFlow.phaseOf(active, scan.quickFaces != null).let {
+                if (handoff == null) it else it.copy(handOver = true, keptColors = handoff.faces.mapValues { entry -> entry.value.colors })
+            }
         val done = effects.filterIsInstance<GuidedScanEffect.Done>().firstOrNull()
-        done?.takeIf { quick == null }?.let {
+        done?.takeIf { handoff == null }?.let {
             dev.cubentia.app.ScanDiagnostics
                 .onAssembly(if (scan.quickFaces == null) "final" else "quick", it.samples, scan.saved ?: scan.runScan)
         }
@@ -825,12 +760,12 @@ class GuidedScanActivity : ComponentActivity() {
                 null
             }
         // A guided run's own centers, measured with no saved calibration, go back with Accepted for the run (GH #172).
-        if (done != null && quick == null && scan.isGuidedRun) {
+        if (done != null && handoff == null && scan.isGuidedRun) {
             scan.measuredCenters = GuidedScanFlow.runScanColorsOf(done.samples, scan.saved)
         }
         val result =
-            if (quick != null) {
-                quickReview(quickDone)
+            if (handoff != null) {
+                done?.let { handoverReview(handoff, it.samples, scan.saved) }
             } else if (scan.quickFaces == null) {
                 GuidedScanFlow.reviewOf(effects, scan.saved)
             } else {
@@ -840,10 +775,11 @@ class GuidedScanActivity : ComponentActivity() {
         ContextCompat.getMainExecutor(this).execute {
             // Capture feedback (PO 2026-11-16): the frame frozen and shrunk into the net, with the shutter sound; none once
             // the viewfinder is gone (e.g. Unavailable), so a finished scan is never held behind a freeze nothing ends.
+            if (handoff != null && (vm.handoff !== handoff || (vm.phase as? GuidedScanPhase.Viewfinder)?.handOver != true)) return@execute
             if (captured != null && vm.onCaptured(captured.sample.face) { frameSource.snapshot() }) shutterSound.play()
             // A finished retake's viewfinder stays until its held review is published or the Learner backs out.
             val current = vm.phase
-            if (state != null && current is GuidedScanPhase.Viewfinder && current.fromReview == null && current != state) vm.phase = state
+            if (current is GuidedScanPhase.Viewfinder && current.fromReview == null && current != state) vm.phase = state
             if (GuidedScanFlow.remeters(effects)) meterOnGrid()
             if (partial != null) {
                 ScanDiagnostics.onQuickCheckCaptured(vm.quickCheckStartedAt, vm.captures)
@@ -928,11 +864,6 @@ internal class GuidedScanViewModel : ViewModel() {
     var quickResult by mutableStateOf<dev.cubentia.domain.recognition.PhysicalObservation.Partial?>(null)
     var calibrationMode = false
     var quickScanMode = false
-    var detectedCornerQuads by mutableStateOf<List<List<CornerPoint>>>(emptyList())
-    val cornerOverlaySmoother = CornerOverlaySmoother()
-    var cornerThumbnail by mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null)
-
-    /** Story 10.19: the Learner's torch choice (default on), kept across holds, the hand-over and the background. */
     var torchOn by mutableStateOf(true)
 
     /** Whether the bound camera has a flash unit; null until a camera reports it. */
@@ -946,10 +877,120 @@ internal class GuidedScanViewModel : ViewModel() {
     @Volatile var caseCapture: CaseCaptureController? = null
     var caseResult by mutableStateOf<List<CornerView>?>(null)
 
-    @Volatile var quickScan: QuickScanController? = null
+    var engine: ContinuousScanEngine? = null
+    var continuous by mutableStateOf(ContinuousQuickScanFlow())
+    val pulses = Channel<ContinuousQuickScanFlow.Pulse>(Channel.UNLIMITED)
 
+    @Volatile var revision = 0L
+
+    @Volatile var analysisHeld = false
+    var busy by mutableStateOf(false)
+    var editorOutcome by mutableStateOf<ScanOutcome.FellBackToEditor?>(null)
+
+    @Volatile var handoff: ContinuousScanHandoff? = null
+
+    @Volatile private var handoverController: GuidedScanController? = null
+
+    fun resetContinuous() {
+        // Busy first: the analyzer drops frames while busy, so none is published under the new revision before the reset.
+        busy = true
+        revision++
+        val token = revision
+        continuous = ContinuousQuickScanFlow()
+        viewModelScope.launch {
+            withContext(analyzerExecutor.asCoroutineDispatcher()) {
+                engine?.reset()
+                analysisHeld = false
+            }
+            if (revision == token) busy = false
+        }
+    }
+
+    fun exportContinuous(consume: (ContinuousScanExport) -> Unit) {
+        val active = engine ?: return
+        if (busy || phase != GuidedScanPhase.Continuous) return
+        busy = true
+        val token = revision
+        viewModelScope.launch {
+            val exported = withContext(analyzerExecutor.asCoroutineDispatcher()) { active.export() }
+            if (revision == token) {
+                busy = false
+                if (phase == GuidedScanPhase.Continuous) consume(exported)
+            }
+        }
+    }
+
+    fun completeContinuous() =
+        exportContinuous { exported ->
+            if (exported is ContinuousScanExport.Complete) {
+                torchOn = false
+                publish(GuidedScanPhase.Review(ScanReview.from(exported.handoff), calibration = reviewCalibration(exported.handoff)))
+            } else {
+                continuous = continuous.copy(reviewAtMs = null)
+                analysisHeld = false
+            }
+        }
+
+    /**
+     * Main thread: *Review and Correct* (Story 10.32, Q8). Scan Review opens on a fresh export, with the torch off:
+     * confirmed stickers as read, unread and conflicted ones blank, the shown snapshot's conflicted stickers first to
+     * check. An export that is already complete opens the completed scan's review instead. The engine, the shown
+     * [continuous] state and a latched twist are not touched, so [backOutOfEarlyReview] finds the scan as it was. The one
+     * exception is a calibration saved from this review ([saveCalibration]), which restarts the scan with an empty map.
+     */
+    fun reviewAndCorrect() {
+        if (!continuous.reviewAndCorrectOffered()) return
+        exportContinuous { exported ->
+            torchOn = false
+            val handoff = exported.handoff
+            val early = exported !is ContinuousScanExport.Complete
+            val review = if (early) ScanReview.from(handoff, continuous.conflictedReviewIndices) else ScanReview.from(handoff)
+            publish(GuidedScanPhase.Review(review, calibration = reviewCalibration(handoff), early = early))
+        }
+    }
+
+    /**
+     * Main thread: Back from an early review (Story 10.32, Q8): the live continuous scan again, with its camera-built
+     * map, count and any latched twist as they were, and the torch off. Nothing done in the review is kept: its colours
+     * and retakes go with it (a held or frozen capture and a running retake included). A calibration saved from the
+     * review never comes back here: [saveCalibration] restarts the scan and keeps the review's corrections.
+     */
+    fun backOutOfEarlyReview() {
+        if ((phase as? GuidedScanPhase.Review)?.early != true) return
+        held = null
+        frozen = null
+        torchOn = false
+        phase = GuidedScanPhase.Continuous
+        analyzerExecutor.execute { retake = null }
+    }
+
+    /** The calibration a review of [handoff] is read with: its own six centres when valid, else the saved calibration. */
+    private fun reviewCalibration(handoff: ContinuousScanHandoff): CalibrationCenters? =
+        handoff.calibration?.takeIf(dev.cubentia.domain.recognition.StickerClassifier::isValid) ?: saved
+
+    /** When the Quick Scan screen opened, for the debug run line; null in release. */
     @Volatile var quickStartedAt: Long? = null
+
+    /** How many faces the Guided hand-over was asked for (0: *Scan face by face* not used, or backed out of). */
+    var guidedFacesAsked = 0
     var quickLogged = false
+
+    fun switchToFaceByFace() =
+        exportContinuous { exported ->
+            torchOn = false
+            val kept = continuous.keptForGuided(exported.handoff)
+            val steps = GuidedScanPlan.steps.filter { it.face !in kept.faces }
+            if (steps.isEmpty()) {
+                publish(GuidedScanPhase.Review(ScanReview.from(kept), calibration = reviewCalibration(kept)))
+            } else {
+                // The kept faces are known to the hand-over, and its first automatic capture waits (Story 10.17's guards).
+                val guided = GuidedScanController.handOver(steps, kept)
+                guidedFacesAsked = steps.size
+                handoverController = guided
+                handoff = kept
+                phase = GuidedScanFlow.phaseOf(guided).copy(handOver = true, keptColors = kept.faces.mapValues { it.value.colors })
+            }
+        }
 
     @Volatile var guidedStartedAt: Long? = null
 
@@ -957,7 +998,7 @@ internal class GuidedScanViewModel : ViewModel() {
     var guidedLogged = false
 
     /** A plain Guided 6-face run; also decides where Close asks "Discard the faces you captured?" (GH #325). */
-    val isGuidedRun get() = !quickScanMode && quickScan == null && caseCorners == null && quickFaces == null && !calibrationMode
+    val isGuidedRun get() = !quickScanMode && caseCorners == null && quickFaces == null && !calibrationMode
     var saving by mutableStateOf(false)
     var calibrationFinished by mutableStateOf(false)
 
@@ -981,7 +1022,7 @@ internal class GuidedScanViewModel : ViewModel() {
             }
 
             quickScanMode -> {
-                quickScan?.let(GuidedScanFlow::phaseOf) ?: GuidedScanPhase.CornerViewfinder(hold = 1)
+                if (engine == null) GuidedScanPhase.Unavailable else GuidedScanPhase.Continuous
             }
 
             else -> {
@@ -1005,8 +1046,7 @@ internal class GuidedScanViewModel : ViewModel() {
 
     fun guidedController(): GuidedScanController? {
         retake?.let { return it.controller }
-        val quick = quickScan
-        return if (quick == null) controller else quick.fallback
+        return if (quickScanMode) handoverController else controller
     }
 
     fun newController(): GuidedScanController {
@@ -1056,15 +1096,23 @@ internal class GuidedScanViewModel : ViewModel() {
                     if (corners != null) {
                         caseCapture = CaseCaptureController(centers, corners)
                         phase = capturePhase()
-                    } else if (calibration.fromReview == null && !calibration.fromQuickScan) {
+                    } else if (calibration.fromReview == null) {
                         calibrationFinished = true
                     } else {
-                        // From Quick Scan's corner view (Story 10.19) the scan restarts with no face and no correction.
+                        // Saved from a review: the scan restarts (Quick Scan with an empty map), keeping the review's corrections.
                         corrections = calibration.fromReview?.corrections.orEmpty()
-                        if (calibration.fromQuickScan) cornerThumbnail = null
+                        // The controller first: the analyzer reads the hand-off, then the controller.
+                        handoverController = null
+                        handoff = null
+                        guidedFacesAsked = 0
                         withContext(analyzerExecutor.asCoroutineDispatcher()) {
                             controller = newController()
-                            if (quickScanMode) quickScan = QuickScanController(saved)
+                            engine?.reset()
+                        }
+                        if (quickScanMode) {
+                            continuous = ContinuousQuickScanFlow()
+                            analysisHeld = false
+                            torchOn = false
                         }
                         phase = capturePhase()
                     }
@@ -1105,11 +1153,6 @@ internal class GuidedScanViewModel : ViewModel() {
 
     /** A pending phase transition (review or Guided fallback) held until the current capture freeze ends. */
     private var held: GuidedScanPhase? = null
-
-    /** Main thread: holds a non-review phase transition (e.g. Capture 2 fallback) until the current freeze ends. */
-    fun holdTransition(next: GuidedScanPhase) {
-        if (frozen != null) held = next else phase = next
-    }
 
     /**
      * Main thread: the capture feedback for [face]. Freezes the frame from [image] only while the viewfinder shows, the
@@ -1156,26 +1199,18 @@ internal class GuidedScanViewModel : ViewModel() {
     }
 
     /**
-     * Main thread: leaves Quick Scan's hand-over before review (Story 10.17, PO Q1): the corner view at the hold it
-     * started from, kept faces intact, faces captured in the hand-over (and a held combined review) dropped.
+     * Main thread: leaves Quick Scan's hand-over before review (Stories 10.17, 10.32): Quick Scan again with its map and
+     * count intact and the torch off; faces captured in the hand-over (and a held combined review) are dropped.
      */
     fun backOutOfHandOver() {
         held = null
         frozen = null
-        viewModelScope.launch {
-            val next =
-                withContext(analyzerExecutor.asCoroutineDispatcher()) {
-                    quickScan
-                        ?.takeIf { quick ->
-                            val added = quick.added.map { it.face }
-                            quick.backOut().also { backed -> if (backed) ScanDiagnostics.onGuidedEnd("backOut", quick.keptFaces, added) }
-                        }?.let(GuidedScanFlow::phaseOf)
-                } ?: return@launch
-            // A last capture handled before the back-out may have held its review meanwhile: it is dropped too.
-            held = null
-            frozen = null
-            phase = next
-        }
+        // The controller first: the analyzer reads the hand-off, then the controller.
+        handoverController = null
+        handoff = null
+        guidedFacesAsked = 0
+        torchOn = false
+        phase = GuidedScanPhase.Continuous
     }
 
     /** Main thread: Close asked the discard question (Story 10.17, GH #325). */

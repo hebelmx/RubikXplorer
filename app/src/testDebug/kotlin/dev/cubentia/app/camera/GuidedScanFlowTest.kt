@@ -15,6 +15,7 @@ import dev.cubentia.domain.recognition.GuidedScanPlan
 import dev.cubentia.domain.recognition.Lab
 import dev.cubentia.domain.recognition.ScanReview
 import dev.cubentia.domain.recognition.Suspect
+import dev.cubentia.domain.recognition.continuous.FaceSlot
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -740,6 +741,18 @@ class GuidedScanFlowTest {
         assertEquals(0, run.controller.repromptCount)
     }
 
+    @Test fun `a retake from a Quick Scan review shows the faces it keeps from the review's stickers`() {
+        // A Quick Scan review holds no sample for a face the continuous scan mapped; here U's cell 2 was left blank.
+        val from = GuidedScanPhase.Review(ScanReview.from(testHandoff(Face.entries, blank = FaceSlot(Face.U, 2))))
+        val phase = GuidedScanFlow.retakePhase(GuidedScanFlow.retakeRun(setOf(Face.F), from))
+        assertTrue(phase.kept.isEmpty())
+        assertEquals((Face.entries - Face.F).toSet(), phase.keptColors.keys)
+        phase.keptColors.forEach { (face, colors) ->
+            assertEquals(from.review.stickers.subList(face.ordinal * 9, face.ordinal * 9 + 9), colors)
+            assertEquals(List(9) { cell -> Color.home(face).takeUnless { face == Face.U && cell == 2 } }, colors)
+        }
+    }
+
     @Test fun `the review after a retake keeps kept faces and edits, replaces retaken ones and counts as edited`() {
         val before = misreadReview()
         val after = GuidedScanFlow.reviewAfterRetake(before, listOf(upright(Face.F).copy(orientationDegrees = 270)), null)
@@ -791,19 +804,6 @@ class GuidedScanFlowTest {
         }
     }
 
-    @Test fun `a calibration opened from Quick Scan's corner view reads the corner faces it returns to`() {
-        val captured = listOf(upright(Face.U), upright(Face.R))
-        val corner = GuidedScanPhase.CornerViewfinder(hold = 2, captured = captured, faceByFace = true)
-        val calibration = GuidedScanPhase.Calibration(fromQuickScan = true)
-        assertEquals(ScanReview.fromSamples(captured, null).stickers, GuidedScanFlow.fallbackStickers(calibration, null, corner))
-        // Its hand-over reads the kept and added faces the same way.
-        val handOver = GuidedScanPhase.Viewfinder(kept = captured.take(1), captured = captured.drop(1), handOver = true)
-        assertEquals(ScanReview.fromSamples(captured, null).stickers, GuidedScanFlow.fallbackStickers(calibration, null, handOver))
-        // No corner face yet, or a calibration not opened from Quick Scan: no stickers.
-        assertNull(GuidedScanFlow.fallbackStickers(calibration, null, GuidedScanPhase.CornerViewfinder(hold = 1)))
-        assertNull(GuidedScanFlow.fallbackStickers(GuidedScanPhase.Calibration(), null, corner))
-    }
-
     @Test fun `no captured face, a denial or the rationale carries no stickers`() {
         listOf(
             GuidedScanPhase.Viewfinder(),
@@ -814,7 +814,6 @@ class GuidedScanFlowTest {
             GuidedScanPhase.Denied(permanent = true),
             GuidedScanPhase.Unavailable,
             GuidedScanPhase.Calibration(),
-            GuidedScanPhase.Calibration(fromQuickScan = true),
         ).forEach { assertNull(it.toString(), GuidedScanFlow.fallbackStickers(it, null)) }
     }
 
@@ -855,179 +854,6 @@ class GuidedScanFlowTest {
         assertTrue(vm.phase === after)
     }
 
-    // Story 10.17: Quick Scan's corner view offers *Scan face by face*; its hand-over viewfinder counts only the asked faces.
-
-    private fun cornerHold(index: Int): List<FrameStats> {
-        val labs =
-            mapOf(
-                Color.WHITE to Lab(90.0, 0.0, 0.0),
-                Color.GREEN to Lab(55.0, -60.0, 40.0),
-                Color.RED to Lab(45.0, 65.0, 45.0),
-                Color.YELLOW to Lab(85.0, -5.0, 80.0),
-                Color.ORANGE to Lab(65.0, 45.0, 65.0),
-                Color.BLUE to Lab(40.0, 10.0, -50.0),
-            )
-        return dev.cubentia.domain.recognition.QuickScanPlan.holds[index - 1].map { step ->
-            FrameStats(List(9) { CellReading(labs.getValue(step.centerColor), true) }, 120.0, 0.0, 100.0, 12)
-        }
-    }
-
-    @Test fun `quick scan's corner view offers face by face and its hand-over shows kept faces and Face n of N`() {
-        val quick =
-            dev.cubentia.domain.recognition
-                .QuickScanController(lightCheck = false)
-        val corner = GuidedScanFlow.phaseOf(quick) as GuidedScanPhase.CornerViewfinder
-        assertTrue(corner.faceByFace)
-        quick.onFrame(true, cornerHold(1), 0)
-        quick.onShutter()
-        val second = GuidedScanFlow.phaseOf(quick) as GuidedScanPhase.CornerViewfinder
-        assertEquals(2, second.hold)
-        assertTrue(second.faceByFace)
-        assertNotNull(quick.switchToFaceByFace())
-        val handOver = GuidedScanFlow.phaseOf(quick) as GuidedScanPhase.Viewfinder
-        assertTrue(handOver.handOver)
-        assertNull(handOver.again)
-        assertFalse(handOver.retake)
-        assertEquals(3, handOver.total)
-        assertEquals(0, handOver.stepIndex)
-        assertEquals(Color.BLUE, handOver.step?.centerColor)
-        assertNull(handOver.step?.upNeighborColor)
-        assertEquals(listOf(Face.U, Face.F, Face.R), handOver.kept.map { it.face })
-        assertTrue(handOver.captured.isEmpty())
-        // Back returns to the corner view at hold 2 with the kept faces.
-        assertTrue(quick.backOut())
-        val back = GuidedScanFlow.phaseOf(quick) as GuidedScanPhase.CornerViewfinder
-        assertEquals(2, back.hold)
-        assertEquals(listOf(Face.U, Face.F, Face.R), back.captured.map { it.face })
-    }
-
-    @Test fun `case capture's corner view never offers face by face`() {
-        val case =
-            dev.cubentia.domain.recognition
-                .CaseCaptureController(CalibrationCenters(emptyMap()), 2)
-        assertFalse(GuidedScanFlow.phaseOf(case).faceByFace)
-    }
-
-    // Story 10.19: the activity's torch wiring: the wanted torch reaches the controller, which re-meters once it applied.
-    @Test fun `torch sync wants the choice only with a flash unit and re-meters once the camera applied it`() {
-        val quick =
-            dev.cubentia.domain.recognition
-                .QuickScanController(lightCheck = false)
-        GuidedScanFlow.syncTorch(quick, hasFlash = null, torchOn = true, applied = null, nowMs = 0)
-        assertFalse("no flash known: no torch", quick.torchOn)
-        GuidedScanFlow.syncTorch(quick, hasFlash = false, torchOn = true, applied = false, nowMs = 10)
-        assertFalse("no flash unit: never a torch", quick.torchOn)
-        assertFalse(quick.torchPending)
-        GuidedScanFlow.syncTorch(quick, hasFlash = true, torchOn = true, applied = false, nowMs = 20)
-        assertTrue(quick.torchOn)
-        assertTrue("waits for the camera to light it", quick.torchPending)
-        assertTrue(quick.onFrame(true, cornerHold(1), 30).isEmpty())
-        GuidedScanFlow.syncTorch(quick, hasFlash = true, torchOn = true, applied = true, nowMs = 40)
-        assertFalse(quick.torchPending)
-        assertEquals(
-            listOf(dev.cubentia.domain.recognition.QuickScanEffect.Remeter),
-            quick.onFrame(true, cornerHold(1), 50),
-        )
-        GuidedScanFlow.syncTorch(quick, hasFlash = true, torchOn = false, applied = true, nowMs = 60)
-        assertFalse(quick.torchOn)
-        assertTrue(quick.torchPending)
-    }
-
-    @Test fun `the corner outline crosses to the domain as twelve plain points, none when no cube is detected`() {
-        val quads = List(3) { quad -> List(4) { point -> CornerPoint(10.0 * quad + point, 100.0 + point) } }
-        val frame = CornerFrame(true, List(3) { null }, frameQuads = quads)
-        val outline = checkNotNull(GuidedScanFlow.outlineOf(frame))
-        assertEquals(12, outline.size)
-        assertEquals(
-            dev.cubentia.domain.recognition
-                .OutlinePoint(0.0, 100.0),
-            outline.first(),
-        )
-        assertEquals(
-            dev.cubentia.domain.recognition
-                .OutlinePoint(23.0, 103.0),
-            outline.last(),
-        )
-        assertEquals(null, GuidedScanFlow.outlineOf(frame.copy(detected = false)))
-        assertEquals(null, GuidedScanFlow.outlineOf(CornerFrame(true, List(3) { null })))
-    }
-
-    @Test fun `a light fail, and the torch turning on during it, reach the hold's timeline`() {
-        val quick =
-            dev.cubentia.domain.recognition
-                .QuickScanController()
-        val dark = List(9) { CellReading(Lab(40.0, 0.0, 0.0), true) }
-        val bright = List(9) { CellReading(Lab(90.0, 0.0, 0.0), true) }
-        val stats = { cells: List<CellReading> -> FrameStats(cells, 120.0, 0.0, 100.0, 12) }
-        // The first detected frame re-meters onto the cube and coaches nothing; the settled frame after it starts the fail.
-        quick.onFrame(true, listOf(stats(bright), stats(dark), stats(bright)), 50, settled = false)
-        assertFalse(quick.lightHeld)
-        quick.onFrame(true, listOf(stats(bright), stats(dark), stats(bright)), 100, settled = true)
-        assertTrue(quick.lightHeld)
-        // PO 2026-11-21: the light check is skipped while the torch is lit, so lighting it clears the fail at once.
-        GuidedScanFlow.syncTorch(quick, hasFlash = true, torchOn = true, applied = true, nowMs = 300)
-        assertFalse(quick.lightHeld)
-        val light =
-            quick.drainEvents().filter {
-                it.kind == dev.cubentia.domain.recognition.CornerHoldEventKind.LIGHT_FAIL ||
-                    it.kind == dev.cubentia.domain.recognition.CornerHoldEventKind.LIGHT_CLEAR
-            }
-        assertEquals(
-            listOf(
-                dev.cubentia.domain.recognition.CornerHoldEventKind.LIGHT_FAIL,
-                dev.cubentia.domain.recognition.CornerHoldEventKind.LIGHT_CLEAR,
-            ),
-            light.map {
-                it.kind
-            },
-        )
-        assertEquals(listOf(50L, 250L), light.map { it.elapsedMs })
-        assertEquals("torch", light.last().reason)
-        assertEquals(200L, light.last().durationMs)
-    }
-
-    // Story 10.19: the torch follows the Learner's choice in Quick Scan's corner view only, on a camera with a flash unit.
-    @Test fun `the torch is lit only in quick scan's corner view with a flash and is kept through the hand-over and back`() {
-        val quick =
-            dev.cubentia.domain.recognition
-                .QuickScanController(lightCheck = false)
-        val first = GuidedScanFlow.phaseOf(quick)!!
-        assertEquals(true, GuidedScanFlow.torchControl(first, hasFlash = true, torchOn = true))
-        assertTrue(GuidedScanFlow.torchLit(first, hasFlash = true, torchOn = true))
-        // The Learner's choice off: the control shows "Torch off" and the torch is dark.
-        assertEquals(false, GuidedScanFlow.torchControl(first, hasFlash = true, torchOn = false))
-        assertFalse(GuidedScanFlow.torchLit(first, hasFlash = true, torchOn = false))
-        // No flash unit (or not known yet): no control and no torch.
-        assertNull(GuidedScanFlow.torchControl(first, hasFlash = false, torchOn = true))
-        assertNull(GuidedScanFlow.torchControl(first, hasFlash = null, torchOn = true))
-        quick.onFrame(true, cornerHold(1), 0)
-        quick.onShutter()
-        val second = GuidedScanFlow.phaseOf(quick)!!
-        assertTrue("carries from hold 1 to hold 2", GuidedScanFlow.torchLit(second, hasFlash = true, torchOn = true))
-        quick.switchToFaceByFace()
-        val handOver = GuidedScanFlow.phaseOf(quick)!!
-        assertNull(GuidedScanFlow.torchControl(handOver, hasFlash = true, torchOn = true))
-        assertFalse("physically off in the hand-over", GuidedScanFlow.torchLit(handOver, hasFlash = true, torchOn = true))
-        assertTrue(quick.backOut())
-        assertTrue(
-            "back to the corner view: on again",
-            GuidedScanFlow.torchLit(GuidedScanFlow.phaseOf(quick)!!, hasFlash = true, torchOn = true),
-        )
-        // Case capture's corner view and every other phase never light it.
-        val case =
-            dev.cubentia.domain.recognition
-                .CaseCaptureController(CalibrationCenters(emptyMap()), 2)
-        assertFalse(GuidedScanFlow.torchLit(GuidedScanFlow.phaseOf(case), hasFlash = true, torchOn = true))
-        listOf(
-            GuidedScanPhase.Viewfinder(),
-            GuidedScanPhase.Rationale,
-            GuidedScanPhase.Unavailable,
-        ).forEach {
-            assertFalse("$it", GuidedScanFlow.torchLit(it, hasFlash = true, torchOn = true))
-        }
-    }
-
-    // Story 10.21: the calibration phase's torch toggle, its lock, its defaults and the saved torch tag.
     @Test fun `the calibration phase shows the shared torch toggle on a flash device, locked once a swatch is kept`() {
         val fresh = GuidedScanPhase.Calibration()
         assertEquals(true, GuidedScanFlow.torchControl(fresh, hasFlash = true, torchOn = true))
@@ -1059,12 +885,6 @@ class GuidedScanFlowTest {
         assertTrue(GuidedScanFlow.keepAllowed(GuidedScanPhase.Viewfinder(), hasFlash = true, torchOn = true, applied = false))
     }
 
-    @Test fun `a calibration opens with the corner view's torch choice from its offer and on otherwise`() {
-        assertFalse(GuidedScanFlow.calibrationTorch(fromQuickScan = true, current = false))
-        assertTrue(GuidedScanFlow.calibrationTorch(fromQuickScan = true, current = true))
-        assertTrue(GuidedScanFlow.calibrationTorch(fromQuickScan = false, current = false))
-    }
-
     @Test fun `a calibration is tagged with the torch actually lit, off without a flash or an applied torch`() {
         assertTrue(GuidedScanFlow.savedTorchTag(hasFlash = true, torchOn = true, applied = true))
         assertFalse("requested, not applied", GuidedScanFlow.savedTorchTag(hasFlash = true, torchOn = true, applied = false))
@@ -1072,93 +892,5 @@ class GuidedScanFlowTest {
         assertFalse(GuidedScanFlow.savedTorchTag(hasFlash = true, torchOn = false, applied = false))
         assertFalse("no flash", GuidedScanFlow.savedTorchTag(hasFlash = false, torchOn = true, applied = true))
         assertFalse(GuidedScanFlow.savedTorchTag(hasFlash = null, torchOn = true, applied = true))
-    }
-
-    @Test fun `quick scan review leaves a kept face's carried blank blank and pre-selects it`() {
-        val labs =
-            mapOf(
-                Color.GREEN to Lab(55.0, -60.0, 40.0),
-                Color.RED to Lab(45.0, 65.0, 45.0),
-                Color.BLUE to Lab(40.0, 10.0, -50.0),
-                Color.ORANGE to Lab(65.0, 45.0, 65.0),
-                Color.WHITE to Lab(90.0, 0.0, 0.0),
-                Color.YELLOW to Lab(85.0, -5.0, 80.0),
-            )
-        val samples =
-            dev.cubentia.domain.recognition.QuickScanPlan.holds.flatten().map { step ->
-                FaceSample(
-                    face = step.face,
-                    orientationDegrees = 0,
-                    stickers = List(9) { labs.getValue(step.centerColor) },
-                    quality = CaptureQuality.ACCEPTABLE,
-                    centerColor = step.centerColor,
-                    upNeighborColor = step.upNeighborColor,
-                    centerPlain = true,
-                )
-            }
-        val saved = CalibrationCenters(labs)
-        val done = listOf(GuidedScanEffect.Done(samples))
-        val plain = GuidedScanFlow.reviewOf(done, saved)!!.review
-        val review = GuidedScanFlow.reviewOf(done, saved, mapOf(Face.R to setOf(0)))!!.review
-        assertTrue(plain.stickers.none { it == null })
-        val blank = review.stickers.indices.single { review.stickers[it] == null }
-        assertEquals(Face.R, Face.entries[blank / 9])
-        assertEquals(blank, review.selected)
-        // Quick Scan's review reads with the calibration its Done carries: the matched one, or none after a mismatch.
-        val matched =
-            dev.cubentia.domain.recognition.QuickScanEffect
-                .Done(samples, mapOf(Face.R to setOf(0)), saved)
-        assertEquals(review, GuidedScanFlow.quickReviewOf(matched)!!.review)
-        val mismatched =
-            dev.cubentia.domain.recognition.QuickScanEffect
-                .Done(samples, mapOf(Face.R to setOf(0)), calibration = null)
-        assertEquals(
-            GuidedScanFlow.reviewOf(done, null, mapOf(Face.R to setOf(0)))!!.review,
-            GuidedScanFlow.quickReviewOf(mismatched)!!.review,
-        )
-    }
-
-    @Test fun `a retake from a quick scan review read after a calibration mismatch reads as with no calibration`() {
-        val labs =
-            mapOf(
-                Color.GREEN to Lab(55.0, -60.0, 40.0),
-                Color.RED to Lab(45.0, 65.0, 45.0),
-                Color.BLUE to Lab(40.0, 10.0, -50.0),
-                Color.ORANGE to Lab(65.0, 45.0, 65.0),
-                Color.WHITE to Lab(90.0, 0.0, 0.0),
-                Color.YELLOW to Lab(85.0, -5.0, 80.0),
-            )
-        val samples =
-            dev.cubentia.domain.recognition.QuickScanPlan.holds.flatten().map { step ->
-                FaceSample(
-                    face = step.face,
-                    orientationDegrees = 0,
-                    stickers = List(9) { labs.getValue(step.centerColor) },
-                    quality = CaptureQuality.ACCEPTABLE,
-                    centerColor = step.centerColor,
-                    upNeighborColor = step.upNeighborColor,
-                    centerPlain = true,
-                )
-            }
-        // The saved calibration the scan rejected (its torch tag differs); the Guided review below reads with it.
-        val saved =
-            CalibrationCenters(
-                labs + mapOf(Color.RED to labs.getValue(Color.ORANGE), Color.ORANGE to labs.getValue(Color.RED)),
-                torchOn = true,
-            )
-        val review =
-            checkNotNull(
-                GuidedScanFlow.quickReviewOf(
-                    dev.cubentia.domain.recognition.QuickScanEffect
-                        .Done(samples, calibration = null),
-                ),
-            )
-        assertNull(review.calibration)
-        val retaken = listOf(samples.first { it.face == Face.F })
-        val after = GuidedScanFlow.reviewAfterRetake(review, retaken)
-        assertEquals(GuidedScanFlow.reviewAfterRetake(review, retaken, null), after)
-        assertNull(after.calibration)
-        // A Guided review keeps the saved calibration it was read with.
-        assertEquals(saved, GuidedScanFlow.reviewOf(listOf(GuidedScanEffect.Done(samples)), saved)!!.calibration)
     }
 }

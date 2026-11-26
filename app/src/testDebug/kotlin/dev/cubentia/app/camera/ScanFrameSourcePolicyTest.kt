@@ -342,6 +342,27 @@ class ScanFrameSourcePolicyTest {
     }
 
     @Test
+    fun `the torch is lit only when wanted, on a flash unit, in the foreground, in a view that may light it`() {
+        fun lit(
+            hasFlash: Boolean = true,
+            wanted: Boolean = true,
+            suspended: Boolean = false,
+            corner: Boolean = false,
+            calibrating: Boolean = false,
+            continuous: Boolean = false,
+        ) = CameraXFrameSource.torchLit(hasFlash, wanted, suspended, corner, calibrating, continuous)
+        // Story 10.32: the continuous Quick Scan may light it; the Guided grid (no mode) never does.
+        assertTrue(lit(continuous = true))
+        assertFalse(lit(continuous = false))
+        assertTrue(lit(corner = true))
+        assertTrue(lit(calibrating = true))
+        assertFalse(lit(continuous = true, hasFlash = false))
+        assertFalse(lit(continuous = true, wanted = false))
+        assertFalse(lit(continuous = true, suspended = true))
+        assertFalse(lit(corner = true, calibrating = true, continuous = true, suspended = true))
+    }
+
+    @Test
     fun `metering flags keep AWB for hold 1 only`() {
         val all = CameraXFrameSource.meteringFlags(includeAwb = true)
         val noAwb = CameraXFrameSource.meteringFlags(includeAwb = false)

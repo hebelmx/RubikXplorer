@@ -71,15 +71,6 @@ object SideLight {
         val rightLevel: Double?,
         val mode: Mode = Mode.UNCALIBRATED,
     ) {
-        /** The score is below the mode's clear cut: a running light fail may clear (Story 10.21); false when unscored. */
-        val belowClear: Boolean get() = score?.let { it < mode.clearCut } == true
-
-        /** The score lies in the hysteresis band, between the clear and hold cuts: the light state never changes on it. */
-        val inBand: Boolean get() = score?.let { it >= mode.clearCut && it <= mode.holdCut } == true
-
-        /** The score is above the hold cut by more than the band's width (debug diagnostics only). */
-        val farAboveCut: Boolean get() = score?.let { it > 2 * mode.holdCut - mode.clearCut } == true
-
         val leftDifference: Double? get() = difference(leftLevel)
         val rightDifference: Double? get() = difference(rightLevel)
 

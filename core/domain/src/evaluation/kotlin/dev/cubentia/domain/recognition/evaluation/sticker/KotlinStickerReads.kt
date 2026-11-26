@@ -21,7 +21,7 @@ import java.io.File
  * Story 10.23: the per-sticker Kotlin reads of every face of the held-out groups named in `tools/sticker-model/holdout.json`,
  * for `tools/sticker-model/evaluate.py` to set beside the shadow sticker reader, through the existing
  * [QuickScanClassification] functions with the group's recorded calibration as the saved one. A corner group is judged as
- * on the device at each capture (`QuickScanController.take`): hold 1's faces with only hold 1 captured, hold 2's with both
+ * by the original two-corner capture: hold 1's faces with only hold 1 captured, hold 2's with both
  * holds merged. A live group (not a Quick Scan) is judged with its six faces merged.
  * - `self`: the self-calibration read (the group's own face centers);
  * - `second`: the per-face correction against the record's `calibration.centers` (`cal`);

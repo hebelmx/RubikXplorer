@@ -310,19 +310,6 @@ class CornerLocatorTest {
     }
 
     @Test
-    fun `overlay smoother dampens small jitter, snaps on large moves, and clears on empty`() {
-        val smoother = CornerOverlaySmoother(alpha = 0.5, snapThreshold = 0.1)
-        val q1 = listOf(listOf(CornerPoint(0.2, 0.2), CornerPoint(0.4, 0.2), CornerPoint(0.4, 0.4), CornerPoint(0.2, 0.4)))
-        assertEquals(q1, smoother.update(q1))
-        val jittered = listOf(listOf(CornerPoint(0.22, 0.2), CornerPoint(0.4, 0.2), CornerPoint(0.4, 0.4), CornerPoint(0.2, 0.4)))
-        val smoothed = smoother.update(jittered)
-        assertEquals(0.21, smoothed[0][0].x, 1e-6)
-        val jumped = listOf(listOf(CornerPoint(0.5, 0.5), CornerPoint(0.7, 0.5), CornerPoint(0.7, 0.7), CornerPoint(0.5, 0.7)))
-        assertEquals(jumped, smoother.update(jumped))
-        assertTrue(smoother.update(emptyList()).isEmpty())
-    }
-
-    @Test
     fun `CornerReader unwarps and validates stickers from an injected CornerDetector seam`() {
         val cube =
             CubeState.SOLVED.apply(
@@ -386,12 +373,6 @@ class CornerLocatorTest {
         groups.forEach { groupName ->
             val uRecord = LiveFixtureJson.decode(File("../Fixtures/live/$groupName/U.json").readText())
             val realPalette = uRecord.calibration.centers.mapValues { (_, lab) -> labToRgbInt(lab) }
-            // lightCheck off: this guard is about Red/Orange; without a saved calibration the colour-dependent light check
-            // (Story 10.19, PO decision E) may hold this scrambled cube, which SideLightTest and the replay cover.
-            val controller =
-                dev.cubentia.domain.recognition
-                    .QuickScanController(lightCheck = false)
-            var now = 1_000L
             val samples = mutableListOf<dev.cubentia.domain.recognition.FaceSample>()
             var red: Lab? = null
             var orange: Lab? = null
@@ -437,18 +418,6 @@ class CornerLocatorTest {
                             )
                     }
                 }
-                controller.onFrame(reading.detected, reading.faces, now)
-                now += 1_000L
-                if (holdIdx == 1) {
-                    // Feed another frame so Hold 2 clears prior hold tracking before shutter.
-                    controller.onFrame(reading.detected, reading.faces, now)
-                    now += 1_000L
-                }
-                val effects = controller.onShutter()
-                assertTrue(
-                    effects.any { it is dev.cubentia.domain.recognition.QuickScanEffect.CornerCaptured },
-                    "$groupName hold ${holdIdx + 1}",
-                )
             }
             listOf(Face.R, Face.L).forEach { face ->
                 val sample = samples.single { it.face == face }

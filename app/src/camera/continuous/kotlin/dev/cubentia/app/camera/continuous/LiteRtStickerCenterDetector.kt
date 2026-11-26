@@ -1,6 +1,8 @@
 package dev.cubentia.app.camera.continuous
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
+import android.os.Looper
 import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.cubentia.app.camera.StickerCenterDetection
@@ -42,7 +44,12 @@ internal class LiteRtStickerCenterDetector
         @Inject
         constructor(
             @ApplicationContext context: Context,
-        ) : this({ loadModelBuffer(context) })
+        ) : this({ loadModelBuffer(context) }) {
+            debuggable = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        }
+
+        /** Set only by the injected constructor: a debuggable app checks the calling thread in [detect]. */
+        private var debuggable = false
 
         private val lock = Any()
         private var session: StickerCenterInferenceSession? = null
@@ -59,12 +66,17 @@ internal class LiteRtStickerCenterDetector
         private val outputFloatView = outputBuffer.asFloatBuffer()
         private val outputFloats = FloatArray(StickerCenterModelContract.OUTPUT_FLOATS)
 
+        /** Whether the caller is on the main looper's thread; false where there is no Android looper (plain JVM tests). */
+        private fun onMainThread(): Boolean = runCatching { Looper.getMainLooper()?.thread === Thread.currentThread() }.getOrDefault(false)
+
         override fun detect(
             frame: YuvFrame,
             rotationDegrees: Int,
             viewWidth: Int,
             viewHeight: Int,
         ): StickerCenterDetection {
+            // Debug builds only: inference belongs to the analyzer thread, never the main thread (Story 10.31 follow-up).
+            check(!debuggable || !onMainThread()) { "StickerCenterDetector.detect must not run on the main thread" }
             if (frame.left < 0 || frame.top < 0 || frame.width <= 0 || frame.height <= 0) return StickerCenterDetection.EMPTY
             synchronized(lock) {
                 val active = ensureSession() ?: return StickerCenterDetection.EMPTY

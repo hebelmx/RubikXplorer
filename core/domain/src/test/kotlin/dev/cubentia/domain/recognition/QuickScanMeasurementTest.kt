@@ -30,6 +30,14 @@ class QuickScanMeasurementTest {
     }
 
     @Test
+    fun `a run marked as ended from an early review is parsed like any other run`() {
+        // The debug run line adds earlyReview=1 after the outcome (Story 10.32); the measurement does not read the mark.
+        val record = "quickScan run elapsedMs=14999 fallbackFaces=0 repromptFaces=0 corrections=2 outcome=ACCEPTED earlyReview=1"
+        val report = QuickScanMeasurement.measure(sequenceOf("D/CubentiaScanDiag: $record device=SM-S721U1"))
+        assertEquals(QuickScanMeasurement.Report(1, 1, 0, 0), report)
+    }
+
+    @Test
     fun `untimed records count as unsuccessful runs`() {
         val report =
             QuickScanMeasurement.measure(
