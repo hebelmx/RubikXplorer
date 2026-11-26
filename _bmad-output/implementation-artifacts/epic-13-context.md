@@ -17,7 +17,7 @@ Give Cubentia a public website (a landing page, a privacy policy and a support p
 
 ## Requirements & Constraints
 
-- **Privacy URL requirements from Play:** the page is public, loads without any sign-in (testers are mostly Gmail users outside exxerpro.com), is not geofenced and is HTML, not a PDF. It names the publisher exactly as on the Play developer account ("ExxerPro"), and gives the contact email `abel.briones@exxerpro.com` and an effective date.
+- **Privacy URL requirements from Play:** the page is public, loads without any sign-in (testers are mostly Gmail users outside exxerpro.com), is not geofenced and is HTML, not a PDF. It names the publisher exactly as on the Play developer account ("ExxerPro"), and gives the contact email `abel.briones@exxerpro.com` and an effective date. *(Superseded (Epic 13 retro item 110): the publisher is "Exxerpro Solutions, S.A. de C.V." (published on Google Play as Abel Briones) and the contact is `exxerpro@exxerpro.com`, as in Story 13.4 and the live page.)*
 - **Permanent URL:** `https://hebelmx.github.io/cubentia-site/privacy/`. Never rename `cubentia-site`. The site repo must not be named `cubentia`, because repository names are case-insensitive and it would collide with the renamed app repo. Story 13.1 checks whether the account's user site sets a custom domain, which would change every project URL, and records the final URL. A custom domain may come later; GitHub redirects `github.io` to it.
 - **Privacy facts the policy states:** no personal data collected or shared; no account, ads, analytics or crash reporting; no INTERNET permission; no backup; no runtime permission; progress stored only in app-private storage and removed on uninstall; applies to Learners of any age.
 - **The site doesn't track either:** no cookies, no script, no third-party embeds, and no resources from other origins (no Google Fonts; fonts are self-hosted IBM Plex under its OFL licence, or a system font stack). The policy says the site is hosted on GitHub Pages, which may log visitor IP addresses for security, and links GitHub's privacy statement.
@@ -42,7 +42,7 @@ Give Cubentia a public website (a landing page, a privacy policy and a support p
   - a no-third-party check covering every `src`, `<link href>`, CSS `url()` and `@import` (all same-origin), no `<script>` and no cookie meta;
   - no "Rubik" in page text;
   - the facts check, below.
-  - An external link check runs weekly and is advisory.
+  - ~~An external link check runs weekly and is advisory.~~ *(Superseded (Epic 13 retro item 110): never built; the site's `check` job runs daily, on pull requests, on push and on manual dispatch.)*
 - **Facts check (site repo):** a sparse `actions/checkout` reads `docs/privacy-facts.json` from `repository: ${{ vars.APP_REPO }}`. The app repo is public, so it needs no token. A standard-library Python script then checks the page. Each statement on the page carries `data-fact="<key>"` and `data-value="<value>"`. The check fails when:
   - a fact in the file has no statement with an equal value on the page;
   - the page states a fact the file lacks;

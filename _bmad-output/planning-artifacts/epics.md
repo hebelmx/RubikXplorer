@@ -235,7 +235,7 @@ A Learner can browse and watch all 78 verified OLL/PLL Algorithms, track their o
 ### Epic 10: Scan my cube (v1.0, flag-gated)
 A Learner can scan a cube face by face, correct and calibrate it, solve it from the scan, and verify physical Moves with a Quick Check. Built on `main` with every camera flag OFF in release; each feature reaches users only when the PO raises its flag at a release (Story 10.11). Restored from `post-launch/v1.1-camera-recognition.md` by `sprint-change-proposal-2026-11-14-v1-1-camera.md`. *(SCP 2026-11-20: moves into v1.0 as the dependency of #198, #208, #249, #251, #252; Story 10.11 raises `CAMERA_SCAN` for the v1.0 release.)*
 **FRs covered:** FR-21 – FR-26, plus the Quick Check rung of FR-9 and FR-16, and the calibration reset of FR-19. **Also:** recognition NFRs, NFR-5, NFR-8, NFR-11, NFR-12, AD-9, AD-13, AD-18, AR-13, UX-DR15, UX-DR16, UX-DR19 – UX-DR22, UX-DR25.
-**Order:** 10.9 → 10.10 → UX pass → 10.12 → 10.13 → 10.1 → (10.6 ∥ 10.2 → 10.3 → 10.14 → 10.4 → 10.5 → 10.15 → 10.7) → Epic 11 → 10.8 → 10.11; 10.16 after 10.14; 11.1 → 10.18 (Quick Scan finds the cube's real edges and corners, #195) → 10.17 (after 10.16 too) → 10.19 → 10.22 → (10.20 ∥ 10.23) → 10.21 *(SCP 2026-11-22 quick-scan-reliability: 10.22 before the fixture session)* *(SCP 2026-11-22 quick-scan-sticker-reader: 10.23, the shadow sticker reader, after 10.22; it does not block 10.20, 10.21 or 10.11)* *(SCP 2026-11-22 quick-scan-corners-and-solver-copy: 10.21 → 10.24 (retake a corner, #299) → 10.25 (start from whichever corner is shown, #302); 10.26 (fill a few unread stickers from cube rules, #301) only after the 10.21 BETA call. PO Q-h: the 10.11-n run that raises `QUICK_SCAN` does not wait for 10.25, and no new story is added to its dependencies.)* *(SCP 2026-11-21 quick-scan-side-face-accuracy, #274: 10.20 and 10.21 do not block Story 10.11, which raises `CAMERA_SCAN` and `PLACEMENT` with `QUICK_SCAN` OFF; Quick Scan is raised in a later 10.11-n after 10.21's BETA call)* *(SCP 2026-11-24 camera-release-timeline: 10.21's BETA call (2026-11-24) left `QUICK_SCAN` OFF on this pipeline; 10.24–10.27 are superseded by the continuous facelet scan approach (PR #363) and do not start. The new Quick Scan port stories, written by the spike session's SCP, come before the 10.11 run that raises `QUICK_SCAN`. 10.11 no longer waits for 12.5: its first run, release 0.11.0, raises `CAMERA_SCAN` to GA and `PLACEMENT` to BETA, and `QUICK_SCAN` to BETA only when its preconditions hold (Story 10.11); 12.5 then promotes a new v1.0.0 tag with the same levels.)* *(SCP 2026-11-24 continuous-quick-scan: 10.24–10.27 are dropped; the continuous Quick Scan port chain **10.30 → 10.31 → 10.32 → 10.33** replaces them and runs before the Story 10.11 run that raises `QUICK_SCAN`.)*; all v1.0 scope (SCP 2026-11-20) *(SCP 2026-11-15; 10.14 added by SCP 2026-11-16; 10.5 split into 10.5 and 10.15 by SCP 2026-11-16 main-app entry points)*. *(SCP 2026-11-24 github-issue-triage: 10.28 (the recorder's count check, #337) after 10.20, independent of 10.27, before any new corner-fixture recording; it blocks neither 10.21 nor 10.11. 10.29 (Solution Playback shows the Lesson's Quick Check result, #326) is v1.1 scope, after 10.7. #321, #323, #325 and #313 are v1.0 issue fixes against Stories 10.15, 10.3 and 10.2.)* Device sessions: A = 10.10; A2 = 10.12; B = 10.2 and 10.4 acceptance (10.4 partial); B2 = 10.14; B3 = 10.5 (main app; re-runs the 10.4 checks not done on a device, #166); C = 11.1, 11.3 capture and 10.8. *(SCP 2026-11-25 continuous-fixture-recorder: → 10.34 → 10.35 after 10.33; they gate neither 10.11 nor any tag)*
+**Order:** 10.9 → 10.10 → UX pass → 10.12 → 10.13 → 10.1 → (10.6 ∥ 10.2 → 10.3 → 10.14 → 10.4 → 10.5 → 10.15 → 10.7) → Epic 11 → 10.8 → 10.11; 10.16 after 10.14; 11.1 → 10.18 (Quick Scan finds the cube's real edges and corners, #195) → 10.17 (after 10.16 too) → 10.19 → 10.22 → (10.20 ∥ 10.23) → 10.21 *(SCP 2026-11-22 quick-scan-reliability: 10.22 before the fixture session)* *(SCP 2026-11-22 quick-scan-sticker-reader: 10.23, the shadow sticker reader, after 10.22; it does not block 10.20, 10.21 or 10.11)* *(SCP 2026-11-22 quick-scan-corners-and-solver-copy: 10.21 → 10.24 (retake a corner, #299) → 10.25 (start from whichever corner is shown, #302); 10.26 (fill a few unread stickers from cube rules, #301) only after the 10.21 BETA call. PO Q-h: the 10.11-n run that raises `QUICK_SCAN` does not wait for 10.25, and no new story is added to its dependencies.)* *(SCP 2026-11-21 quick-scan-side-face-accuracy, #274: 10.20 and 10.21 do not block Story 10.11, which raises `CAMERA_SCAN` and `PLACEMENT` with `QUICK_SCAN` OFF; Quick Scan is raised in a later 10.11-n after 10.21's BETA call)* *(SCP 2026-11-24 camera-release-timeline: 10.21's BETA call (2026-11-24) left `QUICK_SCAN` OFF on this pipeline; 10.24–10.27 are superseded by the continuous facelet scan approach (PR #363) and do not start. The new Quick Scan port stories, written by the spike session's SCP, come before the 10.11 run that raises `QUICK_SCAN`. 10.11 no longer waits for 12.5: its first run, release 0.11.0, raises `CAMERA_SCAN` to GA and `PLACEMENT` to BETA, and `QUICK_SCAN` to BETA only when its preconditions hold (Story 10.11); 12.5 then promotes a new v1.0.0 tag with the same levels.)* *(SCP 2026-11-24 continuous-quick-scan: 10.24–10.27 are dropped; the continuous Quick Scan port chain **10.30 → 10.31 → 10.32 → 10.33** replaces them and runs before the Story 10.11 run that raises `QUICK_SCAN`.)*; all v1.0 scope (SCP 2026-11-20) *(SCP 2026-11-15; 10.14 added by SCP 2026-11-16; 10.5 split into 10.5 and 10.15 by SCP 2026-11-16 main-app entry points)*. *(SCP 2026-11-24 github-issue-triage: 10.28 (the recorder's count check, #337) after 10.20, independent of 10.27, before any new corner-fixture recording; it blocks neither 10.21 nor 10.11. 10.29 (Solution Playback shows the Lesson's Quick Check result, #326) is v1.1 scope, after 10.7. #321, #323, #325 and #313 are v1.0 issue fixes against Stories 10.15, 10.3 and 10.2.)* Device sessions: A = 10.10; A2 = 10.12; B = 10.2 and 10.4 acceptance (10.4 partial); B2 = 10.14; B3 = 10.5 (main app; re-runs the 10.4 checks not done on a device, #166); C = 11.1, 11.3 capture and 10.8. *(SCP 2026-11-25 continuous-fixture-recorder: → 10.34 → 10.35 after 10.33; they gate neither 10.11 nor any tag)* *(SCP 2026-11-25 continuous-scan-enhancement: the order is now 10.32 → 10.33 → 10.34 → 10.35 → 10.36 → 10.11. 10.36 (record new scrambles on the continuous recorder, analyse them, improve continuous Quick Scan) sets the order but does not hard-block 10.11: if 10.33 calls `QUICK_SCAN` BETA, 10.11 may start before 10.36 is done; otherwise the `QUICK_SCAN` call comes from 10.36's results. Story 12.18 (settle every open action item) is a hard dependency of 10.11.)*
 **Main-app rule (SCP 2026-11-16 main-app entry points):** a camera story is accepted on the main app build, reached from its real entry point. A debug-only launcher is never a story's device-session gate, and debug raises a flag above OFF only once that flag's entry point is wired in the main app (AD-15, AD-18).
 **Never blocks** tester-feedback fixes or Stories 12.3, 12.4, 12.5 and 13.6: camera stories merge only with release camera flags OFF, and Story 10.9's gate keeps the release free of camera code and permissions. *(Superseded by SCP 2026-11-20: for v1.0, Story 10.11 raises `CAMERA_SCAN`, `QUICK_SCAN` and `PLACEMENT` before Stories 12.3–12.5, and the Story 10.9 gate then checks the flags-ON release instead.)* *(SCP 2026-11-21 quick-scan-side-face-accuracy: `QUICK_SCAN` leaves this first raise and follows Story 10.21.)* *(SCP 2026-11-24 camera-release-timeline: Story 10.11 now runs after Stories 12.3, 12.4 and 13.6 and before 12.5. Its first run is release 0.11.0, and Story 12.5 promotes a v1.0.0 tag cut from main with the same flag levels.)*
 
@@ -2256,7 +2256,7 @@ So that the app, the public privacy policy, Play Console and the store listing a
 
 **Refs:** NFR-5, NFR-8, NFR-11 · AD-13, AD-15, AD-18 · PRD §7 gate 6 · Stories 10.8, 12.3, 12.4, 13.3, 13.4, 13.6 · `docs/release.md`, `docs/play-first-publish.md`
 
-**Runs** once per release in which at least one camera flag leaves OFF; it is reopened (or copied as 10.11-n) for each such release. **Depends on** Story 10.8's recommendation, or a PO level decision recorded in the PRD memlog with its evidence, for every raised feature, and on Stories 12.3, 12.4 and 13.6 being done. *(SCP 2026-11-24 camera-release-timeline: 12.5 removed, superseding §6 Q5. A run may ship to the internal, closed and open testing tracks before 12.5. Production stays in 12.5, as a new `v1.0.0` tag cut from main with the same flag levels. A run that raises `QUICK_SCAN` also depends on: the new Quick Scan port stories being done with their BETA call recorded, the Lenovo TB128XU staying the gating minimum unless a separate PO decision changes it; the spike session's SCP amending the architecture spine and PRD (AD-9 reader of record, AD-18 composition, `ShadowReaderPolicy`, `CameraSizePolicy`, FR-22 and §4.8's out-of-scope "continuous video"); and `:app:checkCameraSize` and `:app:checkReleaseSize` headroom measured with the new models in (the research estimate is about 2.0–2.5 MB).)* *(SCP 2026-11-24 continuous-quick-scan: the spine/PRD/UX amendments are applied and the 3-device R8 benchmark is closed in PR #366 with Lenovo TB128XU kept as gating minimum (`33.74 ms`, ~30 FPS). Raising `QUICK_SCAN` now depends specifically on Stories **10.30–10.33** being done, including Story 10.31/10.33's minified `0.11.0`-profile size check (`< 30 MB`) and Story 10.33's PO BETA call recorded in the PRD memlog.)* **Human gates:** the PO's per-feature level decision; the site-repository PR; Play Console.
+**Runs** once per release in which at least one camera flag leaves OFF; it is reopened (or copied as 10.11-n) for each such release. **Depends on** Story 10.8's recommendation, or a PO level decision recorded in the PRD memlog with its evidence, for every raised feature, and on Stories 12.3, 12.4 and 13.6 being done. *(SCP 2026-11-24 camera-release-timeline: 12.5 removed, superseding §6 Q5. A run may ship to the internal, closed and open testing tracks before 12.5. Production stays in 12.5, as a new `v1.0.0` tag cut from main with the same flag levels. A run that raises `QUICK_SCAN` also depends on: the new Quick Scan port stories being done with their BETA call recorded, the Lenovo TB128XU staying the gating minimum unless a separate PO decision changes it; the spike session's SCP amending the architecture spine and PRD (AD-9 reader of record, AD-18 composition, `ShadowReaderPolicy`, `CameraSizePolicy`, FR-22 and §4.8's out-of-scope "continuous video"); and `:app:checkCameraSize` and `:app:checkReleaseSize` headroom measured with the new models in (the research estimate is about 2.0–2.5 MB).)* *(SCP 2026-11-25 continuous-scan-enhancement: queued after Stories 10.36 and 12.18. **12.18 is a hard dependency.** 10.36 is not: when Story 10.33 records `QUICK_SCAN` BETA, the PO may start 10.11 before 10.36 is done; when 10.33 records OFF, or the PO defers the call, the `QUICK_SCAN` level is decided from Story 10.36's results (its AC5), and the run either raises it in `0.11.0` or leaves it to a 10.11-n.)* *(SCP 2026-11-24 continuous-quick-scan: the spine/PRD/UX amendments are applied and the 3-device R8 benchmark is closed in PR #366 with Lenovo TB128XU kept as gating minimum (`33.74 ms`, ~30 FPS). Raising `QUICK_SCAN` now depends specifically on Stories **10.30–10.33** being done, including Story 10.31/10.33's minified `0.11.0`-profile size check (`< 30 MB`) and Story 10.33's PO BETA call recorded in the PRD memlog.)* **Human gates:** the PO's per-feature level decision; the site-repository PR; Play Console.
 
 *(SCP 2026-11-21 quick-scan-side-face-accuracy: the first run raises `CAMERA_SCAN` and `PLACEMENT` only; `QUICK_SCAN` is raised by a later 10.11-n once Story 10.21's BETA call passes.)* *(SCP 2026-11-24 camera-release-timeline, superseding SCP 2026-11-21: the first run, release 0.11.0, raises `CAMERA_SCAN` to GA and `PLACEMENT` to BETA, following Story 10.8, and `QUICK_SCAN` to BETA only when the `QUICK_SCAN` preconditions under Depends hold (Stories 10.30–10.33 done and 10.33 BETA call recorded, SCP 2026-11-24 continuous-quick-scan). Otherwise it raises `CAMERA_SCAN` and `PLACEMENT` only, and `QUICK_SCAN` follows in a 10.11-n (0.11.x); the PO decides at 10.11 start. `CASE_RECOGNITION` stays OFF in 0.11.0.)*
 
@@ -3010,7 +3010,7 @@ So that I can make an informed BETA call for Story 10.11's `0.11.0` camera relea
 **When** the PO makes the release-level decision
 **Then** the PO records the `QUICK_SCAN` decision (`BETA` for Story 10.11's `0.11.0` release, or `OFF` with routed issues) in the PRD `.memlog.md`, closing `scp-2026-11-24-quick-scan-raise-preconditions`
 
-*(SCP 2026-11-25 continuous-fixture-recorder, approved: two follow-ups come after Stories 10.30–10.33 — Story 10.34, record and replay a continuous Quick Scan session in the developer fixture recorder; Story 10.35, retire the Quick-Scan-only two-corner recorder paths after 10.34. Fix stories routed from 10.33 do not block 10.34.)*
+*(SCP 2026-11-25 continuous-fixture-recorder, approved: two follow-ups come after Stories 10.30–10.33 — Story 10.34, record and replay a continuous Quick Scan session in the developer fixture recorder; Story 10.35, retire the Quick-Scan-only two-corner recorder paths after 10.34. Fix stories routed from 10.33 do not block 10.34.)* *(SCP 2026-11-25 continuous-scan-enhancement: Story 10.36 follows 10.35 and uses this report as its baseline. A BETA call here lets Story 10.11 start without waiting for 10.36; an OFF call moves the `QUICK_SCAN` decision to 10.36.)*
 
 ### Story 10.34: Record and replay a continuous Quick Scan session in the developer fixture recorder
 
@@ -3020,7 +3020,7 @@ So that I can reproduce where a continuous scan went wrong and test a new detect
 
 **Refs:** FR-22 · recognition NFRs (Confidence calibration), NFR-11 · AD-9 (Frames, amended SCP 2026-11-25), AD-15, AD-18 · Stories 10.12, 10.20, 10.28, 10.30–10.33 · `sprint-change-proposal-2026-11-25-continuous-fixture-recorder.md`
 
-**Depends on** Stories 10.30–10.33 being done. Fix stories routed from Story 10.33 do not block it, and the PO may pull it forward to diagnose them. Starts only once the AD-9 Frames amendment and replay placement are confirmed by the architect role in the architecture `.memlog.md`. The recorder is a debug-only developer tool (AD-15), so this is not release scope and gates neither Story 10.11 nor any tag. **Human gate:** one recorded session on the Lenovo TB128XU (gating minimum), with the PO choosing one complete and one incomplete example. *(SCP 2026-11-25 continuous-fixture-recorder. Budgets below are defaults; the spec may change one only with a recorded reason.)*
+**Depends on** Stories 10.30–10.33 being done. Fix stories routed from Story 10.33 do not block it, and the PO may pull it forward to diagnose them. Starts only once the AD-9 Frames amendment and replay placement are confirmed by the architect role in the architecture `.memlog.md`. The recorder is a debug-only developer tool (AD-15), so this is not release scope and gates neither Story 10.11 nor any tag. *(SCP 2026-11-25 continuous-scan-enhancement: Story 10.36 depends on it; 10.11 waits on 10.34 only through 10.36, and only when 10.33 does not call BETA.)* **Human gate:** one recorded session on the Lenovo TB128XU (gating minimum), with the PO choosing one complete and one incomplete example. *(SCP 2026-11-25 continuous-fixture-recorder. Budgets below are defaults; the spec may change one only with a recorded reason.)*
 
 **Acceptance Criteria:**
 
@@ -3076,7 +3076,7 @@ So that the camera code carries one Quick Scan pipeline without losing Case reco
 
 **Refs:** FR-22, FR-28 · AD-9, AD-15, AD-18 · Stories 10.20, 10.32, 10.34 · `sprint-change-proposal-2026-11-25-continuous-fixture-recorder.md`
 
-**Depends on** Story 10.34, with its capture and replay demonstrations passed on a physical device. Device-free. Not release scope. *(SCP 2026-11-25 continuous-fixture-recorder.)*
+**Depends on** Story 10.34, with its capture and replay demonstrations passed on a physical device. Device-free. Not release scope. *(SCP 2026-11-25 continuous-fixture-recorder.)* *(SCP 2026-11-25 continuous-scan-enhancement: runs before Story 10.36.)*
 
 **Acceptance Criteria:**
 
@@ -3103,6 +3103,38 @@ So that the camera code carries one Quick Scan pipeline without losing Case reco
 **Given** `./gradlew spotlessCheck build` and `:app:checkCameraSize`
 **When** they run after the removal
 **Then** both pass, Guided capture and old fixture decoding still pass, and the class-byte change is recorded in `docs/evidence/10-35/`
+
+### Story 10.36: Record new scrambles on the continuous recorder, analyse them, and improve continuous Quick Scan
+
+As the product owner,
+I want new scrambled-cube sessions recorded with the usual fixture cubes on the continuous recorder, replayed and analysed, and the failures they show fixed in continuous Quick Scan,
+So that the `QUICK_SCAN` level for Story 10.11 rests on measured continuous-scan behaviour from real recordings, not only on the Story 10.33 live matrix.
+
+**Refs:** FR-22 · §4.8 recognition NFRs (Confidence calibration), NFR-11 · AD-9 (Frames, amended SCP 2026-11-25), AD-15, AD-18 · Stories 10.30–10.35, 10.11 · `sprint-change-proposal-2026-11-25-continuous-scan-enhancement.md`
+
+**Depends on** Story 10.34 (continuous capture and replay) being done. Sequenced after Story 10.35. **Does not hard-block Story 10.11:** if Story 10.33 records `QUICK_SCAN` BETA, the PO may start 10.11 before this story is done; if 10.33 records OFF, or the PO defers the call, the `QUICK_SCAN` decision is taken from this story's results (AC5). **Human gate:** a recording session on the Lenovo TB128XU (gating minimum) and the Galaxy S24 FE with the fixture cubes `stla`, `stlb`, `stka` and `stkb`. *(SCP 2026-11-25 continuous-scan-enhancement. The counts below are defaults; the spec may change one only with a recorded reason.)*
+
+**Acceptance Criteria:**
+
+**Given** the debug fixture recorder from Story 10.34 on the Lenovo TB128XU and the Galaxy S24 FE
+**When** the operator applies a generated scramble to each solved fixture cube and records continuous sessions
+**Then** at least 3 scrambles per cube per device are recorded (24 sessions by default) in at least warm indoor light plus one of the hard Story 10.33 lights (low, cool or backlit/glare), each session's labels come from its scramble string and pass the recorder's nine-of-each-colour check, incomplete and failed sessions are kept as evidence rather than discarded, and the operator-curated groups enter `Fixtures/` within the size limit Story 10.34 set
+
+**Given** the recorded corpus
+**When** it is replayed (state replay in the `:core:domain` evaluation source set, image replay as the instrumented debug test)
+**Then** `docs/evidence/10-36/analysis.md` reports per device, cube and light: completion, time to 54/54, wrong stickers by colour pair, confidently-wrong rate, the frame and face where each failed session first diverges from its labels, regrip and conflict failures, and analyzer latency (`p50`/`p95`); compares them with the Story 10.33 numbers; and ranks the failure classes by frequency
+
+**Given** a failure class the PO picks from that ranking
+**When** an enhancement is made to the continuous pipeline (detector thresholds and post-processing, lattice fitter, sampler, stateful mapper, or viewfinder guidance)
+**Then** a recorded session reproduces the failure first as a failing replay, the change makes it pass, no previously passing session in the corpus regresses (whole-corpus replay is the regression gate), the confidently-wrong rate stays `≤ 0.1%` with zero silent wrong commits, the Lenovo TB128XU p50 stays within the 50 ms budget, and `:app:checkCameraSize` and the minified `0.11.0`-profile size stay `< 30 MB`. A retrained or replaced model is out of scope unless the PO approves it in the spec (it changes model identity and size).
+
+**Given** an enhancement touches `app/src/main`, the `continuous` source set or `:core:domain`
+**When** it merges
+**Then** it is reviewed as product code, `./gradlew spotlessCheck build` passes, and Guided 6-face Scan and Case capture tests still pass
+
+**Given** the analysis and the merged enhancements
+**When** the PO makes the `QUICK_SCAN` call for Story 10.11
+**Then** the PO records it in the PRD `.memlog.md` (BETA for `0.11.0`, confirming or superseding the Story 10.33 call, or OFF with `QUICK_SCAN` left to a 10.11-n); a BETA call that rests on enhancements made after Story 10.33 is backed by at least 5 full live scans from the Solve tab on the main app build on the Lenovo TB128XU, recorded in `docs/evidence/10-36/`
 
 ## Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition
 
@@ -3878,6 +3910,34 @@ So that I can still predict what R or U will do.
 **When** they run
 **Then** they cover the home view (no badge, no letters) and a rotated view (badge and letters) in light and dark themes, on compact and expanded widths
 
+### Story 12.18: Settle every open action item before the camera release
+
+As the product owner,
+I want every open action item in the sprint record reviewed and given an outcome before Story 10.11,
+So that retrospective and deferred-review findings are not left behind when the camera release ships.
+
+**Refs:** PRD §7 release gates · Stories 10.11, 12.4, 12.5 · `sprint-status.yaml` `action_items` · `sprint-change-proposal-2026-11-25-continuous-scan-enhancement.md`
+
+**Runs** before Story 10.11 (hard dependency). **Depends on** Epic 13 being closed (its last open retro item, the site accessibility pass, settled), so any item Epic 13 leaves open is included. A preliminary triage list can be drafted before then. Its last pass runs right before 10.11 starts, so it also covers items added by Stories 10.32–10.36. Device-free, except for PO items that need a device session to close. *(SCP 2026-11-25 continuous-scan-enhancement. On 2026-11-25 the record held 199 open or in-progress items: 78 Epic 10, 25 Epic 12, 24 Epic 11, 20 Epic 15, 17 Epic 14 and 35 across Epics 1–9 and 13; 63 owned by the PO.)*
+
+**Acceptance Criteria:**
+
+**Given** every `action_items` entry whose status is not `done`
+**When** the triage runs
+**Then** `docs/evidence/12-18/action-item-triage.md` lists each one by `id` with one outcome: **already done** (evidence linked, status set to `done`), **release-blocking** for `0.11.0`, **deferred** after the release (a GitHub issue opened and linked in the entry's `resolution`), or **dropped** (superseded or no longer true, with the reason); no entry is left without an outcome
+
+**Given** an item marked release-blocking
+**When** Story 10.11 is about to start
+**Then** it is fixed and merged (as an issue fix or a story) or the PO accepts it explicitly as a known release risk in the PRD `.memlog.md`; Story 10.11 does not start while any release-blocking item has neither
+
+**Given** an item owned by the PO
+**When** it is triaged
+**Then** the PO confirms its outcome; an item that needs a device session is grouped into one device-session list in the triage file instead of being closed without evidence
+
+**Given** the triage is applied
+**When** `sprint-status.yaml` is validated
+**Then** every touched entry has its new `status` and a `resolution` naming its outcome, and duplicate items (for example the three `epic-10-context.md` refresh items) are merged into one
+
 ## Epic 13: Cubentia on the web, with a privacy policy
 
 Anyone can open Cubentia's public website, read what the app is, read a privacy policy that states exactly what the app does with data, and find how to get support. Play Console has a privacy-policy URL that never changes. The site lives in its own public repository (`hebelmx/cubentia-site`), so the app repository's rename in Story 12.5 does not affect it (`sprint-change-proposal-2026-11-13-cubentia-site.md`).
@@ -3969,6 +4029,8 @@ So that I know Cubentia collects nothing and keeps my progress on my device.
 **Depends on** Stories 13.1 and 13.3.
 
 **Human gate (before merge):** the PO confirms the publisher name ("Exxerpro Solutions, S.A. de C.V.") exactly as on the Play developer account, and the effective date.
+
+*(SCP 2026-11-25 continuous-scan-enhancement, reconciling with the as-built (Epic 13 retro item 108): AC1's publisher line reads "Exxerpro Solutions, S.A. de C.V. (published on Google Play as Abel Briones)". AC2's facts are read at `vars.APP_REF`, not `main`, and the check accepts facts schema 2 for camera releases (site PR #6). AC1's "asks for no runtime permission" holds for camera-OFF builds; since site PR #10 (effective 25 November 2026) the page also says Cubentia will ask for camera permission when the Learner chooses to scan, and Story 10.11 AC2 completes the camera wording at the camera release.)*
 
 **Acceptance Criteria:**
 

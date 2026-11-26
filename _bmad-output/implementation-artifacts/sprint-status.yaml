@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-25-2026 19:15'
+last_updated: '11-25-2026 22:30'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -161,6 +161,7 @@ development_status:
   10-33-continuous-quick-scan-physical-device-matrix-and-po-beta-cal: backlog
   10-34-record-and-replay-a-continuous-quick-scan-session-in-the-dev: backlog
   10-35-retire-the-quick-scan-only-two-corner-recorder-paths: backlog
+  10-36-record-new-scrambles-on-the-continuous-recorder-analyse-the: backlog
   10-22-quick-scan-captures-promptly-once-the-cube-is-in-view: done
   10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads: done
   epic-10-retrospective: optional
@@ -189,6 +190,7 @@ development_status:
   12-15-move-pictures-and-the-move-strip: done
   12-16-see-the-turn-while-dragging-commit-on-release: done
   12-17-know-when-the-view-is-rotated-and-reset-it-in-one-tap: done
+  12-18-settle-every-open-action-item-before-the-camera-release: backlog
   epic-12-retrospective: optional
 
   epic-13: in-progress
@@ -1145,7 +1147,8 @@ action_items:
       AC1 publisher line 'Exxerpro Solutions, S.A. de C.V. (published on Google Play
       as Abel Briones)'; AC2 facts read at vars.APP_REF, schema 2 for camera releases"
     owner: "PM (John) + PO (hebelmx)"
-    status: open
+    status: done
+    resolution: "Story 13.4 annotated in epics.md (publisher line, APP_REF, schema 2, camera wording) by SCP 2026-11-25 continuous-scan-enhancement"
     ref: "_bmad-output/implementation-artifacts/epic-13-retro-2026-11-19.md"
   - id: "epic-13-retro-item-109-agents-md-site-and-privacy-facts-pointer"
     epic: 13
@@ -1154,14 +1157,16 @@ action_items:
       and the rule that a manifest or SDK change also changes the public policy (via
       bmad-project-context)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
+    resolution: "AGENTS.md Where things are: website, site repo, privacy-facts tasks and the manifest-changes-policy rule (2026-11-25)"
     ref: "_bmad-output/implementation-artifacts/epic-13-retro-2026-11-19.md"
   - id: "epic-13-retro-item-110-supersede-epic-13-context-publisher"
     epic: 13
     action: "Regenerate epic-13-context.md or mark its line 20 (publisher and contact)
       and line 45 (weekly external link check) superseded"
     owner: "SM (orchestrator)"
-    status: open
+    status: done
+    resolution: "epic-13-context.md publisher/contact and weekly link-check lines marked superseded (2026-11-25)"
     ref: "_bmad-output/implementation-artifacts/epic-13-retro-2026-11-19.md"
   - id: "epic-13-retro-item-111-prune-settled-13-4-deferrals"
     epic: 13
@@ -1170,7 +1175,8 @@ action_items:
       rule that stories built in another repo route spec deferrals and post-merge
       human checks to action_items at story close"
     owner: "SM (orchestrator)"
-    status: open
+    status: done
+    resolution: "spec-13-4 and schema-2 spec deferrals pruned as settled; AGENTS.md Orchestration rule routes other-repo deferrals to action_items (2026-11-25)"
     ref: "_bmad-output/implementation-artifacts/epic-13-retro-2026-11-19.md"
   - id: "issue-205-deferred-device-status-bar-contrast"
     epic: 12

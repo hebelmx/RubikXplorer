@@ -8,14 +8,7 @@ review_loop_iteration: 0
 followup_review_recommended: true
 context: []
 warnings: []
-deferred:
-  - summary: >-
-      The cubentia-site checker must accept privacy facts schema 2 and map cameraFramesLeaveDevice to the on-device camera sentence.
-    evidence: |-
-      Blind-hunter finding; the site repo is outside this repository, so whether its check validates schemaVersion or rejects unknown keys could not be verified here. Settle by reading the site check script in hebelmx/cubentia-site before the first camera tag.
-    location: >-
-      hebelmx/cubentia-site privacy check
-    severity: medium (unverified)
+deferred: []  # pruned 2026-11-25 (Epic 13 retro item 111): settled. The site check accepts facts schema 2 (site PR #6, scripts/fixtures/privacy-facts-v2-camera.json).
 ---
 
 <intent-contract>

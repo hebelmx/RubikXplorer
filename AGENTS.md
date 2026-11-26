@@ -23,6 +23,7 @@ Offline Android tutor that teaches beginners to solve a 3×3 cube on a virtual o
 - Requirements and IDs (FR-n, NFR-n, Glossary): `_bmad-output/planning-artifacts/prds/prd-RubikXplorer-2026-10-29/prd.md`; use Glossary terms verbatim in type names.
 - Build gates (AD-1 module boundaries, AD-13 manifest and SDK denylist, Kover, R8 keep rules): `build-logic/src/main/kotlin/dev/cubentia/buildlogic/`; change gates there, never in per-module build scripts.
 - Camera, scan, Quick Check, Placement or Case-recognition work is v1.0 scope (SCP 2026-11-20; release levels per SCP 2026-11-24 camera-release-timeline): plan it from Epics 10–11 in `_bmad-output/planning-artifacts/epics.md` (`post-launch/v1.1-camera-recognition.md` is only a historical pointer) and spine AD-9/AD-13/AD-18. Camera code lives only in the `app/src/camera/` source set behind the `ScanLauncher` port, never in `app/src/main`; ML Kit and `play-services-mlkit` are denylisted. Keep `CAMERA_SCAN`, `QUICK_SCAN`, `PLACEMENT`, `CASE_RECOGNITION` OFF for release in `build-logic/.../policy/FeatureFlagLevels.kt` until Story 10.11 raises one (the last three need `CAMERA_SCAN` above OFF); with all OFF the release has no `CAMERA` permission and no CameraX/ML on its classpath.
+- Public website and privacy policy: `https://hebelmx.github.io/cubentia-site/privacy/`, built from the separate repo `hebelmx/cubentia-site` (never rename it). Its `check` job reads `docs/privacy-facts.json` at `vars.APP_REF`; regenerate the file with `./gradlew :app:writePrivacyFacts` and verify it with `:app:checkPrivacyFacts`. A manifest, permission or SDK change also changes the public policy: update the site page in the same release (`docs/release.md`).
 - Next planning step or unsure which workflow fits: run the `bmad-help` skill.
 
 ## Running and verifying
@@ -63,6 +64,10 @@ Offline Android tutor that teaches beginners to solve a 3×3 cube on a virtual o
   - Translate internal shorthand (story numbers, AC codes, design tokens, CI gates) into plain product/engineering impact first.
   - Briefly explain *why* the blocker matters before listing numbered options.
   - Provide a clear recommendation (e.g., *"Option A [Recommended]: ..."*) rather than open-ended questions.
+
+## Orchestration
+
+- A story built in another repository (for example `hebelmx/cubentia-site`) routes its spec deferrals and its post-merge human checks to `action_items` in `sprint-status.yaml` when the story closes; deferrals left only in a spec's frontmatter get lost (Epic 13 retro item 111).
 
 ## Emulators
 
