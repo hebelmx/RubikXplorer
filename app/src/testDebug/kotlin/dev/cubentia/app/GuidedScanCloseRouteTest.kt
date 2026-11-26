@@ -406,10 +406,7 @@ class GuidedScanCloseRouteTest {
         val starts = camera.starts
         val scan = Robolectric.buildActivity(GuidedScanActivity::class.java, intent).setup()
         try {
-            rule.waitUntil(10_000) {
-                shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(16))
-                camera.starts > starts
-            }
+            rule.awaitScanCamera { camera.starts > starts }
             rule.waitForIdle()
             body(scan)
         } finally {
@@ -418,14 +415,8 @@ class GuidedScanCloseRouteTest {
         }
     }
 
-    /** Waits until the camera runs again (after a recreate); a full Compose sync each poll runs the recomposition that starts it. */
-    private fun awaitCamera() {
-        rule.waitUntil(10_000) {
-            rule.waitForIdle()
-            shadowOf(Looper.getMainLooper()).idle()
-            camera.running
-        }
-    }
+    /** Waits until the camera runs again (after a recreate). */
+    private fun awaitCamera() = rule.awaitScanCamera { camera.running }
 
     private fun waitFor(tag: String) {
         rule.waitUntil(10_000) {

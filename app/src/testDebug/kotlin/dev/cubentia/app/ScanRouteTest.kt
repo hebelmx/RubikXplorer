@@ -157,7 +157,7 @@ class ScanRouteTest {
         val scan = Robolectric.buildActivity(GuidedScanActivity::class.java, started.intent).setup()
         rule.waitForIdle()
         val vm = ViewModelProvider(scan.get())[GuidedScanViewModel::class.java]
-        rule.waitUntil(10_000) { source.starts > 0 }
+        rule.awaitScanCamera { source.starts > 0 }
         rule.waitForIdle()
         assertEquals(1, source.starts)
 
@@ -307,7 +307,7 @@ class ScanRouteTest {
         val first = tapTwiceAndTakeTheScan()
         val scan = Robolectric.buildActivity(GuidedScanActivity::class.java, first).setup()
         rule.waitForIdle()
-        rule.waitUntil(10_000) { source.starts > 0 }
+        rule.awaitScanCamera { source.starts > 0 }
         ShadowLog.clear()
         scan.get().onBackPressedDispatcher.onBackPressed()
         rule.waitForIdle()
@@ -360,10 +360,7 @@ class ScanRouteTest {
         val scan = Robolectric.buildActivity(GuidedScanActivity::class.java).setup()
         try {
             rule.waitForIdle()
-            rule.waitUntil(10_000) {
-                shadowOf(android.os.Looper.getMainLooper()).idle()
-                source.running
-            }
+            rule.awaitScanCamera { source.running }
             val starts = source.starts
             val vm = ViewModelProvider(scan.get())[GuidedScanViewModel::class.java]
             captureFaces(vm, logo = false)
@@ -631,18 +628,8 @@ class ScanRouteTest {
         }
     }
 
-    /**
-     * Waits until the camera runs and [phase] holds. A state change another thread (analyzer, IO) posts to main lands
-     * mid-wait, and waitUntil alone only steps the Compose clock: under load the recomposition that starts the camera
-     * (previewReady, then startCamera) was never run and the wait timed out. A full Compose sync on every poll runs it.
-     */
-    private fun awaitCameraStart(phase: () -> Boolean) {
-        rule.waitUntil(10_000) {
-            rule.waitForIdle()
-            shadowOf(Looper.getMainLooper()).idle()
-            phase() && source.running
-        }
-    }
+    /** Waits until the camera runs and [phase] holds. */
+    private fun awaitCameraStart(phase: () -> Boolean) = rule.awaitScanCamera { phase() && source.running }
 
     // [misread] reads that facelet as another clear color, so only the Learner's carried correction can fix it.
     private fun captureFaces(
