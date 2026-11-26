@@ -2950,7 +2950,7 @@ action_items:
       and return EMPTY, so a short plane buffer cannot crash the analyzer thread (low;
       deferred from 10.31, LiteRtStickerCenterDetector.kt:73)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-31-wire-litert-v2-int8-sticker-center-detector-split-continuous.md"
   - id: "epic-10-deferred-10.32-calibration-restarts-quick-scan"
     epic: 10
