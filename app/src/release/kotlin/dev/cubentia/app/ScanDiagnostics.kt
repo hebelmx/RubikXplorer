@@ -14,6 +14,8 @@ import dev.cubentia.domain.tutor.PlacementOutcome
 /** release and benchmark builds: no scan diagnostics are computed or logged. */
 @Suppress("UNUSED_PARAMETER")
 object ScanDiagnostics {
+    fun onQuickScanFrameFailed(failedFrames: Int) = Unit
+
     fun onTorch(
         hasFlash: Boolean,
         torch: Boolean,

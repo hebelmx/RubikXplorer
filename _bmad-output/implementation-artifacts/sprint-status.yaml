@@ -2950,7 +2950,7 @@ action_items:
       and return EMPTY, so a short plane buffer cannot crash the analyzer thread (low;
       deferred from 10.31, LiteRtStickerCenterDetector.kt:73)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-31-wire-litert-v2-int8-sticker-center-detector-split-continuous.md"
   - id: "epic-10-deferred-10.32-calibration-restarts-quick-scan"
     epic: 10
@@ -3030,3 +3030,9 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
+  - id: "issue-389-deferred-face-sampler-short-frame-crash"
+    epic: 10
+    action: "ContinuousFaceSampler.sample can still throw outside detect() on a camera frame whose plane buffer is short only in its last rows, which still crashes the continuous Quick Scan analyzer; guard that path or catch in the analyzer (medium; deferred from #389, ContinuousFaceSampler.kt:182)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-389-continuous-quick-scan-bad-frame-skip.md"
