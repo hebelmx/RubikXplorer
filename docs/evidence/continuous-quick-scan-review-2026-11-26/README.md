@@ -18,9 +18,9 @@ The probes are JVM tests run on a scratch copy of the code, not on a device. The
 | 7 | A frame the detector skipped counts as "cube lost" | **Confirmed in code** (low severity) | #403 |
 | 8 | After `close()`, the detector returns empty frames without setting `unavailable` | **Confirmed, latent**: only tests call `close()` | #404 |
 
-## Enhancement ideas (not filed; input for Story 10.33)
+## Enhancement ideas (input for Story 10.33)
 
-- Crop the detector input to the tracked cube's bounding box once it is tracked. Today the whole frame is letterboxed to 256 px, so side-face stickers sit 2-3 heatmap cells apart; a crop gives 2-3× the effective resolution at the same inference cost.
-- A "move closer" cue when the fitted faces are small, instead of the generic "bring into view".
-- Debug timings per stage (fit, sample, map), next to the existing inference time.
+- Crop the detector input to the tracked cube, plus a "move closer" cue: #407.
+- Debug timings per stage on device (`inferenceMs` is measured but never logged today): #406.
+- Not filed yet: a peak-level parity check of the live YUV input path against the Pillow-resized path (finding 5).
 - Express the mapper's streak limits in time rather than frames (noted in #403).
