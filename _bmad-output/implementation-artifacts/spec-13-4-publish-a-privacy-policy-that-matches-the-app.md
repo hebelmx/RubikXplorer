@@ -12,21 +12,7 @@ context:
   - '{project-root}/AGENTS.md'
   - '{project-root}/_bmad-output/implementation-artifacts/epic-13-context.md'
 warnings: ['oversized']
-deferred:
-  - summary: >-
-      The landing page, 404 page, README and LICENSE still name the publisher "ExxerPro" instead of the PO's updated legal name.
-    evidence: |-
-      site/index.html and site/404.html footers read "© 2026 ExxerPro"; README and LICENSE use ExxerPro. Only /privacy/ must name the publisher exactly (AC1). Aligning the other pages belongs to 13.2/13.5; the LICENSE copyright holder is a PO decision.
-    location: >-
-      cubentia-site/site/index.html, site/404.html, README.md, LICENSE
-    severity: low
-  - summary: >-
-      The pages.yml trigger, upload, deploy and concurrency conditions have no automated test; they run only on GitHub.
-    evidence: |-
-      Verification-gap layer (pre-verified): no test reads the workflow file, so reverting the deploy condition to != pull_request (a daily redeploy) would pass every test. The repo has no workflow test harness. Settle it with the first PR run (check only), the first scheduled run (check only) and the first main push (check, then deploy).
-    location: >-
-      cubentia-site/.github/workflows/pages.yml
-    severity: medium
+deferred: []  # pruned 2026-11-25 (Epic 13 retro item 111): settled. Site footers now read "Exxerpro Solutions, S.A. de C.V."; pages.yml proven by PR, schedule and main-push runs (e.g. site run 45716347254).
 ---
 
 <intent-contract>

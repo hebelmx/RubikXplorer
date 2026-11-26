@@ -3918,7 +3918,7 @@ So that retrospective and deferred-review findings are not left behind when the 
 
 **Refs:** PRD §7 release gates · Stories 10.11, 12.4, 12.5 · `sprint-status.yaml` `action_items` · `sprint-change-proposal-2026-11-25-continuous-scan-enhancement.md`
 
-**Runs** before Story 10.11 (hard dependency). It can start at once. Its last pass runs right before 10.11 starts, so it also covers items added by Stories 10.32–10.36. Device-free, except for PO items that need a device session to close. *(SCP 2026-11-25 continuous-scan-enhancement. On 2026-11-25 the record held 199 open or in-progress items: 78 Epic 10, 25 Epic 12, 24 Epic 11, 20 Epic 15, 17 Epic 14 and 35 across Epics 1–9 and 13; 63 owned by the PO.)*
+**Runs** before Story 10.11 (hard dependency). **Depends on** Epic 13 being closed (its last open retro item, the site accessibility pass, settled), so any item Epic 13 leaves open is included. A preliminary triage list can be drafted before then. Its last pass runs right before 10.11 starts, so it also covers items added by Stories 10.32–10.36. Device-free, except for PO items that need a device session to close. *(SCP 2026-11-25 continuous-scan-enhancement. On 2026-11-25 the record held 199 open or in-progress items: 78 Epic 10, 25 Epic 12, 24 Epic 11, 20 Epic 15, 17 Epic 14 and 35 across Epics 1–9 and 13; 63 owned by the PO.)*
 
 **Acceptance Criteria:**
 
@@ -4029,6 +4029,8 @@ So that I know Cubentia collects nothing and keeps my progress on my device.
 **Depends on** Stories 13.1 and 13.3.
 
 **Human gate (before merge):** the PO confirms the publisher name ("Exxerpro Solutions, S.A. de C.V.") exactly as on the Play developer account, and the effective date.
+
+*(SCP 2026-11-25 continuous-scan-enhancement, reconciling with the as-built (Epic 13 retro item 108): AC1's publisher line reads "Exxerpro Solutions, S.A. de C.V. (published on Google Play as Abel Briones)". AC2's facts are read at `vars.APP_REF`, not `main`, and the check accepts facts schema 2 for camera releases (site PR #6). AC1's "asks for no runtime permission" holds for camera-OFF builds; since site PR #10 (effective 25 November 2026) the page also says Cubentia will ask for camera permission when the Learner chooses to scan, and Story 10.11 AC2 completes the camera wording at the camera release.)*
 
 **Acceptance Criteria:**
 

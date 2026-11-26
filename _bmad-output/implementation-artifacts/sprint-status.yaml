@@ -1147,7 +1147,8 @@ action_items:
       AC1 publisher line 'Exxerpro Solutions, S.A. de C.V. (published on Google Play
       as Abel Briones)'; AC2 facts read at vars.APP_REF, schema 2 for camera releases"
     owner: "PM (John) + PO (hebelmx)"
-    status: open
+    status: done
+    resolution: "Story 13.4 annotated in epics.md (publisher line, APP_REF, schema 2, camera wording) by SCP 2026-11-25 continuous-scan-enhancement"
     ref: "_bmad-output/implementation-artifacts/epic-13-retro-2026-11-19.md"
   - id: "epic-13-retro-item-109-agents-md-site-and-privacy-facts-pointer"
     epic: 13
@@ -1156,14 +1157,16 @@ action_items:
       and the rule that a manifest or SDK change also changes the public policy (via
       bmad-project-context)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
+    resolution: "AGENTS.md Where things are: website, site repo, privacy-facts tasks and the manifest-changes-policy rule (2026-11-25)"
     ref: "_bmad-output/implementation-artifacts/epic-13-retro-2026-11-19.md"
   - id: "epic-13-retro-item-110-supersede-epic-13-context-publisher"
     epic: 13
     action: "Regenerate epic-13-context.md or mark its line 20 (publisher and contact)
       and line 45 (weekly external link check) superseded"
     owner: "SM (orchestrator)"
-    status: open
+    status: done
+    resolution: "epic-13-context.md publisher/contact and weekly link-check lines marked superseded (2026-11-25)"
     ref: "_bmad-output/implementation-artifacts/epic-13-retro-2026-11-19.md"
   - id: "epic-13-retro-item-111-prune-settled-13-4-deferrals"
     epic: 13
@@ -1172,7 +1175,8 @@ action_items:
       rule that stories built in another repo route spec deferrals and post-merge
       human checks to action_items at story close"
     owner: "SM (orchestrator)"
-    status: open
+    status: done
+    resolution: "spec-13-4 and schema-2 spec deferrals pruned as settled; AGENTS.md Orchestration rule routes other-repo deferrals to action_items (2026-11-25)"
     ref: "_bmad-output/implementation-artifacts/epic-13-retro-2026-11-19.md"
   - id: "issue-205-deferred-device-status-bar-contrast"
     epic: 12

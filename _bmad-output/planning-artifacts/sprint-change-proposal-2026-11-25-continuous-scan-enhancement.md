@@ -68,6 +68,21 @@ On 2026-11-25 six stories were pending: 10.32 → 10.33 → 10.11 (the `0.11.0` 
 
 **sprint-status.yaml.** Add `10-36-record-new-scrambles-on-the-continuous-recorder-analyse-the: backlog` after 10-35 and `12-18-settle-every-open-action-item-before-the-camera-release: backlog` after 12-17.
 
+## 4a. Addendum (PO, 25 November 2026): finish Epic 13 first; 12.18 depends on it
+
+The site's privacy page already announces the camera (site PR #10, effective 25 November 2026), and the Epic 13 retrospective is done. Four of its five open items are settled in this branch:
+
+| Item | Outcome |
+| --- | --- |
+| 108 reconcile Story 13.4 | `epics.md` 13.4 annotated: publisher line, `vars.APP_REF`, facts schema 2, camera wording |
+| 109 AGENTS.md pointer | Website, site repo, `writePrivacyFacts`/`checkPrivacyFacts`, and the rule that a manifest change also changes the policy |
+| 110 epic-13-context.md | Publisher/contact and the never-built weekly link check marked superseded |
+| 111 prune deferrals | spec-13-4 and the schema-2 spec deferrals pruned as settled; AGENTS.md *Orchestration* rule routes other-repo deferrals to `action_items` |
+
+**Still open:** item 107, the PO's manual accessibility pass on the site's `/`, `/privacy/` and `/support/` (keyboard with visible focus, 200% zoom, 320 CSS px, light and dark). `epic-13` stays `in-progress` until it is recorded.
+
+**Story 12.18** now also **depends on Epic 13 being closed**, so any item Epic 13 leaves open is included. A preliminary triage list can be drafted before then.
+
 ## 5. Implementation handoff
 
 **Scope: Moderate** (backlog reorganisation).
