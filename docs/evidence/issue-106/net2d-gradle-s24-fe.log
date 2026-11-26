@@ -1,0 +1,151 @@
+> Task :build-logic:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :build-logic:compileKotlin UP-TO-DATE
+> Task :build-logic:compileJava NO-SOURCE
+> Task :build-logic:pluginDescriptors UP-TO-DATE
+> Task :build-logic:processResources UP-TO-DATE
+> Task :build-logic:classes UP-TO-DATE
+> Task :build-logic:jar UP-TO-DATE
+> Task :macrobenchmark:preBuild UP-TO-DATE
+> Task :core:application:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:solver:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:domain:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :macrobenchmark:preBenchmarkBuild UP-TO-DATE
+> Task :core:application:checkModuleBoundaries UP-TO-DATE
+> Task :app:generateCubentiaKeepRules UP-TO-DATE
+> Task :core:solver:checkModuleBoundaries UP-TO-DATE
+> Task :core:domain:checkModuleBoundaries UP-TO-DATE
+> Task :app:generateBenchmarkAssets UP-TO-DATE
+> Task :core:application:processResources NO-SOURCE
+> Task :core:solver:processResources NO-SOURCE
+> Task :core:solver:processBenchmarkResources NO-SOURCE
+> Task :macrobenchmark:checkTestedAppObfuscationBenchmark UP-TO-DATE
+> Task :macrobenchmark:generateBenchmarkResources UP-TO-DATE
+> Task :macrobenchmark:packageBenchmarkResources UP-TO-DATE
+> Task :macrobenchmark:processBenchmarkNavigationResources UP-TO-DATE
+> Task :macrobenchmark:parseBenchmarkLocalResources UP-TO-DATE
+> Task :macrobenchmark:generateBenchmarkRFile UP-TO-DATE
+> Task :macrobenchmark:compileBenchmarkKotlin UP-TO-DATE
+> Task :macrobenchmark:javaPreCompileBenchmark UP-TO-DATE
+> Task :macrobenchmark:compileBenchmarkJavaWithJavac NO-SOURCE
+> Task :macrobenchmark:generateBenchmarkAssets UP-TO-DATE
+> Task :macrobenchmark:mergeBenchmarkAssets UP-TO-DATE
+> Task :core:domain:compileKotlin UP-TO-DATE
+> Task :core:domain:compileJava NO-SOURCE
+> Task :macrobenchmark:compressBenchmarkAssets UP-TO-DATE
+> Task :core:domain:processResources UP-TO-DATE
+> Task :core:domain:classes UP-TO-DATE
+> Task :macrobenchmark:generateBenchmarkGlobalSynthetics UP-TO-DATE
+> Task :macrobenchmark:compressBenchmarkJavaRes UP-TO-DATE
+> Task :core:domain:jar UP-TO-DATE
+> Task :macrobenchmark:mergeBenchmarkJavaResource UP-TO-DATE
+> Task :macrobenchmark:checkBenchmarkDuplicateClasses UP-TO-DATE
+> Task :macrobenchmark:desugarBenchmarkFileDependencies UP-TO-DATE
+> Task :macrobenchmark:mergeExtDexBenchmark UP-TO-DATE
+> Task :macrobenchmark:mergeLibDexBenchmark UP-TO-DATE
+> Task :macrobenchmark:checkBenchmarkAarMetadata UP-TO-DATE
+> Task :macrobenchmark:mapBenchmarkSourceSetPaths UP-TO-DATE
+> Task :macrobenchmark:compileBenchmarkNavigationResources UP-TO-DATE
+> Task :core:application:compileKotlin UP-TO-DATE
+> Task :core:application:compileJava NO-SOURCE
+> Task :core:application:classes UP-TO-DATE
+> Task :core:application:jar UP-TO-DATE
+> Task :macrobenchmark:mergeBenchmarkResources UP-TO-DATE
+> Task :macrobenchmark:mergeBenchmarkManifest UP-TO-DATE
+> Task :macrobenchmark:processBenchmarkManifest UP-TO-DATE
+> Task :core:solver:compileKotlin UP-TO-DATE
+> Task :core:solver:compileJava NO-SOURCE
+> Task :core:solver:classes UP-TO-DATE
+> Task :core:solver:jar UP-TO-DATE
+> Task :macrobenchmark:processBenchmarkResources UP-TO-DATE
+> Task :macrobenchmark:dexBuilderBenchmark UP-TO-DATE
+> Task :macrobenchmark:mergeProjectDexBenchmark UP-TO-DATE
+> Task :macrobenchmark:mergeBenchmarkJniLibFolders UP-TO-DATE
+> Task :core:solver:compileBenchmarkKotlin UP-TO-DATE
+> Task :macrobenchmark:mergeBenchmarkNativeLibs UP-TO-DATE
+> Task :core:solver:compileBenchmarkJava NO-SOURCE
+> Task :core:solver:benchmarkClasses UP-TO-DATE
+> Task :macrobenchmark:stripBenchmarkDebugSymbols UP-TO-DATE
+> Task :macrobenchmark:validateSigningBenchmark UP-TO-DATE
+> Task :core:solver:writePruningTableAsset UP-TO-DATE
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preBenchmarkBuild UP-TO-DATE
+> Task :macrobenchmark:writeBenchmarkSigningConfigVersions UP-TO-DATE
+> Task :macrobenchmark:packageBenchmark UP-TO-DATE
+> Task :macrobenchmark:createBenchmarkApkListingFileRedirect UP-TO-DATE
+> Task :app:checkBenchmarkDuplicateClasses UP-TO-DATE
+> Task :app:mergeBenchmarkArtProfile UP-TO-DATE
+> Task :app:generateBenchmarkBuildConfig UP-TO-DATE
+> Task :app:generateBenchmarkResources UP-TO-DATE
+> Task :app:packageBenchmarkResources UP-TO-DATE
+> Task :app:processBenchmarkNavigationResources UP-TO-DATE
+> Task :app:parseBenchmarkLocalResources UP-TO-DATE
+> Task :app:generateBenchmarkRFile UP-TO-DATE
+> Task :app:kspBenchmarkKotlin UP-TO-DATE
+> Task :app:compileBenchmarkKotlin UP-TO-DATE
+> Task :app:javaPreCompileBenchmark UP-TO-DATE
+> Task :app:compileBenchmarkJavaWithJavac UP-TO-DATE
+> Task :app:hiltCollectClassesBenchmark UP-TO-DATE
+> Task :app:hiltAggregateDepsBenchmark UP-TO-DATE
+> Task :app:hiltJavaCompileBenchmark UP-TO-DATE
+> Task :app:checkBenchmarkAarMetadata UP-TO-DATE
+> Task :app:mapBenchmarkSourceSetPaths UP-TO-DATE
+> Task :app:compileBenchmarkNavigationResources UP-TO-DATE
+> Task :app:mergeBenchmarkResources UP-TO-DATE
+> Task :app:createBenchmarkCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksBenchmark UP-TO-DATE
+> Task :app:processBenchmarkMainManifest UP-TO-DATE
+> Task :app:processBenchmarkManifest UP-TO-DATE
+> Task :app:processBenchmarkManifestForPackage UP-TO-DATE
+> Task :app:processBenchmarkResources UP-TO-DATE
+> Task :app:transformBenchmarkClassesWithAsm UP-TO-DATE
+> Task :app:expandBenchmarkArtProfileWildcards UP-TO-DATE
+> Task :app:extractProguardFiles UP-TO-DATE
+> Task :app:mergeBenchmarkGeneratedProguardFiles UP-TO-DATE
+> Task :app:compressBenchmarkJavaRes UP-TO-DATE
+> Task :app:mergeBenchmarkJavaResource UP-TO-DATE
+> Task :app:mergeBenchmarkStartupProfile UP-TO-DATE
+> Task :app:minifyBenchmarkWithR8 UP-TO-DATE
+> Task :app:produceBenchmarkComposeMapping UP-TO-DATE
+> Task :app:reportBenchmarkComposeMappingErrors
+> Task :app:mergeBenchmarkComposeMapping UP-TO-DATE
+> Task :app:compileBenchmarkArtProfile UP-TO-DATE
+> Task :app:copyRoomSchemas NO-SOURCE
+> Task :app:mergeBenchmarkAssets UP-TO-DATE
+> Task :app:compressBenchmarkAssets UP-TO-DATE
+> Task :app:extractBenchmarkVersionControlInfo UP-TO-DATE
+> Task :app:generateBenchmarkLintVitalReportModel UP-TO-DATE
+> Task :app:lintVitalAnalyzeBenchmark UP-TO-DATE
+> Task :app:lintVitalReportBenchmark UP-TO-DATE
+> Task :app:lintVitalBenchmark
+> Task :app:convertShrunkResourcesToBinaryBenchmark UP-TO-DATE
+> Task :app:optimizeBenchmarkResources UP-TO-DATE
+> Task :app:collectBenchmarkDependencies UP-TO-DATE
+> Task :app:sdkBenchmarkDependencyData UP-TO-DATE
+> Task :app:mergeBenchmarkJniLibFolders UP-TO-DATE
+> Task :app:mergeBenchmarkNativeLibs UP-TO-DATE
+> Task :app:stripBenchmarkDebugSymbols UP-TO-DATE
+> Task :app:validateSigningBenchmark UP-TO-DATE
+> Task :app:writeBenchmarkAppMetadata UP-TO-DATE
+> Task :app:writeBenchmarkSigningConfigVersions UP-TO-DATE
+> Task :app:packageBenchmark UP-TO-DATE
+> Task :app:createBenchmarkApkListingFileRedirect UP-TO-DATE
+
+> Task :macrobenchmark:connectedBenchmarkAndroidTest
+Running tests on devices: SM-S721U1 - 17
+
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::arrayBaseOffset has been called by com.google.protobuf.UnsafeUtil$MemoryAccessor (file:/home/abelbriones/.gradle/caches/modules-2/files-2.1/com.google.protobuf/protobuf-java/3.25.5/5ae5c9ec39930ae9b5a61b32b93288818ec05ec1/protobuf-java-3.25.5.jar)
+WARNING: Please consider reporting this to the maintainers of class com.google.protobuf.UnsafeUtil$MemoryAccessor
+WARNING: sun.misc.Unsafe::arrayBaseOffset will be removed in a future release
+
+[Incubating] Problems report is available at: file:///mnt/e/Dynamic/IndFun/RubikXplorer-issue-106/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.8.2/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 1m 47s
+106 actionable tasks: 3 executed, 103 up-to-date
+Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.8.2/userguide/configuration_cache_enabling.html

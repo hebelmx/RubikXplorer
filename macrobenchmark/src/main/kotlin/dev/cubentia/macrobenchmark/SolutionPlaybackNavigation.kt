@@ -29,17 +29,24 @@ internal fun MacrobenchmarkScope.openSolutionPlayback() {
     device.requireObject(By.text("Enter colors"), "Solve tab Enter colors button").click()
 
     device.requireObject(By.desc("White sticker, up face, position 8"), "Manual Cube Editor up-face sticker")
-    paintSticker("Up", "White", 8, "Green")
-    paintSticker("Up", "White", 2, "Blue")
-    paintSticker("Front", "Green", 2, "White")
-    paintSticker("Back", "Blue", 2, "White")
-    editorObject(By.text("Accept").enabled(true), "enabled Accept button").click()
+    // The editor accepts only when every face is entered, so every non-center sticker is painted:
+    // the UF and UB edges flipped, every other sticker its own solved color.
+    for ((face, solved) in FACES) {
+        for (position in 1..9) {
+            if (position == 5) continue
+            paintSticker(face, position, FLIPPED[face to position] ?: solved)
+        }
+    }
+    // The "Accept" text reports enabled even while its button is disabled, so wait on the clickable button.
+    editorObject(By.clickable(true).enabled(true).hasDescendant(By.text("Accept")), "enabled Accept button").click()
     device.requireObject(By.desc("Play"), "Solution Playback Play after solving the edited cube", SOLVE_TIMEOUT_MS)
 }
 
+private val FACES = listOf("Up" to "White", "Right" to "Red", "Front" to "Green", "Down" to "Yellow", "Left" to "Orange", "Back" to "Blue")
+private val FLIPPED = mapOf(("Up" to 8) to "Green", ("Up" to 2) to "Blue", ("Front" to 2) to "White", ("Back" to 2) to "White")
+
 private fun MacrobenchmarkScope.paintSticker(
     face: String,
-    originalColor: String,
     position: Int,
     newColor: String,
 ) {
@@ -47,8 +54,8 @@ private fun MacrobenchmarkScope.paintSticker(
     val onePerFace = device.hasObject(upTab)
     if (onePerFace) editorObject(By.desc("$face face"), "$face face tab").click()
 
-    val sticker = "$originalColor sticker, ${face.lowercase()} face, position $position"
-    editorObject(By.desc(sticker), sticker).click()
+    val sticker = "${face.lowercase()} face, position $position"
+    editorObject(By.desc(Pattern.compile(".* sticker, ${Pattern.quote(sticker)}")), sticker).click()
     val swatch = By.desc(newColor)
     val visibleSwatch = device.findObject(swatch)
     if (visibleSwatch != null) {
