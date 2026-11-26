@@ -66,8 +66,9 @@ jobs:
             app/build/outputs/androidTest-results/
             docs/evidence/12-2/keyflow/ci/
 
-  release:
-    needs: [validate, instrumentation]
+  # Builds and signs the R8 release once; the smoke and upload jobs consume these artifacts, never a rebuild.
+  build:
+    needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -109,6 +110,58 @@ jobs:
             app/build/outputs/bundle/release/*.aab
             app/build/outputs/mapping/release/mapping.txt
             app/build/reports/cubentia/release-size.txt
+      # The universal APK that checkReleaseSize builds from the same signed AAB; the smoke job installs it.
+      - uses: actions/upload-artifact@v6
+        with:
+          name: release-smoke-apk-${{ needs.validate.outputs.version }}
+          if-no-files-found: error
+          retention-days: 7
+          path: app/build/outputs/apk_from_bundle/release/app-release-universal.apk
+      - name: Remove upload keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/cubentia-upload.p12"
+
+  # Installs and launches the signed, shrunk release APK (epic-7-retro-item-68); instrumentation only covers debug.
+  smoke:
+    needs: [validate, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          name: release-smoke-apk-${{ needs.validate.outputs.version }}
+          path: release-smoke
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        env:
+          ANDROID_SERIAL: emulator-5554
+          LOG_DIR: ${{ runner.temp }}/release-smoke-logs
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          script: bash .github/scripts/release-apk-smoke.sh release-smoke/app-release-universal.apk
+      - uses: actions/upload-artifact@v6
+        if: failure()
+        with:
+          name: release-smoke-logs
+          path: ${{ runner.temp }}/release-smoke-logs/
+
+  # Play upload runs only after the debug instrumentation suite and the release smoke both pass.
+  upload:
+    needs: [validate, instrumentation, smoke]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: pilot-release-${{ needs.validate.outputs.version }}
+          path: app/build
       - name: Upload to Play internal testing
         uses: r0adkll/upload-google-play@v1
         with:
@@ -118,6 +171,3 @@ jobs:
           mappingFile: app/build/outputs/mapping/release/mapping.txt
           track: internal
           status: ${{ needs.validate.outputs.status }}
-      - name: Remove upload keystore
-        if: always()
-        run: rm -f "$RUNNER_TEMP/cubentia-upload.p12"
