@@ -2,8 +2,6 @@
 # Evidence helper for the physical-cube device session (session C / OQ-8).
 #   tools/cube-session.sh cell <lenovo|s24> <cube> <light> <feature>   log one matrix cell (+ screenshots)
 #   tools/cube-session.sh shot <lenovo|s24> <label>                    one screenshot
-#   tools/cube-session.sh recorder <lenovo|s24>                        open the fixture recorder
-#   tools/cube-session.sh pull <lenovo|s24>                            pull recorder fixtures into Fixtures/
 #   tools/cube-session.sh deny-camera <lenovo|s24>                     revoke the camera permission (Placement denial path)
 # cube: stla stlb stka stkb   light: daylight warm cool low
 # feature: guided quickscan quickcheck recognize placement
@@ -34,7 +32,7 @@ shot() { # serial file
 cmd=${1:-}; shift || true
 case "$cmd" in
   cell)
-    [ $# -eq 4 ] || { sed -n '2,9p' "$0"; exit 2; }
+    [ $# -eq 4 ] || { sed -n '2,7p' "$0"; exit 2; }
     S=$(serial "$1"); CELL="$(token "$1")_$2_$3_$4"
     case "$3" in daylight|warm|cool|low) ;; *) echo "bad light: $3" >&2; exit 2 ;; esac
     case "$4" in guided|quickscan|quickcheck|recognize|placement) ;; *) echo "bad feature: $4" >&2; exit 2 ;; esac
@@ -56,15 +54,7 @@ case "$cmd" in
   shot)
     [ $# -eq 2 ] || { echo "usage: shot <lenovo|s24> <label>" >&2; exit 2; }
     S=$(serial "$1"); shot "$S" "$SHOTS/$(token "$1")_$2_$(date +%H%M%S).png" ;;
-  recorder)
-    S=$(serial "$1"); adb -s "$S" shell am start -n "$PKG/dev.cubentia.app.camera.recorder.FixtureRecorderActivity" ;;
-  pull)
-    S=$(serial "$1")
-    for d in live corner; do
-      adb -s "$S" shell ls "/sdcard/Android/data/$PKG/files/Fixtures/$d" >/dev/null 2>&1 \
-        && adb -s "$S" pull "/sdcard/Android/data/$PKG/files/Fixtures/$d" "$ROOT/Fixtures/" || echo "  (no $d fixtures on $1)"
-    done ;;
   deny-camera)
     S=$(serial "$1"); adb -s "$S" shell pm revoke "$PKG" android.permission.CAMERA && echo "camera permission revoked on $1" ;;
-  *) sed -n '2,9p' "$0"; exit 2 ;;
+  *) sed -n '2,7p' "$0"; exit 2 ;;
 esac

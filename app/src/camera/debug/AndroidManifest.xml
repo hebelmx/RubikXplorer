@@ -1,8 +1,3 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application>
-        <activity android:name="dev.cubentia.app.camera.recorder.FixtureRecorderActivity" android:exported="true" android:label="Cubentia fixture recorder">
-            <!-- No launcher icon (PO 2026-11-18): start it with
-                 adb shell am start -n com.exxerpro.cubentia/dev.cubentia.app.camera.recorder.FixtureRecorderActivity -->
-        </activity>
-    </application>
+    <application />
 </manifest>

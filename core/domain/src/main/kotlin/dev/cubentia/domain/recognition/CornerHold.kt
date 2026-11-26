@@ -95,11 +95,11 @@ internal class CornerHold {
     ): Boolean = now.zip(prior).any { (a, b) -> a != null && b != null && StickerClassifier.deltaE(a, b) >= threshold }
 }
 
-/** Settle timing shared by the domain's corner hold and the camera adapter's settle signal (Story 10.19). */
+/** Corner-capture settle timing (Story 10.19). */
 object CornerSettle {
     /**
-     * The longest a corner capture of the debug fixture recorder waits for the camera's settle signal after a metering
-     * change (and for a torch change to apply). Defined once, for [dev.cubentia.domain.recognition] callers and the adapter.
+     * The longest a corner capture waits for the camera to settle after a metering change (and for a torch change to
+     * apply). Kept as the corner-capture settle cap for Case recognition (Story 10.35); it currently has no caller.
      */
     const val CAP_MS = 1500L
 }

@@ -1,9 +1,6 @@
 package dev.cubentia.app.camera
 
 import android.content.Context
-import android.hardware.camera2.CameraCharacteristics
-import android.hardware.camera2.CaptureRequest
-import android.hardware.camera2.CaptureResult
 import android.os.SystemClock
 import android.util.Log
 import android.util.Size
@@ -13,10 +10,6 @@ import androidx.activity.ComponentActivity
 import androidx.annotation.OptIn
 import androidx.annotation.VisibleForTesting
 import androidx.camera.camera2.Camera2Config
-import androidx.camera.camera2.interop.Camera2CameraControl
-import androidx.camera.camera2.interop.Camera2CameraInfo
-import androidx.camera.camera2.interop.CaptureRequestOptions
-import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.CameraState
@@ -84,8 +77,6 @@ internal interface ScanFrameSource {
     fun stop()
 
     fun meter()
-
-    fun meter(includeAwb: Boolean) = meter()
 
     fun snapshot(): androidx.compose.ui.graphics.ImageBitmap? = null
 
@@ -217,9 +208,7 @@ internal class CameraXFrameSource
             cameraStarted = false
         }
 
-        override fun meter() = meterOnGrid(includeAwb = true)
-
-        override fun meter(includeAwb: Boolean) = meterOnGrid(includeAwb = includeAwb)
+        override fun meter() = meterOnGrid()
 
         override fun snapshot() = previewView?.bitmap?.asImageBitmap()
 
@@ -454,7 +443,7 @@ internal class CameraXFrameSource
          * region stays inside the grid. The lock cancels after [METERING_LOCK_SECONDS] so continuous AF resumes when the
          * cube moves nearer or farther (PO 2026-11-16).
          */
-        private fun meterOnGrid(includeAwb: Boolean = true) {
+        private fun meterOnGrid() {
             val grid = meteringGrid ?: return
             val analysis = analysisUseCase ?: return
             val bound = camera ?: return
@@ -462,7 +451,7 @@ internal class CameraXFrameSource
             val factory = SurfaceOrientedMeteringPointFactory(grid.width.toFloat(), grid.height.toFloat(), analysis)
             val action =
                 try {
-                    meteringAction(factory, centre, includeAwb)
+                    meteringAction(factory, centre)
                 } catch (ignored: IllegalStateException) {
                     // The analysis use case is no longer bound: nothing to meter.
                     return
@@ -487,85 +476,8 @@ internal class CameraXFrameSource
                 continuous: Boolean,
             ): Boolean = hasFlash && wanted && !suspended && (corner || calibrating || continuous)
 
-            /** The longest the settle signal waits for the metering future and a stable exposure (shared with the domain). */
-            const val SETTLE_CAP_MS = dev.cubentia.domain.recognition.CornerSettle.CAP_MS
-
-            /**
-             * Story 10.22: exposure time × ISO counts as one level while its largest value is within this share of its
-             * smallest. Still burst 1 moves about 5% inside a level and 14% between its two levels; every value from 0.04
-             * to 0.10 reports "not settled" throughout that burst's swing (docs/evidence/10-22/README.md).
-             */
-            const val SETTLE_TOLERANCE = 0.06
-
-            /**
-             * Story 10.22: the exposure level must hold this long, after the metering future, to count as settled. On still
-             * burst 1 a 400 ms window settles inside the swing; 500 ms and 750 ms do not.
-             */
-            const val SETTLE_WINDOW_MS = 600L
-
-            /** The lock word of the debug fixture recorder's settle line when the camera cannot lock its exposure. */
-            const val LOCK_UNSUPPORTED = "unsupported"
-
-            /**
-             * Whether [bound] can lock AE and AWB; (false, false) when it cannot say. Shared with the debug fixture
-             * recorder (Story 10.20), so its corner captures lock exactly as Quick Scan does.
-             */
-            @OptIn(ExperimentalCamera2Interop::class)
-            internal fun lockSupport(bound: Camera): Pair<Boolean, Boolean> =
-                runCatching {
-                    val info = Camera2CameraInfo.from(bound.cameraInfo)
-                    (info.getCameraCharacteristic(CameraCharacteristics.CONTROL_AE_LOCK_AVAILABLE) == true) to
-                        (info.getCameraCharacteristic(CameraCharacteristics.CONTROL_AWB_LOCK_AVAILABLE) == true)
-                }.getOrDefault(false to false)
-
-            /**
-             * Sets [bound]'s capture-request lock options to [wanted]; never throws (a camera that refuses keeps its auto
-             * modes). Shared with the debug fixture recorder (Story 10.20).
-             */
-            @OptIn(ExperimentalCamera2Interop::class)
-            internal fun applyLocks(
-                bound: Camera,
-                wanted: ExposureLocks,
-            ) {
-                runCatching {
-                    val control = Camera2CameraControl.from(bound.cameraControl)
-                    if (!wanted.held) {
-                        control.clearCaptureRequestOptions()
-                    } else {
-                        control.setCaptureRequestOptions(
-                            CaptureRequestOptions
-                                .Builder()
-                                .setCaptureRequestOption(CaptureRequest.CONTROL_AE_LOCK, wanted.ae)
-                                .setCaptureRequestOption(CaptureRequest.CONTROL_AWB_LOCK, wanted.awb)
-                                .build(),
-                        )
-                    }
-                }
-            }
-
             /** The torch is re-applied at most this often when it drifted from what is wanted. */
             const val TORCH_RETRY_MS = 1000L
-
-            /**
-             * The metering region over the detected cube outline [quads] (analysis-frame pixels): the centre of the
-             * outline's bounding box, sized by its longer side as a share of the frame's longer side; null when no
-             * outline was detected or the frame size is unknown.
-             */
-            internal fun cubeMeteringRegion(
-                quads: List<List<CornerPoint>>,
-                width: Int,
-                height: Int,
-            ): MeteringRegion? {
-                val points = quads.flatten()
-                if (points.isEmpty() || width <= 0 || height <= 0) return null
-                val left = points.minOf { it.x }.coerceIn(0.0, width.toDouble())
-                val right = points.maxOf { it.x }.coerceIn(0.0, width.toDouble())
-                val top = points.minOf { it.y }.coerceIn(0.0, height.toDouble())
-                val bottom = points.maxOf { it.y }.coerceIn(0.0, height.toDouble())
-                if (right <= left || bottom <= top) return null
-                val size = (maxOf(right - left, bottom - top) / maxOf(width, height)).coerceIn(0.0, 1.0)
-                return MeteringRegion((left + right) / 2, (top + bottom) / 2, size)
-            }
 
             /** The grid-centre metering region (today's point): the drawn grid's square on a [width]×[height] frame. */
             internal fun centreMeteringRegion(
@@ -579,61 +491,20 @@ internal class CameraXFrameSource
                     square.side / maxOf(width, height),
                 )
 
-            /**
-             * The one metering action Quick Scan (and the debug recorder's corner mode, so its fixtures meter the same way)
-             * starts on [region]: [meteringFlags] for [includeAwb], cancelled after [METERING_LOCK_SECONDS].
-             */
+            /** The one metering action Quick Scan starts on [region]: [meteringFlags], cancelled after [METERING_LOCK_SECONDS]. */
             internal fun meteringAction(
                 factory: androidx.camera.core.MeteringPointFactory,
                 region: MeteringRegion,
-                includeAwb: Boolean,
             ): FocusMeteringAction =
                 FocusMeteringAction
                     .Builder(
                         factory.createPoint(region.x.toFloat(), region.y.toFloat(), region.size.toFloat().coerceIn(0f, 1f)),
-                        meteringFlags(includeAwb),
+                        meteringFlags(),
                     ).setAutoCancelDuration(METERING_LOCK_SECONDS, TimeUnit.SECONDS)
                     .build()
 
-            /** The outline when the camera supports metering it, else the grid [centre]; second: whether it was supported. */
-            internal fun chooseMetering(
-                outline: MeteringRegion?,
-                centre: MeteringRegion,
-                supported: (MeteringRegion) -> Boolean,
-            ): Pair<MeteringRegion, Boolean> =
-                when {
-                    outline == null -> centre to supported(centre)
-                    supported(outline) -> outline to true
-                    else -> centre to false
-                }
-
-            /**
-             * The settle signal (Story 10.22): settled once the metering future completed and exposure time × ISO has
-             * stayed within [SETTLE_TOLERANCE] for [SETTLE_WINDOW_MS] since ([stableMs]; null while no exposure level is
-             * known); a timeout once [SETTLE_CAP_MS] passed without that. The AE state alone never settles it.
-             */
-            internal fun settleOutcome(
-                futureDone: Boolean,
-                stableMs: Long?,
-                elapsedMs: Long,
-            ): Settle =
-                when {
-                    futureDone && stableMs != null && stableMs >= SETTLE_WINDOW_MS -> Settle.SETTLED
-                    elapsedMs >= SETTLE_CAP_MS -> Settle.TIMEOUT
-                    else -> Settle.SETTLING
-                }
-
-            /**
-             * AF + AE always; AWB only when [includeAwb]. Quick Scan Hold 2 skips it so white balance is not re-metered on
-             * a no-white Y/O/B grid; since Story 10.22 the white balance locked at Hold 1 is carried through Hold 2
-             * ([ExposureLocks]) where the camera can lock it.
-             */
-            internal fun meteringFlags(includeAwb: Boolean): Int =
-                if (includeAwb) {
-                    FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE or FocusMeteringAction.FLAG_AWB
-                } else {
-                    FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE
-                }
+            /** Every metering request meters AF, AE and AWB. */
+            internal fun meteringFlags(): Int = FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE or FocusMeteringAction.FLAG_AWB
         }
     }
 
@@ -668,176 +539,6 @@ internal data class MeteringRegion(
     val y: Double,
     val size: Double,
 )
-
-internal enum class Settle { SETTLING, SETTLED, TIMEOUT }
-
-/**
- * The exposure (AE) and white-balance (AWB) locks the corner view holds (Story 10.22). AE is locked from the moment a
- * metering settles until the capture or the next metering; AWB is locked with hold 1's metering and carried through
- * hold 2, whose metering leaves white balance alone. A camera that cannot lock keeps its auto modes. [awbStale]: the
- * white balance last locked no longer fits (the torch changed, or a camera stop dropped the lock), so the next metering
- * meters and locks it again whatever the hold.
- */
-internal data class ExposureLocks(
-    val ae: Boolean,
-    val awb: Boolean,
-    val awbStale: Boolean = false,
-) {
-    /** True while a lock is wanted on the camera. */
-    val held: Boolean get() = ae || awb
-
-    companion object {
-        val NONE = ExposureLocks(ae = false, awb = false)
-
-        /** Whether a metering request meters white balance: when asked ([includeAwb]) or when the last one is stale. */
-        fun metersAwb(
-            current: ExposureLocks,
-            includeAwb: Boolean,
-        ) = includeAwb || current.awbStale
-
-        /** A metering request: exposure must move again, and white balance too when it is metered ([metersAwb]). */
-        fun onMeter(
-            current: ExposureLocks,
-            includeAwb: Boolean,
-        ) = current.copy(ae = false, awb = current.awb && !metersAwb(current, includeAwb))
-
-        /** The metering settled: lock what the camera can; a metering that included white balance locks that too. */
-        fun onSettled(
-            current: ExposureLocks,
-            includeAwb: Boolean,
-            aeSupported: Boolean,
-            awbSupported: Boolean,
-        ) = ExposureLocks(ae = aeSupported, awb = current.awb || (includeAwb && awbSupported), awbStale = current.awbStale && !includeAwb)
-
-        /** A corner was captured, or the cube was lost: the exposure is free again, the white balance stays. */
-        fun onCaptured(current: ExposureLocks) = current.copy(ae = false)
-
-        /** The torch changed: a white balance locked under the other torch state is stale. */
-        fun onTorchChanged(current: ExposureLocks) = current.copy(awbStale = true)
-
-        /** The corner view ended or the camera stopped: no lock is left, and a white balance that was locked is stale. */
-        fun cleared(current: ExposureLocks) = ExposureLocks(ae = false, awb = false, awbStale = current.awb || current.awbStale)
-
-        /** The word the settle diagnostics line carries: `on`, `on+awb` or `unsupported` (no exposure lock). */
-        fun label(locks: ExposureLocks): String =
-            when {
-                !locks.ae -> CameraXFrameSource.LOCK_UNSUPPORTED
-                locks.awb -> "on+awb"
-                else -> "on"
-            }
-    }
-}
-
-/**
- * The settle signal's state for the latest metering request (Stories 10.19, 10.22), safe across the analyzer, main and
- * capture callback threads. [request] starts a new one: its future is not done and no exposure level is known again, and
- * only capture results with a frame number after the newest one seen at the request count, so a stale result from before
- * the request never settles it. Once the future completed, the results' exposure time × ISO is followed: the level
- * restarts whenever a result leaves [CameraXFrameSource.SETTLE_TOLERANCE] of the running level's range, reports no
- * exposure, or reports AE still searching; [outcome] is settled once one level has held for
- * [CameraXFrameSource.SETTLE_WINDOW_MS]. A converged AE state alone never settles it (still burst 1 kept moving while
- * reporting converged).
- */
-internal class SettleTracker {
-    private var generation = 0
-    private var startedAt: Long? = null
-    private var futureDone = false
-    private var futureAt: Long? = null
-    private var lastFrameNumber = Long.MIN_VALUE
-    private var frameFloor = Long.MIN_VALUE
-
-    /** The running exposure level: when it began, its last result, and its smallest and largest exposure time × ISO. */
-    private var levelSince: Long? = null
-    private var levelAt = 0L
-    private var levelMin = 0.0
-    private var levelMax = 0.0
-
-    /** A metering request at [nowMs]; returns its generation, for [onFutureDone]. */
-    @Synchronized
-    fun request(nowMs: Long): Int {
-        // The generation moves first, so a late onFutureDone of the previous request cannot mark this one done.
-        val next = generation + 1
-        generation = next
-        startedAt = nowMs
-        futureDone = false
-        futureAt = null
-        levelSince = null
-        frameFloor = lastFrameNumber
-        return next
-    }
-
-    /**
-     * A new camera session (bind) or a released camera (stop): frame numbers restart, so the frame floor and the newest
-     * frame number seen are forgotten, and any pending request is dropped (its future can no longer mark anything done).
-     */
-    @Synchronized
-    fun reset() {
-        generation += 1
-        startedAt = null
-        futureDone = false
-        futureAt = null
-        levelSince = null
-        lastFrameNumber = Long.MIN_VALUE
-        frameFloor = Long.MIN_VALUE
-    }
-
-    /** One capture result at [nowMs]: its AE state, exposure time (ns) and sensitivity (ISO), null where unreported. */
-    @Synchronized
-    fun onCaptureResult(
-        frameNumber: Long,
-        ae: Int?,
-        exposureNs: Long?,
-        iso: Int?,
-        nowMs: Long,
-    ) {
-        lastFrameNumber = maxOf(lastFrameNumber, frameNumber)
-        // The window runs after the metering future only, on results newer than the request.
-        if (frameNumber <= frameFloor || !futureDone) return
-        val level = if (exposureNs != null && iso != null && exposureNs > 0 && iso > 0) exposureNs.toDouble() * iso else null
-        if (level == null || ae == CaptureResult.CONTROL_AE_STATE_SEARCHING) {
-            levelSince = null
-            return
-        }
-        val low = minOf(levelMin, level)
-        val high = maxOf(levelMax, level)
-        if (levelSince == null || (high - low) / low > CameraXFrameSource.SETTLE_TOLERANCE) {
-            levelSince = nowMs
-            levelMin = level
-            levelMax = level
-        } else {
-            levelMin = low
-            levelMax = high
-        }
-        levelAt = nowMs
-    }
-
-    /** The metering future of request [generation] completed at [nowMs] (or there was nothing to meter). */
-    @Synchronized
-    fun onFutureDone(
-        generation: Int,
-        nowMs: Long? = null,
-    ) {
-        if (generation != this.generation) return
-        futureDone = true
-        futureAt = nowMs
-    }
-
-    /** Milliseconds from the latest request to its metering future's completion; null while unknown. */
-    @Synchronized
-    fun futureMs(): Long? = futureAt?.let { done -> startedAt?.let { done - it } }
-
-    /** Milliseconds since the latest request; null before any. */
-    @Synchronized
-    fun elapsed(nowMs: Long): Long? = startedAt?.let { nowMs - it }
-
-    /** How long the running exposure level has held, up to its last result; null while none is known. */
-    @Synchronized
-    fun stableMs(): Long? = levelSince?.let { levelAt - it }
-
-    /** The latest request's outcome at [nowMs]; null before any request. */
-    @Synchronized
-    fun outcome(nowMs: Long): Settle? = elapsed(nowMs)?.let { CameraXFrameSource.settleOutcome(futureDone, stableMs(), it) }
-}
 
 private class MeteringGrid(
     val width: Int,

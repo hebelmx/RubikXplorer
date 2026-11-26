@@ -62,8 +62,8 @@ internal data class FrameReading(
  * face's 3×3 lattice is located inside it by [FaceLocator] (a face about 70–100 % of the grid's size, offset up to about
  * half a cell; see [locate]), and everything below — cells, glare, light, sharpness and seams — is read on that lattice
  * ("the grid" below). The grid is the region under the drawn grid
- * ([ViewfinderGrid.inFrame]; by default the centered square 80 % of the crop's shorter side, as in the fixture
- * recorder); each cell's central 60 % is sampled on a regular 12×12 lattice, converted YUV → sRGB → CIELAB and read by
+ * ([ViewfinderGrid.inFrame]; by default the centered square 80 % of the crop's shorter side); each cell's central 60 %
+ * is sampled on a regular 12×12 lattice, converted YUV → sRGB → CIELAB and read by
  * [CellReader] — on a stickered black-body cube only its sticker samples, near-black body left out (see
  * [stickerSamples]). Mean luma comes from the Y plane inside the grid on a
  * [STATS_STEP]-pixel lattice. Sharpness (variance of the 4-neighbor Laplacian of Y) is taken on the same lattice but only
@@ -668,7 +668,7 @@ internal object FrameReader {
         return rgbToLab(red, green, blue)
     }
 
-    /** sRGB (0–255) to CIELAB (D65), the fixture recorder's formula. */
+    /** sRGB (0–255) to CIELAB (D65), the formula of the recorded fixtures and the evaluation `FrameReader`. */
     fun rgbToLab(
         red: Int,
         green: Int,

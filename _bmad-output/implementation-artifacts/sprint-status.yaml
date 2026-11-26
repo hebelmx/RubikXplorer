@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-26-2026 04:33'
+last_updated: '11-26-2026 14:34'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -160,7 +160,7 @@ development_status:
   10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal: done
   10-33-continuous-quick-scan-physical-device-matrix-and-po-beta-cal: backlog
   10-34-record-and-replay-a-continuous-quick-scan-session-in-the-dev: backlog
-  10-35-retire-the-quick-scan-only-two-corner-recorder-paths: backlog
+  10-35-retire-the-quick-scan-only-two-corner-recorder-paths: done
   10-36-record-new-scrambles-on-the-continuous-recorder-analyse-them: backlog
   10-22-quick-scan-captures-promptly-once-the-cube-is-in-view: done
   10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads: done
@@ -740,9 +740,12 @@ action_items:
   - id: "scp-2026-11-16-delete-debug-only-launchers"
     epic: 10
     action: "Delete each debug-only launcher once its feature is in the main app build
-      (GuidedScanDebugActivity in Story 10.5 AC 8); at the Epic 10 retro and in each
-      10.11 run, check no Learner feature is reachable only from debug (fixture recorder,
-      ScanDiagnostics, StrictMode, benchmark harnesses stay; re-check spike3d)"
+      (GuidedScanDebugActivity in Story 10.5 AC 8; Story 10.35 deleted the fixture
+      recorder launcher, SCP 2026-11-26 retire-recorder); at the Epic 10 retro and
+      in each 10.11 run, check no Learner feature is reachable only from debug. Debug-only
+      entry points that remain: the PruningTablesBenchmarkActivity and SolveCorpusBenchmarkActivity
+      benchmark harnesses (app/src/debug) and the opt-in Spike3dActivity launcher
+      (-Pcubentia.spike3d); ScanDiagnostics and StrictMode also stay"
     owner: "Dev (Amelia) + SM"
     status: open
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-16-main-app-entry-points.md"
@@ -2345,7 +2348,7 @@ action_items:
       check FrameQuality on the located faces and drop the EV+ hint when glare is
       the cause (low; deferred from #329, RecorderRules.kt:370)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-329-recorder-dark-faces-hint.md"
   - id: "issue-329-deferred-no-jpeg-says-detector-missed"
     epic: 10
@@ -2353,7 +2356,7 @@ action_items:
       the detector found the cube; show a separate 'no image encoded' status (low;
       deferred from #329, FixtureRecorderScreen.kt:351)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-329-recorder-dark-faces-hint.md"
   - id: "issue-329-deferred-evidence-floor-constant-drift"
     epic: 10
@@ -2402,14 +2405,14 @@ action_items:
       hide a dropped argument; remove the default so callers must pass it (medium;
       deferred from #330, FixtureRecorderScreen.kt:423)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-330-recorder-hold-settle-after-ev.md"
   - id: "issue-330-deferred-evindex-without-ev-step"
     epic: 10
     action: "evIndex is saved without the camera EV step size, so the EV offset cannot
       be compared across devices; add an evStep field (low; deferred from #330, LiveFixture.kt:209)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-330-recorder-hold-settle-after-ev.md"
   - id: "issue-330-deferred-settle-null-holds-refit"
     epic: 10
@@ -2417,7 +2420,7 @@ action_items:
       group 9 sm-s721u1_stla_ceilback hold 2) need a refit decision or a re-record
       (low; deferred from #330)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-330-recorder-hold-settle-after-ev.md"
   - id: "issue-325-deferred-find-my-place-discard-lands-stage-list"
     epic: 10
@@ -2641,7 +2644,7 @@ action_items:
       them; confirmCornerFace, retakeHold and saveOverride have no test (medium; deferred
       from 10.28, FixtureRecorderScreen.kt:415)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa.md"
   - id: "epic-10-deferred-10.28-count-check-write-retry"
     epic: 10
@@ -2649,16 +2652,21 @@ action_items:
       PENDING (unsaved, ignored by every consumer) with only a status line; keep the
       holds and offer a retry as saveOverride does (medium; deferred from 10.28, FixtureRecorderScreen.kt:471)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa.md"
   - id: "epic-10-deferred-10.28-epic-10-context-drift"
     epic: 10
     action: "Check the epic-10-context.md recompiled in 10.28 against epics.md: it
       may have dropped the 10.24-10.26 rules (retake merge, corner naming, cube-rule
       fill) and exposure/prompt-capture rules, and added unrelated 10.29 scope (medium;
-      deferred from 10.28, epic-10-context.md; see also epic-10-deferred-10.20-epic-10-context-refresh)"
+      deferred from 10.28, epic-10-context.md; see also epic-10-deferred-10.20-epic-10-context-refresh).
+      Re-pointed to Story 10.35 (SCP 2026-11-26 retire-recorder), which recompiled
+      epic-10-context.md from epics.md: 10.24-10.27 are dropped there, so the context
+      lists them as dropped and states that their retake-merge, corner-naming and
+      cube-rule-fill rules and the two-corner exposure/prompt-capture rules do not
+      apply; 10.29 stays because epics.md keeps it in Epic 10"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa.md"
   - id: "epic-10-deferred-10.28-recorder-ui-device-check"
     epic: 10
@@ -2667,7 +2675,7 @@ action_items:
       1/2, Override dialog (blank reason refused), side-face Confirm lock (medium;
       deferred from 10.28, FixtureRecorderScreen.kt)"
     owner: "PO (BMad)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa.md"
   - id: "epic-12-deferred-12.4-green-release-device-run"
     epic: 12
@@ -2707,7 +2715,7 @@ action_items:
       detector found no cube; give a missing JPEG its own reason (low; deferred from
       #318, FixtureRecorderScreen.kt:380)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-318-recorder-keypoints-only-save-explains.md"
   - id: "issue-318-deferred-missed-hold-untested"
     epic: 10
@@ -2716,7 +2724,7 @@ action_items:
       helper and test it, or confirm it in the next device session (low; deferred
       from #318, FixtureRecorderScreen.kt:181)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-318-recorder-keypoints-only-save-explains.md"
   - id: "issue-318-deferred-missed-hold-reset-race"
     epic: 10
@@ -2725,7 +2733,7 @@ action_items:
       corner 1\"; set it only when the hold and reset generation are unchanged (low;
       deferred from #318, FixtureRecorderScreen.kt:412)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-318-recorder-keypoints-only-save-explains.md"
   - id: "issue-318-deferred-status-retake-clause-cut"
     epic: 10
@@ -2733,7 +2741,7 @@ action_items:
       trailing \"Retake corner N\" clause can be cut off on narrow screens (the reason
       and the Retake button stay visible) (low; deferred from #318, FixtureRecorderScreen.kt:881)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-318-recorder-keypoints-only-save-explains.md"
   - id: "scp-2026-11-24-quick-scan-port-stories"
     epic: 10
@@ -2954,145 +2962,220 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/spec-10-31-wire-litert-v2-int8-sticker-center-detector-split-continuous.md"
   - id: "epic-10-deferred-10.32-calibration-restarts-quick-scan"
     epic: 10
-    action: "Decide whether a Color Calibration saved from a Quick Scan review should still restart Quick Scan with an empty map, given the continuous scan calibrates itself (medium; deferred from 10.32, GuidedScanActivity.kt saveCalibration)"
+    action: "Decide whether a Color Calibration saved from a Quick Scan review should
+      still restart Quick Scan with an empty map, given the continuous scan calibrates
+      itself (medium; deferred from 10.32, GuidedScanActivity.kt saveCalibration)"
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
   - id: "epic-10-deferred-10.32-early-review-corrections-leak"
     epic: 10
-    action: "Stop a Color Calibration saved from an early Review (Review and Correct) carrying that Review's corrections into later Reviews, and add a route test (medium; deferred from 10.32, GuidedScanActivity.kt:1101)"
+    action: "Stop a Color Calibration saved from an early Review (Review and Correct)
+      carrying that Review's corrections into later Reviews, and add a route test
+      (medium; deferred from 10.32, GuidedScanActivity.kt:1101)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
   - id: "epic-10-deferred-10.32-landscape-phone-200pct-fit"
     epic: 10
-    action: "Verify on a landscape phone at 200% font that every Quick Scan action stays reachable without scrolling (medium, unverified; deferred from 10.32)"
+    action: "Verify on a landscape phone at 200% font that every Quick Scan action
+      stays reachable without scrolling (medium, unverified; deferred from 10.32)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
   - id: "epic-10-deferred-10.32-no-cube-metering"
     epic: 10
-    action: "Check Quick Scan reads on dark and bright backgrounds with the torch on and off, and add focus and exposure metering on the cube if reads are poor (medium, unverified; deferred from 10.32, ScanFrameSource.kt:401)"
+    action: "Check Quick Scan reads on dark and bright backgrounds with the torch
+      on and off, and add focus and exposure metering on the cube if reads are poor
+      (medium, unverified; deferred from 10.32, ScanFrameSource.kt:401)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
   - id: "epic-10-deferred-10.32-planning-lacks-review-and-correct"
     epic: 10
-    action: "Describe the Review and Correct action, the keep-only-fully-read-faces hand-over rule and the two-pane layout from 600 dp in the Story 10.32 acceptance criteria and the UX Quick Scan capture row through bmad-correct-course (medium; deferred from 10.32)"
+    action: "Describe the Review and Correct action, the keep-only-fully-read-faces
+      hand-over rule and the two-pane layout from 600 dp in the Story 10.32 acceptance
+      criteria and the UX Quick Scan capture row through bmad-correct-course (medium;
+      deferred from 10.32)"
     owner: "PO (BMad)"
     status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
   - id: "epic-10-deferred-10.32-net-drawing-untested"
     epic: 10
-    action: "Add a test of what the continuous Quick Scan net draws: sticker fill, colour-blind glyph and conflict outline (medium; deferred from 10.32, ContinuousQuickScanScreenTest.kt)"
+    action: "Add a test of what the continuous Quick Scan net draws: sticker fill,
+      colour-blind glyph and conflict outline (medium; deferred from 10.32, ContinuousQuickScanScreenTest.kt)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
   - id: "epic-10-deferred-10.32-talkback-device-pass"
     epic: 10
-    action: "Confirm with TalkBack on a device that Sides mapped N/6 is spoken once per increase and is not read twice on swipe; the stable-node fix is unverified on device (medium; deferred from 10.32, ContinuousQuickScanScreen.kt:107)"
+    action: "Confirm with TalkBack on a device that Sides mapped N/6 is spoken once
+      per increase and is not read twice on swipe; the stable-node fix is unverified
+      on device (medium; deferred from 10.32, ContinuousQuickScanScreen.kt:107)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
   - id: "epic-10-deferred-10.32-haptics-rate-limit-and-api29"
     epic: 10
-    action: "Rate-limit the conflict and twist haptic and make it distinct from the completion pulse on API 29 (low; deferred from 10.32, ContinuousQuickScanFlow.kt:116)"
+    action: "Rate-limit the conflict and twist haptic and make it distinct from the
+      completion pulse on API 29 (low; deferred from 10.32, ContinuousQuickScanFlow.kt:116)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
   - id: "epic-10-deferred-10.32-device-findings-for-10-33"
     epic: 10
-    action: "Carry the 2026-11-25 hands-on findings into the Story 10.33 device matrix: slow start to map filling, stalls with unread stickers (Lenovo 6 to 8 unread at 6/6, Galaxy S24 FE 22 unread), one orange-for-red misread, and whether a saved Color Calibration changes reads (medium; deferred from 10.32)"
+    action: "Carry the 2026-11-25 hands-on findings into the Story 10.33 device matrix:
+      slow start to map filling, stalls with unread stickers (Lenovo 6 to 8 unread
+      at 6/6, Galaxy S24 FE 22 unread), one orange-for-red misread, and whether a
+      saved Color Calibration changes reads (medium; deferred from 10.32)"
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
   - id: "epic-10-deferred-10.32-tablet-net-too-small"
     epic: 10
-    action: "Enlarge the Quick Scan net on tablets; the product owner found it small on the Lenovo (low; deferred from 10.32, ContinuousQuickScanScreen.kt)"
+    action: "Enlarge the Quick Scan net on tablets; the product owner found it small
+      on the Lenovo (low; deferred from 10.32, ContinuousQuickScanScreen.kt)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
   - id: "epic-10-deferred-10.32-retire-kept-2-corner-code"
     epic: 10
-    action: "Retire the 2-corner code kept for the Story 10.23 tools (QuickScanClassification.kt, CenterCheck, unused SideLight members) and reclaim the camera class bytes when the tools move to the continuous pipeline, per SCP 2026-11-25 continuous-fixture-recorder (low; deferred from 10.32)"
+    action: "Closed in part by Story 10.35 (SCP 2026-11-26 retire-recorder): CenterCheck
+      and the SideLight members only the recorder used are deleted. What remains:
+      QuickScanClassification.kt stays as an evaluation reader (owner :core:domain
+      evaluation); moving it to the evaluation source set is optional future clean-up
+      (low; deferred from 10.32, re-worded by 10.35)"
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
   - id: "epic-10-deferred-10.32-guided-enter-colors-unseeded"
     epic: 10
-    action: "Decide whether Enter colors instead from the hand-over Guided viewfinder should seed the Editor with the stickers Quick Scan mapped when no face was kept (low; deferred from 10.32, GuidedScanActivity.kt)"
+    action: "Decide whether Enter colors instead from the hand-over Guided viewfinder
+      should seed the Editor with the stickers Quick Scan mapped when no face was
+      kept (low; deferred from 10.32, GuidedScanActivity.kt)"
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
   - id: "epic-10-deferred-10.32-detector-session-never-closed"
     epic: 10
-    action: "Close the LiteRT sticker-centre detector session when the scan view model is cleared so the interpreter is not held for the life of the process (low; deferred from 10.32, ContinuousScanEngineModule.kt:21)"
+    action: "Close the LiteRT sticker-centre detector session when the scan view model
+      is cleared so the interpreter is not held for the life of the process (low;
+      deferred from 10.32, ContinuousScanEngineModule.kt:21)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
   - id: "issue-389-deferred-face-sampler-short-frame-crash"
     epic: 10
-    action: "ContinuousFaceSampler.sample can still throw outside detect() on a camera frame whose plane buffer is short only in its last rows, which still crashes the continuous Quick Scan analyzer; guard that path or catch in the analyzer (medium; deferred from #389, ContinuousFaceSampler.kt:182)"
+    action: "ContinuousFaceSampler.sample can still throw outside detect() on a camera
+      frame whose plane buffer is short only in its last rows, which still crashes
+      the continuous Quick Scan analyzer; guard that path or catch in the analyzer
+      (medium; deferred from #389, ContinuousFaceSampler.kt:182)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-389-continuous-quick-scan-bad-frame-skip.md"
   - id: "issue-390-deferred-all-frames-fail-never-unavailable"
     epic: 10
-    action: "A camera whose every frame fails input conversion or peak decoding never latches the detector unavailable, so continuous Quick Scan shows the bring-into-view cue for ever and the fallback card never appears; PO decides how many consecutive failed frames mean the detector cannot run (medium; deferred from #390, LiteRtStickerCenterDetector.kt:117)"
+    action: "A camera whose every frame fails input conversion or peak decoding never
+      latches the detector unavailable, so continuous Quick Scan shows the bring-into-view
+      cue for ever and the fallback card never appears; PO decides how many consecutive
+      failed frames mean the detector cannot run (medium; deferred from #390, LiteRtStickerCenterDetector.kt:117)"
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-390-quick-scan-detector-unavailable-fallback.md"
   - id: "issue-390-deferred-talkback-card-device-check"
     epic: 10
-    action: "Check on a physical device with TalkBack that the Quick Scan unavailable card is spoken once when it replaces the live scan and when Quick Scan is reopened; it is asserted only as a pane-title semantics property, and forcing the state needs a debug build with a missing or corrupt model asset (medium, unverified; deferred from #390, GuidedScanScreen.kt:322)"
+    action: "Check on a physical device with TalkBack that the Quick Scan unavailable
+      card is spoken once when it replaces the live scan and when Quick Scan is reopened;
+      it is asserted only as a pane-title semantics property, and forcing the state
+      needs a debug build with a missing or corrupt model asset (medium, unverified;
+      deferred from #390, GuidedScanScreen.kt:322)"
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-390-quick-scan-detector-unavailable-fallback.md"
   - id: "issue-390-deferred-first-open-shows-live-scan-briefly"
     epic: 10
-    action: "In a fresh app process with a broken detector model, continuous Quick Scan shows the live scan and the bring-into-view cue until the first analysed frame latches the detector, because the model loads lazily; accept it or hold the cue until the first frame has been analysed (low; deferred from #390, GuidedScanActivity.kt:636)"
+    action: "In a fresh app process with a broken detector model, continuous Quick
+      Scan shows the live scan and the bring-into-view cue until the first analysed
+      frame latches the detector, because the model loads lazily; accept it or hold
+      the cue until the first frame has been analysed (low; deferred from #390, GuidedScanActivity.kt:636)"
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-390-quick-scan-detector-unavailable-fallback.md"
   - id: "issue-390-deferred-face-by-face-tap-before-calibration-load"
     epic: 10
-    action: "A Scan face by face tap on a reopened Quick Scan unavailable card before the calibration load finishes is reset back to the card and leaves a stale hand-over; skip the post-load phase reset when the viewfinder is a hand-over, with a test (low; deferred from #390, GuidedScanActivity.kt:175)"
+    action: "A Scan face by face tap on a reopened Quick Scan unavailable card before
+      the calibration load finishes is reset back to the card and leaves a stale hand-over;
+      skip the post-load phase reset when the viewfinder is a hand-over, with a test
+      (low; deferred from #390, GuidedScanActivity.kt:175)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-390-quick-scan-detector-unavailable-fallback.md"
   - id: "scp-2026-11-26-pr-396-superseded"
     epic: 10
-    action: "PR #396 was closed as superseded on 2026-11-26 and its branch kept; Story 10.35 cherry-picks StickerTruthCheck from it, and the rebuilt Story 10.34 cherry-picks the frame tap, writer, replay, checkFixtureSize and writer guards. Delete the branch (and the RubikXplorer-10-34 worktree) once the rebuilt 10.34 merges"
+    action: "PR #396 was closed as superseded on 2026-11-26 and its branch kept; Story
+      10.35 cherry-picks StickerTruthCheck from it, and the rebuilt Story 10.34 cherry-picks
+      the frame tap, writer, replay, checkFixtureSize and writer guards. Delete the
+      branch (and the RubikXplorer-10-34 worktree) once the rebuilt 10.34 merges"
     owner: "SM / orchestrator"
     status: open
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-26-retire-recorder.md"
   - id: "scp-2026-11-26-case-recognition-no-capture-tool"
     epic: 10
-    action: "Before CASE_RECOGNITION is raised above OFF, decide how Case fixtures are captured now that the fixture recorder is retired (for example a debug recording mode of Case capture, like Story 10.34)"
+    action: "Before CASE_RECOGNITION is raised above OFF, decide how Case fixtures
+      are captured now that the fixture recorder is retired (for example a debug recording
+      mode of Case capture, like Story 10.34)"
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-26-retire-recorder.md"
   - id: "issue-400-deferred-pin-per-poll-camera-sync"
     epic: 10
-    action: "No committed test pins the per-poll Compose sync of awaitScanCamera, and nothing stops a new scan route test from waiting for the camera start with a bare waitUntil again; add a source-scan guard (like ComposeTestTimingGuardTest) or an ordered-pair test, or an AGENTS.md pitfall (medium; deferred from #400, ScanCameraWait.kt:19)"
+    action: "No committed test pins the per-poll Compose sync of awaitScanCamera,
+      and nothing stops a new scan route test from waiting for the camera start with
+      a bare waitUntil again; add a source-scan guard (like ComposeTestTimingGuardTest)
+      or an ordered-pair test, or an AGENTS.md pitfall (medium; deferred from #400,
+      ScanCameraWait.kt:19)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-400-scan-route-tests-camera-start-wait.md"
   - id: "issue-400-deferred-schedule-fuzz-not-in-repo"
     epic: 10
-    action: "The schedule fuzz that separates before from after for #400 (a random 0-60 ms delay inside the calibration-load IO block and the analyzerExecutor hop) is not in the repo, so the flake cannot be re-shown from a checkout; commit it as an opt-in test-only switch or document the patch (medium; deferred from #400 gate)"
+    action: "The schedule fuzz that separates before from after for #400 (a random
+      0-60 ms delay inside the calibration-load IO block and the analyzerExecutor
+      hop) is not in the repo, so the flake cannot be re-shown from a checkout; commit
+      it as an opt-in test-only switch or document the patch (medium; deferred from
+      #400 gate)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-400-scan-route-tests-camera-start-wait.md"
   - id: "issue-400-deferred-other-route-waits-unpumped"
     epic: 10
-    action: "Other waits in the scan route tests still poll with waitUntil without a looper pump or Compose sync and may stall the same way when a background hand-off lands late (CaseRecognitionRouteTest.kt:125, ContinuousQuickScanRouteTest.kt:731 and :484, QuickCheckRouteTest host.state waits, ScanRouteTest.kt:500 and :538); fuzz those hand-offs before changing them (medium, unverified; deferred from #400)"
+    action: "Other waits in the scan route tests still poll with waitUntil without
+      a looper pump or Compose sync and may stall the same way when a background hand-off
+      lands late (CaseRecognitionRouteTest.kt:125, ContinuousQuickScanRouteTest.kt:731
+      and :484, QuickCheckRouteTest host.state waits, ScanRouteTest.kt:500 and :538);
+      fuzz those hand-offs before changing them (medium, unverified; deferred from
+      #400)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-400-scan-route-tests-camera-start-wait.md"
   - id: "issue-400-deferred-coach-mark-read-race"
     epic: 10
-    action: "ScanRouteTest.coachMarkStaysPendingUntilTappedAndIsAbsentInTheNextActivity opens the review without waiting for the coach-mark read, so it failed once in 300 fuzzed runs at ScanRouteTest.kt:449 (could not find review:coach); never seen in CI (low; deferred from #400, ScanRouteTest.kt:449)"
+    action: "ScanRouteTest.coachMarkStaysPendingUntilTappedAndIsAbsentInTheNextActivity
+      opens the review without waiting for the coach-mark read, so it failed once
+      in 300 fuzzed runs at ScanRouteTest.kt:449 (could not find review:coach); never
+      seen in CI (low; deferred from #400, ScanRouteTest.kt:449)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-400-scan-route-tests-camera-start-wait.md"
+  - id: "epic-10-deferred-10.35-obsolete-items-no-resolution"
+    epic: 10
+    action: "The recorder action items that Story 10.35 closed as obsolete only changed status: open to done, with no resolution: line, so a later reader (12.18 triage) may take them for fixed recorder bugs; add a resolution line naming SCP 2026-11-26 retire-recorder to each (medium; deferred from 10.35 gate, sprint-status.yaml action_items)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-35-retire-the-quick-scan-only-two-corner-recorder-paths.md"
+  - id: "epic-10-deferred-10.35-stale-reader-outputs"
+    epic: 10
+    action: "Two tracked reader outputs are stale against their own commands on main: evaluateMatrix rewrites docs/spikes/oq-8-recognition-matrix.md and exportKotlinStickerReads rewrites docs/evidence/10-23/kotlin-reads.json; the drift predates 10.35 (low; deferred from 10.35)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-35-retire-the-quick-scan-only-two-corner-recorder-paths.md"

@@ -158,16 +158,6 @@ object SideLight {
             check(top.map { it?.l }, left.map { it?.l }, right.map { it?.l })
         }
 
-    /** The check over one corner frame's three faces in hold order (null faces are unmeasured). */
-    fun check(
-        faces: List<FrameStats?>,
-        saved: CalibrationCenters? = null,
-    ): Verdict {
-        require(faces.size == 3)
-        val stickers = faces.map { face -> face?.cells?.map { it?.value }.orEmpty() }
-        return checkLab(stickers[0], stickers[1], stickers[2], saved)
-    }
-
     /** The check over one recorded or captured corner's three samples in hold order. */
     fun checkSamples(
         samples: List<FaceSample?>,

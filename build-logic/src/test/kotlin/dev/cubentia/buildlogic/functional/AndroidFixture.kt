@@ -72,7 +72,7 @@ internal class AndroidFixture(
         write(
             "src/camera/debug/AndroidManifest.xml",
             """<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-<application><activity android:name="dev.cubentia.fixture.FixtureRecorderActivity" android:exported="false"/></application>
+<application><meta-data android:name="dev.cubentia.fixture.DEBUG_CAMERA_MARKER" android:value="debug-camera"/></application>
 </manifest>""",
         )
         projectDir.resolve("local.properties").outputStream().use { output ->

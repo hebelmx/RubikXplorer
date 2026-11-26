@@ -1570,10 +1570,6 @@ class ContinuousQuickScanRouteTest {
             meterCalls += true
         }
 
-        override fun meter(includeAwb: Boolean) {
-            meterCalls += includeAwb
-        }
-
         /** Story 10.19: whether the fake camera has a flash unit (null: unknown, as before a camera is bound). */
         @Volatile var flash: Boolean? = null
 

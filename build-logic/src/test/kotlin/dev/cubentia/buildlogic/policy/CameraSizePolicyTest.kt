@@ -82,7 +82,7 @@ class CameraSizePolicyTest {
     @Test
     fun legacyCornerAndDebugOnlyGlobsAreExcludedFrom011Projection() {
         assertEquals(
-            listOf("dev/cubentia/app/camera/recorder/**", "dev/cubentia/app/camera/sticker/**"),
+            listOf("dev/cubentia/app/camera/sticker/**"),
             CameraSizePolicy.debugOnlyClassGlobs,
         )
         assertEquals(

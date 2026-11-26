@@ -68,7 +68,7 @@ abstract class CheckCameraSizeTask : DefaultTask() {
             """
             Cubentia camera installed-size estimate (bytes)
             Release estimate: $release
-            Debug camera classes excluding recorder, sticker reader, and legacy corner: $classBytes
+            Debug camera classes excluding debug-only tools, sticker reader, and legacy corner: $classBytes
             Additional runtime jars and single-ABI native libraries: $runtimeBytes
             Camera model/runtime assets: $assetBytes
             Projected camera size: ${verdict.estimatedBytes}

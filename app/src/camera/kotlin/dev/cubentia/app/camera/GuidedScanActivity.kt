@@ -854,7 +854,7 @@ class GuidedScanActivity : ComponentActivity() {
         }
     }
 
-    private fun meterOnGrid(includeAwb: Boolean = true) = frameSource.meter(includeAwb)
+    private fun meterOnGrid() = frameSource.meter()
 
     companion object {
         const val EXTRA_CASE_CAPTURE = "dev.cubentia.app.scan.CASE_CAPTURE"
