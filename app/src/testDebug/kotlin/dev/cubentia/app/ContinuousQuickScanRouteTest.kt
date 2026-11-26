@@ -3,6 +3,9 @@ package dev.cubentia.app
 import android.Manifest
 import android.content.Context
 import android.os.Looper
+import android.view.HapticFeedbackConstants
+import android.view.View
+import android.view.ViewGroup
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
@@ -343,6 +346,50 @@ class ContinuousQuickScanRouteTest {
             rule.onNodeWithTag("review:accept").performScrollTo().performClick()
             val result = shadowOf(scan.get())
             assertEquals(ScanOutcome.Accepted(CubeState.SOLVED), ScanFlowContract.decode(result.resultCode, result.resultIntent))
+            val run = quickScanRuns().single()
+            assertTrue(run, " fallbackFaces=3 " in "$run " && " outcome=ACCEPTED " in "$run ")
+        }
+    }
+
+    /** The activity's Quick Scan run lines (debug diagnostics): one per finished scan. */
+    private fun quickScanRuns() = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }.filter { it.startsWith("quickScan run ") }
+
+    /** The haptics performed on the views of [activity]'s window (Robolectric keeps the last one of each view). */
+    private fun hapticsPerformed(activity: GuidedScanActivity): List<Int> {
+        val views = mutableListOf<View>(activity.window.decorView)
+        var index = 0
+        while (index < views.size) {
+            (views[index++] as? ViewGroup)?.let { group -> repeat(group.childCount) { views += group.getChildAt(it) } }
+        }
+        return views.map { shadowOf(it).lastHapticFeedbackPerformed() }.filter { it != -1 }
+    }
+
+    @Test fun aNewlyMappedSidePlaysOneHapticThroughTheActivity() {
+        quickScanActivity { scan, model ->
+            settle(model)
+            assertEquals(emptyList<Int>(), hapticsPerformed(scan.get()))
+            show(listOf(Face.U))
+            settle(model)
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 1/6")
+            assertEquals(listOf(HapticFeedbackConstants.KEYBOARD_TAP), hapticsPerformed(scan.get()))
+        }
+    }
+
+    @Test fun theDiscardQuestionHoldsACompletedScanUntilItIsCancelled() {
+        quickScanActivity { _, model ->
+            show(Face.entries, ContinuousScanCue.AllVerified)
+            rule.onNodeWithTag("scanClose").performClick()
+            assertQuickScanDiscardCopy()
+            // The 1000 ms hold ends with the question open: no review until the Learner answers.
+            advanceHold(model)
+            rule.onNodeWithTag("scan:discard").assertIsDisplayed()
+            rule.onNodeWithTag("quickScan:count").assertExists()
+            rule.onNodeWithTag("review:accept").assertDoesNotExist()
+            assertEquals(GuidedScanPhase.Continuous, model.phase)
+            rule.onNodeWithTag("scan:discard:cancel").performClick()
+            advanceHold(model)
+            rule.onNodeWithTag("scan:discard").assertDoesNotExist()
+            rule.onNodeWithTag("review:accept").assertExists()
         }
     }
 
@@ -361,6 +408,8 @@ class ContinuousQuickScanRouteTest {
             assertTrue(scan.get().isFinishing)
             val result = shadowOf(scan.get())
             assertEquals(ScanOutcome.Cancelled, ScanFlowContract.decode(result.resultCode, result.resultIntent))
+            val run = quickScanRuns().single()
+            assertTrue(run, " fallbackFaces=0 " in "$run " && " outcome=CANCELLED " in "$run ")
         }
     }
 

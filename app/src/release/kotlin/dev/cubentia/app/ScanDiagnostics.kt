@@ -3,13 +3,11 @@ package dev.cubentia.app
 import dev.cubentia.application.usecase.Recognition
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.CubeState
-import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.recognition.CalibrationCenters
 import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.FrameStats
 import dev.cubentia.domain.recognition.PhysicalObservation
 import dev.cubentia.domain.recognition.ScanReview
-import dev.cubentia.domain.recognition.SideLight
 import dev.cubentia.domain.tutor.Certainty
 import dev.cubentia.domain.tutor.PlacementOutcome
 

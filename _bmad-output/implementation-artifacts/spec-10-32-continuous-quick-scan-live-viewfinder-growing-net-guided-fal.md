@@ -5,7 +5,7 @@ created: '2026-11-25'
 status: 'done'
 baseline_revision: '52b66aefa63ab02f8ae6b08cc6a6e5d769756be8'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/AGENTS.md'
   - '{project-root}/_bmad-output/implementation-artifacts/epic-10-context.md'
@@ -25,6 +25,20 @@ deferred:
     location: >-
       app/src/camera/continuous/kotlin/dev/cubentia/app/camera/continuous/LiteRtStickerCenterDetector.kt
     severity: medium
+  - summary: >-
+      On a landscape phone (about 640×360 dp) at 200% font, the Quick Scan panel does not scroll, so *Enter colors instead* may be pushed below the screen edge.
+    evidence: |-
+      Reported by the edge-case layer of the follow-up review and not verified: ContinuousQuickScanLargeFontTest covers 640×360 landscape only at font scale 1.0, and 200% font only in portrait (411 dp, 600 dp). What would settle it: run the test's fits(landscape = true) at qualifiers w640dp-h360dp-land with fontScale = 2.0f. The intent's fit rule names portrait phones, 200% font at 600 dp width and landscape tablets; a landscape phone at 200% font is not named.
+    location: >-
+      app/src/camera/kotlin/dev/cubentia/app/camera/ContinuousQuickScanScreen.kt:96-141
+    severity: medium (unverified)
+  - summary: >-
+      The continuous Quick Scan never meters focus or exposure on the cube; the cube-outline metering the two-corner Quick Scan used was removed with it, so the camera's default metering applies.
+    evidence: |-
+      Reported by the edge-case layer of the follow-up review (deletion check, low confidence) and not verified: the continuous branch of CameraXFrameSource.read calls no meter(), and GuidedScanActivity meters only on Guided, calibration and Case-capture effects. Whether the default continuous AF/AE reads the cube well enough is a device observation. What would settle it: the pending hands-on pass on the Lenovo TB128XU and Galaxy S24 FE (cube on a dark and on a bright background, torch on and off).
+    location: >-
+      app/src/camera/kotlin/dev/cubentia/app/camera/ScanFrameSource.kt (continuous branch of read)
+    severity: medium (unverified)
 ---
 
 <intent-contract>
@@ -224,6 +238,61 @@ Abbreviations: `C/` = `app/src/camera/kotlin/dev/cubentia/app/camera/`, `K/` = `
   - `[medium]` `[patch]` (edge-case) `msg.scan.coach.sides-dark`/`torch-glare` strings left without a user — removed from `en.json` (dead-code group).
 - post-patch fix by the runner: the detector's debug check first used `BuildConfig.DEBUG`, which `BuildConfigUsageTest` forbids outside the flags adapter; replaced with the application's `FLAG_DEBUGGABLE`.
 
+### 2026-11-25 — Review pass (follow-up)
+- verdicts: 50 findings — high 0, medium 11, low 25, false 12, maybe-false 2
+- layers: follow-up pass on the `done` spec. The Codex scope guard failed (no `codex-review.on` marker in this worktree's state dir), so blind-hunter, edge-case-hunter and verification-gap ran as context-free Claude subagents; intent-alignment ran as the stock Claude subagent. All four reported. The step-03 implementation subagent of the first pass could not be re-engaged, so a fresh Claude subagent applied the patches.
+- findings:
+  - `[low]` `[reject]` (intent-alignment) carried — Every app test feeds hand-built snapshots; no test runs the real detector → mapper chain into the screen — Stories 10.30/10.31 own that chain and the device surface is this story's pending human gate. (The engine adapter itself is now executed by a test; see the verification-gap row.)
+  - `[low]` `[reject]` (intent-alignment) *Accept* is asserted as `SolvePhase.AlreadySolved` because the route fixture is the solved cube, not "→ Solution Playback" — the scan flow's contract is the returned `ScanOutcome.Accepted(state)`, which the test asserts; dispatch of a scrambled state to Playback is the Solve tab's existing, separately tested code. A scrambled 54-sticker fixture would add test machinery for no new coverage of this story's code.
+  - `[false]` `[reject]` (intent-alignment) TalkBack is asserted as semantics (polite live region, re-keyed count node), not as speech — the intent records the spoken behaviour as part of the pending hands-on gate and forbids claiming it; no divergence in the code.
+  - `[medium]` `[patch]` (intent-alignment) carried — Haptics, outline stroke, torch and rotation asserted one level below the Learner — patched in the first pass (`ContinuousQuickScanHaptics` test, `torchLit`); this pass adds the activity-level haptic test in the verification-gap row.
+  - `[low]` `[patch]` (intent-alignment) carried — Row layout applies to any landscape, not only tablets — the first pass's fix for the narrow-landscape Column finding; unchanged.
+  - `[false]` `[reject]` (intent-alignment) No recorded build of a variant with `QUICK_SCAN` OFF and another camera flag on — the property that makes it compile holds: no file under `app/src/camera/kotlin` references `dev.cubentia.app.camera.continuous` (the auditor's own grep), and the default release build with the flag OFF compiles in `./gradlew build`.
+  - `[medium]` `[patch]` (intent-alignment) The retired replays (`QuickScanBurstReplayTest`, `RecordedBursts`, the burst test input) have no last revision or command recorded, which the intent requires — `docs/evidence/10-32/camera-size.md` gains section 3 with the last revision (`52b66aefa63ab02f8ae6b08cc6a6e5d769756be8`), the command, a plain note that it was not re-run, and the remaining consumers of the recorded bursts.
+  - `[medium]` `[patch]` (intent-alignment) carried — Counted camera class bytes rose instead of showing reclaimed headroom — handled in the first pass (dead code removed, evidence reworded, residual risk recorded); not patched again.
+  - `[low]` `[reject]` (intent-alignment) carried — *Scan face by face* with nothing to ask opens Review directly, skipping the rest of the hold — same row as the first pass.
+  - `[low]` `[reject]` (intent-alignment) `keptForGuided` mixes the shown snapshot's `conflictedSlots` with the fresh export — the export already carries conflicted and unread cells as null, which alone requests their faces; the snapshot's set can at worst ask for one face more for a frame-old conflict, never keep a bad one. Removing it would change a rule the first pass tested.
+  - `[false]` `[reject]` (intent-alignment) *Enter colors instead* in the hand-over after a Guided capture returns kept plus captured stickers — confirmed and captured stickers only, nothing guessed; covered by the first pass's route tests.
+  - `[medium]` `[defer]` (intent-alignment) carried — A calibration saved from a Quick Scan review restarts Quick Scan with an empty map — deferred item 1; not deferred again.
+  - `[false]` `[reject]` (intent-alignment) `assembleHandover(preserveUnread)` and `GuidedScanController.handOver` are new domain API — internal additions with domain tests; no bad outcome named.
+  - `[medium]` `[patch]` (intent-alignment) carried — Removals beyond the files Q7 names (`Coaching.SIDES_DARK`/`TORCH_GLARE`, four strings, `diagnose()`, `SideLight.Verdict` properties, cube-outline metering, most of `ScanDiagnostics`) — the first pass's dead-code patch group; the metering part is the new deferred item 4.
+  - `[false]` `[reject]` (intent-alignment) `QuickScanControllerTest` and the old route and screen tests are deleted — they tested the deleted 2-corner code; Q7 fixes that removal.
+  - `[false]` `[reject]` (intent-alignment) No test covers the Case capture screen or the recorder after the trim — `CaseRecognitionRouteTest` (drives the Case capture viewfinder, `quickScan:outline`) and `RecorderRulesTest` exist and pass in the build below.
+  - `[false]` `[reject]` (intent-alignment) carried — `CornerPrompt` fallback branch not reached — same row as the first pass.
+  - `[medium]` `[patch]` (intent-alignment) carried — The debug-only main-thread check edits `LiteRtStickerCenterDetector` although the intent says no change to the detector's behaviour — the first pass's patch for the Story 10.31 tracker item; recognition output is unchanged. Its test is the verification-gap row below.
+  - `[medium]` `[patch]` (verification-gap) The production engine adapter `PipelineEngine` is never executed by a test — new `ContinuousScanEngineModuleTest`: engine built through `ContinuousScanEngineModule.factory(fakeDetector).create()`; frame index 0, 1, 2; `reset()` restarts it at 0; `export()` after reset is a `Partial` with no faces and unanchored.
+  - `[low]` `[patch]` (verification-gap) The activity's `quickScan run` line lost its route-level assertion — `ContinuousQuickScanRouteTest` asserts exactly one line with `fallbackFaces=3` / `outcome=ACCEPTED` after the hand-over accept, and one with `fallbackFaces=0` / `outcome=CANCELLED` on close.
+  - `[medium]` `[patch]` (verification-gap) Haptic pulses not verified through the activity wiring — new route test `aNewlyMappedSidePlaysOneHapticThroughTheActivity`: a frame raising the count from 0 to 1 makes exactly one view report `KEYBOARD_TAP` (Robolectric `lastHapticFeedbackPerformed()`); no production surface added.
+  - `[medium]` `[patch]` (verification-gap) The completion hold's discard-question guard has no test — new route test `theDiscardQuestionHoldsACompletedScanUntilItIsCancelled`: the hold elapses with the question open and no review; after *Cancel* and another hold the review opens.
+  - `[low]` `[patch]` (verification-gap) The debug-only main-thread check in `detect` is not exercised — new Robolectric `LiteRtStickerCenterDetectorThreadGuardTest`: throws on main when debuggable, returns `EMPTY` for a degenerate frame off main, does not throw on main when not debuggable.
+  - `[low]` `[patch]` (verification-gap, other) Unused `ShadowLog` import in `ContinuousQuickScanRouteTest` — now used by the run-line assertions.
+  - `[low]` `[reject]` (verification-gap, other) `FakeFrames.continuousMode` discards the `analyzing` predicate — the activity re-checks `analysisHeld`/`busy`/`confirmDiscard` in `analyze`, so a wrong predicate only costs inference during a hold; evaluating it needs a redesigned fake.
+  - `[medium]` `[patch]` (blind-hunter) carried — The size criterion's "reclaimed headroom" wording is not met — same as the first pass's AC 4 row (residual risk; a PO call, not a code fix).
+  - `[false]` `[reject]` (blind-hunter) No frame-latency evidence — the evidence file records it as not measured and the intent assigns device measurements to the pending human gate and Story 10.33; nothing is claimed.
+  - `[low]` `[reject]` (blind-hunter) `elapsedMs` in the run line now starts at `onCreate` (includes permission, camera bind and the 1 s hold) — debug-only line whose KDoc defines it as "since the screen opened"; moving the start point is a measurement-definition choice for Story 10.33, and a start stamped on the first frame would log no time for a run cancelled before it.
+  - `[low]` `[patch]` (blind-hunter) `guidedFacesAsked` stays set after a calibration saved from review restarts the scan — reset to 0 in that branch. The "revision not bumped" half is refuted: no continuous frame is posted while the phase is Review or Calibration.
+  - `[low]` `[reject]` (blind-hunter) A camera failure during Quick Scan moves to `Unavailable`, where *Enter colors instead* opens a blank Editor — real, but a mid-scan camera failure is rare and nothing is guessed; carrying the map would need a new export path out of the `Unavailable` phase.
+  - `[false]` `[reject]` (blind-hunter) A missing engine shows the camera-unavailable card — the I/O matrix row "No pipeline binding → existing `Unavailable` phase" asks for exactly this.
+  - `[false]` `[reject]` (blind-hunter) carried — `keptForGuided` under a twist with six full faces opens Review — same as the first pass's edge-case row (PO Q3 (a); Review validates before *Accept*).
+  - `[low]` `[reject]` (blind-hunter) Leftovers in `:core:domain` (`CenterCheck` — carried; `GridReason.MISSING`/`REPROMPT`, `FaceDecision.gridReason`, `MIN_CONFIDENT`, the `QuickScanPlan` name) — Q7 keeps `QuickScanClassification.kt` and moves `QuickScanPlan`, `CenterCheck` and `GridReason` as they are; trimming them changes kept evaluation code.
+  - `[low]` `[patch]` (blind-hunter) Stale references to removed code — `tools/corner-model/README.md` no longer names `CornerOverlaySmoother`; the bursts' remaining consumers are recorded in the evidence file. Not changed: the `quickScan:outline` test tags (used by `CaseRecognitionRouteTest`), the `ScanDiagnostics` class KDoc (the function carries its own), and the `KotlinStickerReads` sentence (reads correctly).
+  - `[low]` `[reject]` (blind-hunter) TalkBack meets the count twice (visible text and the 1 dp announcement node); cue changes are not rate-limited; the net is not read — the last two are PO Q6 as written; the double count is the Design Notes' announce-on-increase mechanism and needs the spoken check of the pending device gate before any change.
+  - `[low]` `[reject]` (blind-hunter) The pulse channel is unbounded and may play late after a rotation — at most a few pulses can queue in a rotation gap; a conflated channel would drop the tick of a 5 → 6 completion frame.
+  - `[low]` `[patch]` (blind-hunter) The detector's main-thread guard is untested — same test as the verification-gap row. The "fragile" half is refuted: the detector is a Hilt singleton (safely published) and `FLAG_DEBUGGABLE` is the build-type signal `BuildConfigUsageTest` allows here.
+  - `[false]` `[reject]` (blind-hunter) The engine has no teardown — `PipelineEngine` holds only the pure mapper and is collected with the ViewModel; the LiteRT session belongs to the singleton detector by Story 10.31's design.
+  - `[medium]` `[patch]` (blind-hunter) Test gaps for new behaviour — the discard question during the hold is patched (verification-gap row). Refuted or rejected parts: the calibration-save restart is covered by the first pass's route test; *Reset* during an export is dropped by `busy` (first-pass row); the outline-key collision is the edge-case row below.
+  - `[low]` `[reject]` (blind-hunter) `docs/ARCHITECTURE.md` has one sentence and no flow description — the port sentence is what the architecture section needs; the flow and threading rules are in this spec's Design Notes and the code's KDoc.
+  - `[false]` `[reject]` (edge-case) carried — Six full faces, cue not `ResolveConflict` (e.g. a twist): *Scan face by face* opens Review with no Guided capture — same as the first pass's rows.
+  - `[low]` `[reject]` (edge-case) Camera `Unavailable` during Continuous or the hand-over, then *Enter colors* opens an empty Editor — same as the blind-hunter row.
+  - `[low]` `[patch]` (edge-case) `backOutOfHandOver` nulls `handoff` before `handoverController`, so the analyzer can read no hand-off but a live controller and publish a Guided-only review — order swapped (controller first) there and in `saveCalibration`.
+  - `[low]` `[patch]` (edge-case) `guidedFacesAsked` never reset on the calibration restart — same fix as the blind-hunter row.
+  - `[low]` `[reject]` (edge-case) `OutlineKey` can collide across fragments, easing an outline between two unrelated quads — cosmetic for a few frames (each frame halves the error); the fix needs a fragment id on the overlay quad from the pipeline.
+  - `[maybe-false]` `[defer]` (edge-case) Landscape phone at 200% font: the non-scrolling panel may push *Enter colors instead* off screen — not verified; what would settle it: `fits(landscape = true)` at `w640dp-h360dp-land`, `fontScale = 2.0f`. Deferred item 3 (medium, unverified).
+  - `[low]` `[patch]` (edge-case) A retake from a Quick Scan review shows the continuous-kept faces as not captured in the mini net — `GuidedScanFlow.retakePhase` fills `keptColors` from the review's stickers for the faces not retaken; unit test added in `GuidedScanFlowTest`.
+  - `[maybe-false]` `[defer]` (edge-case) The continuous Quick Scan never meters on the cube after the cube-outline metering was removed — not verified; a device observation for the pending hands-on pass. Deferred item 4 (medium, unverified).
+  - `[low]` `[reject]` (edge-case) `SettleTracker`, `ExposureLocks` and the metering-region helpers now serve only the debug fixture recorder — the intent keeps what the recorder uses and forbids changing the recorder; moving them to the debug source set is a refactor, and R8 strips them from release.
+  - `[low]` `[patch]` (edge-case) Imports with no remaining use — removed from `GuidedScanActivity.kt`, `ScanFrameSource.kt` and both `ScanDiagnostics.kt`. The claimed consequence is refuted: `spotlessCheck` passed before and after.
+
 ## Design Notes
 
 - **Why a port and not a new Activity:** Guided hand-over with Back, Review, per-face retake and the `ScanOutcome` encoding all live in `GuidedScanActivity` and its ViewModel. Hosting the continuous phase there reuses them unchanged; the engine port is the only thing that crosses into the `continuous/` source set.
@@ -282,3 +351,37 @@ Status: done
 - **Human gate pending, not claimed.** No hands-on pass on the Lenovo TB128XU or Galaxy S24 FE was done: outline registration on the real cube, felt haptics, spoken TalkBack, the lit torch and the frame-edge behaviour noted in the 10.31 tracker are unverified on device. No latency was measured in this story.
 - **Glyphs follow the colour-blind setting**, as in every other net in the app; they are not forced on in this screen.
 - `CenterCheck` is kept as the PO instructed but has no caller left.
+
+### Follow-up review pass — 2026-11-25
+
+Status: done. This section supersedes the first pass's follow-up recommendation above; the first-pass text is kept as the record of that run.
+
+**Summary of the implemented change.** Unchanged in scope: the continuous Quick Scan screen, its Guided hand-over and Review hand-off, and the 2-corner removal, as described above. This pass re-reviewed the whole change since the baseline with four layers and applied small fixes and missing tests.
+
+**Files changed in this pass** (12 files besides this spec):
+- `app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt` -- `guidedFacesAsked` reset on the calibration restart; hand-over controller nulled before the hand-off (analyzer read order); four unused imports removed.
+- `app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanFlow.kt` -- `retakePhase` carries the kept faces' colours from the review, so a retake from a Quick Scan review shows them in the mini net.
+- `app/src/camera/kotlin/dev/cubentia/app/camera/ScanFrameSource.kt`, `app/src/{debug,release}/kotlin/dev/cubentia/app/ScanDiagnostics.kt` -- unused imports removed.
+- `app/src/testDebug/kotlin/dev/cubentia/app/ContinuousQuickScanRouteTest.kt` -- run-line assertions (accept after hand-over, cancel), one haptic through the activity, the discard question during the completion hold.
+- `app/src/testDebug/kotlin/dev/cubentia/app/camera/GuidedScanFlowTest.kt` -- retake mini-net colours from a Quick Scan review.
+- `app/src/testDebug/kotlin/dev/cubentia/app/camera/continuous/ContinuousScanEngineModuleTest.kt` (new) -- the production engine adapter: frame index, reset, export.
+- `app/src/testDebug/kotlin/dev/cubentia/app/camera/continuous/LiteRtStickerCenterDetectorThreadGuardTest.kt` (new) -- the debug-only main-thread check.
+- `docs/evidence/10-32/camera-size.md` -- section 3: last revision and command for the retired burst replay; size figures after this pass.
+- `tools/corner-model/README.md` -- no longer names the removed `CornerOverlaySmoother`.
+
+**Review findings.** 50 findings from four layers. 12 rows repeat first-pass findings and keep their verdict and route (marked `carried`; none was patched or deferred again). Of the 38 new rows: 15 patched rows in 11 entries (4 medium: retired-replay record, engine adapter test, haptic route test, discard-during-hold test; 7 low: run-line assertion, detector guard test, `guidedFacesAsked` reset, hand-over null order, retake mini net, unused imports, stale README), 2 deferred (both `maybe-false`, medium if true: landscape phone at 200% font; no cube metering in the continuous scan — deferred items 3 and 4), and 21 rejected (`false` on their refutation, `low` with the reason recorded). Every rejected finding and its reason is in the "Review pass (follow-up)" entry of the Review Triage Log. Patched counts by verdict this pass: high 0, medium 4, low 7.
+
+**Follow-up review recommended: false.** This was a follow-up pass and it patched no `high` finding; the production changes are a counter reset, a two-line order swap, one `copy` argument and import deletions, each covered by a test or by the full build.
+
+**Verification performed (this pass).**
+- `./gradlew spotlessCheck build :app:checkCameraSize :core:domain:compileEvaluationKotlin`: BUILD SUCCESSFUL (lint, JVM and Robolectric tests, Kover, `checkLearnerText`, boundary/manifest checks, debug and release APKs).
+- `:app:checkCameraSize`: pass, projected 28,557,040 B of 30,000,000 B; camera class bytes 1,151,930 B (+914 B over the first pass, from `retakePhase`).
+- `./gradlew :core:domain:exportKotlinStickerReads --dry-run :core:domain:evaluateQuickScan --dry-run`: both tools registered.
+- `rg "QuickScanController|QuickScanDiagnosis\b|QuickScanEffect" app core --type kotlin`: no match.
+- `build-logic` untouched. The `-Pcubentia.release011=true` size checks were not re-run in this pass (their last result is the first pass's 26,261,058 B). The retired replay command recorded in the evidence file was not executed.
+- The new haptic and discard-hold route tests were not mutation-checked (the guarded production lines were not deleted to see them fail).
+
+**Residual risks.** The first pass's list stands (AC 4 size wording, the derived 6/6 rule, the pending human gate, glyphs, unused `CenterCheck`). Added by this pass:
+- Two unverified items deferred to the device pass: the panel on a landscape phone at 200% font, and focus/exposure without cube metering.
+- A camera failure in the middle of a Quick Scan opens the unavailable card, and *Enter colors instead* from there starts with a blank Editor (rejected as rare; recorded in the triage log).
+- The debug run line's `elapsedMs` counts from the screen opening, so it includes a permission prompt and the 1 s completion hold; `evaluateQuickScan`'s 15 s success threshold should be read with that in mind in Story 10.33.

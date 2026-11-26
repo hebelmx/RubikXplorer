@@ -6,11 +6,9 @@ import android.util.Log
 import dev.cubentia.application.usecase.Recognition
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.CubeState
-import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.cube.Orientation
 import dev.cubentia.domain.recognition.CalibrationCenters
-import dev.cubentia.domain.recognition.CaptureQuality
 import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.FrameInspection
 import dev.cubentia.domain.recognition.FrameQuality
@@ -20,7 +18,6 @@ import dev.cubentia.domain.recognition.ScanAssembler
 import dev.cubentia.domain.recognition.ScanReview
 import dev.cubentia.domain.recognition.ScanTrace
 import dev.cubentia.domain.recognition.SelfCalibration
-import dev.cubentia.domain.recognition.SideLight
 import dev.cubentia.domain.tutor.Certainty
 import dev.cubentia.domain.tutor.PlacementOutcome
 import java.util.Locale

@@ -15,6 +15,7 @@ import dev.cubentia.domain.recognition.GuidedScanPlan
 import dev.cubentia.domain.recognition.Lab
 import dev.cubentia.domain.recognition.ScanReview
 import dev.cubentia.domain.recognition.Suspect
+import dev.cubentia.domain.recognition.continuous.FaceSlot
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -738,6 +739,18 @@ class GuidedScanFlowTest {
                 .single()
         assertEquals(listOf(Face.F, Face.R), done.samples.map { it.face })
         assertEquals(0, run.controller.repromptCount)
+    }
+
+    @Test fun `a retake from a Quick Scan review shows the faces it keeps from the review's stickers`() {
+        // A Quick Scan review holds no sample for a face the continuous scan mapped; here U's cell 2 was left blank.
+        val from = GuidedScanPhase.Review(ScanReview.from(testHandoff(Face.entries, blank = FaceSlot(Face.U, 2))))
+        val phase = GuidedScanFlow.retakePhase(GuidedScanFlow.retakeRun(setOf(Face.F), from))
+        assertTrue(phase.kept.isEmpty())
+        assertEquals((Face.entries - Face.F).toSet(), phase.keptColors.keys)
+        phase.keptColors.forEach { (face, colors) ->
+            assertEquals(from.review.stickers.subList(face.ordinal * 9, face.ordinal * 9 + 9), colors)
+            assertEquals(List(9) { cell -> Color.home(face).takeUnless { face == Face.U && cell == 2 } }, colors)
+        }
     }
 
     @Test fun `the review after a retake keeps kept faces and edits, replaces retaken ones and counts as edited`() {

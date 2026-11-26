@@ -18,11 +18,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
@@ -33,7 +30,6 @@ import dev.cubentia.app.ScanDiagnostics
 import dev.cubentia.app.content.CatalogState
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.content.LessonCatalog
-import dev.cubentia.app.preferences.LocalHaptics
 import dev.cubentia.app.preferences.PreferenceProvider
 import dev.cubentia.app.preferences.PreferenceStore
 import dev.cubentia.app.scan.CaseCaptureContract
@@ -1043,8 +1039,10 @@ internal class GuidedScanViewModel : ViewModel() {
                     } else {
                         // Saved from a review: the scan restarts (Quick Scan with an empty map), keeping the review's corrections.
                         corrections = calibration.fromReview?.corrections.orEmpty()
-                        handoff = null
+                        // The controller first: the analyzer reads the hand-off, then the controller.
                         handoverController = null
+                        handoff = null
+                        guidedFacesAsked = 0
                         withContext(analyzerExecutor.asCoroutineDispatcher()) {
                             controller = newController()
                             engine?.reset()
@@ -1145,8 +1143,9 @@ internal class GuidedScanViewModel : ViewModel() {
     fun backOutOfHandOver() {
         held = null
         frozen = null
-        handoff = null
+        // The controller first: the analyzer reads the hand-off, then the controller.
         handoverController = null
+        handoff = null
         guidedFacesAsked = 0
         torchOn = false
         phase = GuidedScanPhase.Continuous

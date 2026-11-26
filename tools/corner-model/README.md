@@ -8,7 +8,7 @@ Reproducible training and evaluation pipeline for `app/src/camera/corner/assets/
 - **Output:** `[1, 15]` `float32` in `(0, 1)`:
   - `output[0]`: presence probability (`>= 0.55` accepted).
   - `output[1..14]`: normalized `(u, v)` coordinates of the 7 visible cube corners `[T, UL, LL, B, LR, UR, C]`.
-- **Post-processing:** mapped back into camera frame coordinates via `CornerModelTransform.cropToFrame`, verified by `CornerLocator.isValidCubeGeometry`, and smoothed by `CornerOverlaySmoother`.
+- **Post-processing:** mapped back into camera frame coordinates via `CornerModelTransform.cropToFrame`, and verified by `CornerLocator.isValidCubeGeometry`. No smoothing step follows: `CornerOverlaySmoother` was removed in Story 10.32.
 
 ## Requirements
 

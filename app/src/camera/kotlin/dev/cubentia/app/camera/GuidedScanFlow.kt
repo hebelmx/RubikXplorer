@@ -340,10 +340,19 @@ internal object GuidedScanFlow {
 
     /**
      * The viewfinder of a retake [run]: its controller's step and "Face n of N" over the faces retaken, with the kept
-     * faces' samples shown as captured, and the review to restore on back-out.
+     * faces' samples shown as captured, and the review to restore on back-out. The kept faces also carry the review's
+     * stickers (Story 10.32): a Quick Scan review has no sample for a face the continuous scan mapped.
      */
     fun retakePhase(run: RetakeRun): GuidedScanPhase.Viewfinder =
-        phaseOf(run.controller).copy(kept = run.from.samples.filter { it.face !in run.faces }, fromReview = run.from)
+        phaseOf(run.controller).copy(
+            kept = run.from.samples.filter { it.face !in run.faces },
+            fromReview = run.from,
+            keptColors =
+                (Face.entries - run.faces).associateWith { face ->
+                    run.from.review.stickers
+                        .subList(face.ordinal * 9, face.ordinal * 9 + 9)
+                },
+        )
 
     /**
      * The review after a retake from [before] whose [retaken] samples are all captured: kept faces exactly as reviewed

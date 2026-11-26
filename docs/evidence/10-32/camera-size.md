@@ -15,7 +15,7 @@
 | **Projected camera release size** | **28,282,576 B** | **28,554,298 B** | **+271,722 B** |
 | Headroom to the 30,000,000 B budget | 1,717,424 B | 1,445,702 B | −271,722 B |
 
-Verdict: **PASS** (`Forbidden artifacts: none`, `LiteRT allowed: true`). The "before" column is the figure recorded for Story 10.31; it was not re-measured in this run.
+Verdict: **PASS** (`Forbidden artifacts: none`, `LiteRT allowed: true`). After the follow-up review patches of 2026-11-25 the gate was run again: camera classes 1,151,930 B (+914 B), projected size 28,557,040 B, headroom 1,442,960 B, still **PASS**; the table shows the first measurement. The "before" column is the figure recorded for Story 10.31; it was not re-measured in this run.
 
 ### The camera class bytes are above the 10.31 baseline, by 90,574 B
 
@@ -42,7 +42,23 @@ The story's acceptance criterion says `:app:checkCameraSize` "confirms reclaimed
 - `./gradlew :core:domain:exportKotlinStickerReads --dry-run :core:domain:evaluateQuickScan --dry-run` and `./gradlew :core:domain:compileEvaluationKotlin`: both tools still registered and compiling.
 - No code reference to `QuickScanController`, `QuickScanDiagnosis` or `QuickScanEffect` is left in `app` or `core`.
 
-## 3. Pending — not claimed by this run
+## 3. Legacy replay retired by this story — how to reproduce it
+
+This story deletes the two-corner burst replay with the code it exercised (`CornerHold`'s Quick Scan steady rule): `core/domain/src/test/kotlin/dev/cubentia/domain/recognition/QuickScanBurstReplayTest.kt`, its loader `RecordedBursts.kt` in the same directory, and the `quickScanBursts` test input of `core/domain/build.gradle.kts` (the `:core:domain:test` input on `docs/evidence/quick-scan-2026-11-22/bursts`).
+
+- **Last revision that has them:** `52b66aefa63ab02f8ae6b08cc6a6e5d769756be8` (the parent of this story's implementation commit). `git ls-tree -r --name-only` at that revision lists both files, and its `core/domain/build.gradle.kts` declares the input.
+- **Command, at that revision** (same environment as that revision's `AGENTS.md`):
+
+  ```sh
+  git worktree add ../replay-10-22 52b66aefa63ab02f8ae6b08cc6a6e5d769756be8 && cd ../replay-10-22
+  export JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64 ANDROID_HOME=$HOME/Android/Sdk
+  ./gradlew :core:domain:test --tests 'dev.cubentia.domain.recognition.QuickScanBurstReplayTest'
+  ```
+
+  The command was **not re-run** in this pass; the numbers the test asserts are the ones `docs/evidence/10-22/README.md` derives its thresholds from.
+- **The recorded bursts stay in the repository**: the five `.jsonl` files under `docs/evidence/quick-scan-2026-11-22/bursts/` are not removed. Their remaining consumers are the `quickScanBursts` test input of `app/build.gradle.kts`, `ScanFrameSourcePolicyTest` (the settle replay reads `20261122-114155-still.jsonl`) and the source inventory of `tools/sticker-model/assemble.py`.
+
+## 4. Pending — not claimed by this run
 
 - **Human gate:** hands-on pass from the Solve tab's Quick Scan button on the Lenovo TB128XU and the Galaxy S24 FE (debug build, `QUICK_SCAN` at BETA): outlines in portrait and landscape, growing net, cues, haptics, TalkBack, torch (S24 FE only; the Lenovo has no flash), Reset, *Scan face by face*, *Enter colors instead*, completion into Scan Review and *Accept*. **Pending.**
 - **Story 10.33:** the physical-device matrix and the product owner's BETA call. **Pending.**
