@@ -5,6 +5,7 @@ import android.content.pm.ApplicationInfo
 import android.os.Looper
 import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dev.cubentia.app.ScanDiagnostics
 import dev.cubentia.app.camera.StickerCenterDetection
 import dev.cubentia.app.camera.StickerCenterDetector
 import dev.cubentia.app.camera.YuvFrame
@@ -31,6 +32,8 @@ internal interface StickerCenterInferenceSession {
  * LiteRT v2 INT8 sticker-center heatmap detector (`com.google.ai.edge.litert`, AD-9 / Story 10.31).
  *
  * Runs exclusively off the main thread on XNNPACK CPU with 2 threads using pre-allocated direct buffers.
+ * A frame that fails input conversion or peak decoding is counted and skipped. Its session stays open for the next frame.
+ * Inference failures disable the detector.
  * Never persists, writes to disk, or transmits any camera frame (AD-13).
  */
 @Singleton
@@ -55,6 +58,9 @@ internal class LiteRtStickerCenterDetector
         private var session: StickerCenterInferenceSession? = null
         private var initAttempted = false
         private var closed = false
+        private var failedFrameCount = 0
+        internal val failedFrames: Int get() = synchronized(lock) { failedFrameCount }
+
         private val inputBytes = ByteArray(StickerCenterModelContract.INPUT_BYTES)
         private val yuvScratch = StickerCenterModelTransform.YuvInputScratch()
         private val inputBuffer: ByteBuffer =
@@ -80,28 +86,34 @@ internal class LiteRtStickerCenterDetector
             if (frame.left < 0 || frame.top < 0 || frame.width <= 0 || frame.height <= 0) return StickerCenterDetection.EMPTY
             synchronized(lock) {
                 val active = ensureSession() ?: return StickerCenterDetection.EMPTY
-                val params =
-                    StickerCenterModelTransform.fillYuvInput(frame, rotationDegrees, inputBytes, yuvScratch)
-                        ?: return StickerCenterDetection.EMPTY
-                val dtMs = runInference(active) ?: return StickerCenterDetection.EMPTY
-                val peaks =
-                    StickerCenterModelTransform.decodePeaks(
-                        output = outputFloats,
-                        params = params,
-                        cropLeft = frame.left,
-                        cropTop = frame.top,
-                        cropRight = frame.right,
-                        cropBottom = frame.bottom,
-                        rotationDegrees = rotationDegrees,
-                        viewWidth = viewWidth,
-                        viewHeight = viewHeight,
+                return try {
+                    val params =
+                        StickerCenterModelTransform.fillYuvInput(frame, rotationDegrees, inputBytes, yuvScratch)
+                            ?: return StickerCenterDetection.EMPTY
+                    val dtMs = runInference(active) ?: return StickerCenterDetection.EMPTY
+                    val peaks =
+                        StickerCenterModelTransform.decodePeaks(
+                            output = outputFloats,
+                            params = params,
+                            cropLeft = frame.left,
+                            cropTop = frame.top,
+                            cropRight = frame.right,
+                            cropBottom = frame.bottom,
+                            rotationDegrees = rotationDegrees,
+                            viewWidth = viewWidth,
+                            viewHeight = viewHeight,
+                        )
+                    StickerCenterDetection(
+                        peaks = peaks,
+                        uprightWidth = params.uprightWidth,
+                        uprightHeight = params.uprightHeight,
+                        inferenceMs = dtMs,
                     )
-                return StickerCenterDetection(
-                    peaks = peaks,
-                    uprightWidth = params.uprightWidth,
-                    uprightHeight = params.uprightHeight,
-                    inferenceMs = dtMs,
-                )
+                } catch (_: Exception) {
+                    failedFrameCount++
+                    runCatching { ScanDiagnostics.onQuickScanFrameFailed(failedFrameCount) }
+                    StickerCenterDetection.EMPTY
+                }
             }
         }
 

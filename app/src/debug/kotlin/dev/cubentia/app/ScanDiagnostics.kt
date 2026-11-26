@@ -36,6 +36,13 @@ import java.util.concurrent.atomic.AtomicLong
  * [onQuickCheck] one `quickCheck …` line per applied result (54-letter observed vs expected, and the Certainty).
  */
 object ScanDiagnostics {
+    /** Log powers of two so a stream of bad frames cannot fill the log buffer. */
+    fun onQuickScanFrameFailed(failedFrames: Int) {
+        if (failedFrames > 0 && failedFrames.countOneBits() == 1) {
+            Log.d(TAG, listOf("quickScan", "frameFailed", "count=$failedFrames").joinToString(" "))
+        }
+    }
+
     /** The bound camera's flash unit and the torch state applied. */
     fun onTorch(
         hasFlash: Boolean,
