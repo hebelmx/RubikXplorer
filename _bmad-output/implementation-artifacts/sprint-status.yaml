@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-25-2026 22:30'
+last_updated: '11-25-2026 23:00'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -190,10 +190,10 @@ development_status:
   12-15-move-pictures-and-the-move-strip: done
   12-16-see-the-turn-while-dragging-commit-on-release: done
   12-17-know-when-the-view-is-rotated-and-reset-it-in-one-tap: done
-  12-18-settle-every-open-action-item-before-the-camera-release: backlog
+  12-18-settle-every-open-action-item-before-the-camera-release: in-progress
   epic-12-retrospective: optional
 
-  epic-13: in-progress
+  epic-13: done
   13-1-create-the-site-repository-and-publish-it-with-github-pages: done
   13-2-introduce-cubentia-on-a-landing-page: done
   13-3-export-the-app-s-privacy-facts-from-the-build: done
@@ -1139,7 +1139,8 @@ action_items:
       it on site PR #4 or a site issue; blocks full acceptance of 13.2 AC3 and 13.4
       AC3 and the epic-13 close"
     owner: "PO (hebelmx)"
-    status: open
+    status: done
+    resolution: "Verified 2026-11-20 after cubentia-site#8 (commit 7b702531, docs/evidence/po-human-checklist.md item 4); found by the Story 12.18 preliminary triage"
     ref: "_bmad-output/implementation-artifacts/epic-13-retro-2026-11-19.md"
   - id: "epic-13-retro-item-108-reconcile-13-4-publisher-and-app-ref"
     epic: 13
