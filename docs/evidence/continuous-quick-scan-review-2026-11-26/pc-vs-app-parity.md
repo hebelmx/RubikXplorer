@@ -32,6 +32,17 @@ Context for expectations: even on the PC, the spike's real-webcam benchmark (`RE
 | Debug view | sticker dots, fitted quads, labels, counts, fps | face outlines only | **no** | #409 |
 | Validation | 7 synthetic scenarios + 15 real webcam sessions | Kotlin re-implementation of the synthetic scenarios; detector peak parity on stills only; no shared golden replay | **no** | #411, #413 |
 
+## Does the viewfinder show what the detector receives?
+
+**The region is the same:** CameraX binds both use cases with the PreviewView's viewport, so the analysis crop is the visible viewfinder, and the detector reads only that crop. The *Close* and torch buttons cover two corners the detector still sees.
+
+**What it receives is not visible:** that region shrunk to 256×256 with letterbox bars, which matters most in a tall pane. Pane shapes:
+- tablet in portrait: two panes, about 3:1;
+- phone in portrait: a 1.36:1 strip at 34% of the height;
+- landscape: near square.
+
+Issue: #414. #410 was corrected: the tall case is the tablet in portrait, not the phone.
+
 ## Recommended order
 
 1. #409 (sticker dots on device) and #406 (timings): cheap, and they make everything else visible.
