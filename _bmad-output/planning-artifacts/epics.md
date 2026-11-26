@@ -235,7 +235,7 @@ A Learner can browse and watch all 78 verified OLL/PLL Algorithms, track their o
 ### Epic 10: Scan my cube (v1.0, flag-gated)
 A Learner can scan a cube face by face, correct and calibrate it, solve it from the scan, and verify physical Moves with a Quick Check. Built on `main` with every camera flag OFF in release; each feature reaches users only when the PO raises its flag at a release (Story 10.11). Restored from `post-launch/v1.1-camera-recognition.md` by `sprint-change-proposal-2026-11-14-v1-1-camera.md`. *(SCP 2026-11-20: moves into v1.0 as the dependency of #198, #208, #249, #251, #252; Story 10.11 raises `CAMERA_SCAN` for the v1.0 release.)*
 **FRs covered:** FR-21 – FR-26, plus the Quick Check rung of FR-9 and FR-16, and the calibration reset of FR-19. **Also:** recognition NFRs, NFR-5, NFR-8, NFR-11, NFR-12, AD-9, AD-13, AD-18, AR-13, UX-DR15, UX-DR16, UX-DR19 – UX-DR22, UX-DR25.
-**Order:** 10.9 → 10.10 → UX pass → 10.12 → 10.13 → 10.1 → (10.6 ∥ 10.2 → 10.3 → 10.14 → 10.4 → 10.5 → 10.15 → 10.7) → Epic 11 → 10.8 → 10.11; 10.16 after 10.14; 11.1 → 10.18 (Quick Scan finds the cube's real edges and corners, #195) → 10.17 (after 10.16 too) → 10.19 → 10.22 → (10.20 ∥ 10.23) → 10.21 *(SCP 2026-11-22 quick-scan-reliability: 10.22 before the fixture session)* *(SCP 2026-11-22 quick-scan-sticker-reader: 10.23, the shadow sticker reader, after 10.22; it does not block 10.20, 10.21 or 10.11)* *(SCP 2026-11-22 quick-scan-corners-and-solver-copy: 10.21 → 10.24 (retake a corner, #299) → 10.25 (start from whichever corner is shown, #302); 10.26 (fill a few unread stickers from cube rules, #301) only after the 10.21 BETA call. PO Q-h: the 10.11-n run that raises `QUICK_SCAN` does not wait for 10.25, and no new story is added to its dependencies.)* *(SCP 2026-11-21 quick-scan-side-face-accuracy, #274: 10.20 and 10.21 do not block Story 10.11, which raises `CAMERA_SCAN` and `PLACEMENT` with `QUICK_SCAN` OFF; Quick Scan is raised in a later 10.11-n after 10.21's BETA call)* *(SCP 2026-11-24 camera-release-timeline: 10.21's BETA call (2026-11-24) left `QUICK_SCAN` OFF on this pipeline; 10.24–10.27 are superseded by the continuous facelet scan approach (PR #363) and do not start. The new Quick Scan port stories, written by the spike session's SCP, come before the 10.11 run that raises `QUICK_SCAN`. 10.11 no longer waits for 12.5: its first run, release 0.11.0, raises `CAMERA_SCAN` to GA and `PLACEMENT` to BETA, and `QUICK_SCAN` to BETA only when its preconditions hold (Story 10.11); 12.5 then promotes a new v1.0.0 tag with the same levels.)* *(SCP 2026-11-24 continuous-quick-scan: 10.24–10.27 are dropped; the continuous Quick Scan port chain **10.30 → 10.31 → 10.32 → 10.33** replaces them and runs before the Story 10.11 run that raises `QUICK_SCAN`.)*; all v1.0 scope (SCP 2026-11-20) *(SCP 2026-11-15; 10.14 added by SCP 2026-11-16; 10.5 split into 10.5 and 10.15 by SCP 2026-11-16 main-app entry points)*. *(SCP 2026-11-24 github-issue-triage: 10.28 (the recorder's count check, #337) after 10.20, independent of 10.27, before any new corner-fixture recording; it blocks neither 10.21 nor 10.11. 10.29 (Solution Playback shows the Lesson's Quick Check result, #326) is v1.1 scope, after 10.7. #321, #323, #325 and #313 are v1.0 issue fixes against Stories 10.15, 10.3 and 10.2.)* Device sessions: A = 10.10; A2 = 10.12; B = 10.2 and 10.4 acceptance (10.4 partial); B2 = 10.14; B3 = 10.5 (main app; re-runs the 10.4 checks not done on a device, #166); C = 11.1, 11.3 capture and 10.8.
+**Order:** 10.9 → 10.10 → UX pass → 10.12 → 10.13 → 10.1 → (10.6 ∥ 10.2 → 10.3 → 10.14 → 10.4 → 10.5 → 10.15 → 10.7) → Epic 11 → 10.8 → 10.11; 10.16 after 10.14; 11.1 → 10.18 (Quick Scan finds the cube's real edges and corners, #195) → 10.17 (after 10.16 too) → 10.19 → 10.22 → (10.20 ∥ 10.23) → 10.21 *(SCP 2026-11-22 quick-scan-reliability: 10.22 before the fixture session)* *(SCP 2026-11-22 quick-scan-sticker-reader: 10.23, the shadow sticker reader, after 10.22; it does not block 10.20, 10.21 or 10.11)* *(SCP 2026-11-22 quick-scan-corners-and-solver-copy: 10.21 → 10.24 (retake a corner, #299) → 10.25 (start from whichever corner is shown, #302); 10.26 (fill a few unread stickers from cube rules, #301) only after the 10.21 BETA call. PO Q-h: the 10.11-n run that raises `QUICK_SCAN` does not wait for 10.25, and no new story is added to its dependencies.)* *(SCP 2026-11-21 quick-scan-side-face-accuracy, #274: 10.20 and 10.21 do not block Story 10.11, which raises `CAMERA_SCAN` and `PLACEMENT` with `QUICK_SCAN` OFF; Quick Scan is raised in a later 10.11-n after 10.21's BETA call)* *(SCP 2026-11-24 camera-release-timeline: 10.21's BETA call (2026-11-24) left `QUICK_SCAN` OFF on this pipeline; 10.24–10.27 are superseded by the continuous facelet scan approach (PR #363) and do not start. The new Quick Scan port stories, written by the spike session's SCP, come before the 10.11 run that raises `QUICK_SCAN`. 10.11 no longer waits for 12.5: its first run, release 0.11.0, raises `CAMERA_SCAN` to GA and `PLACEMENT` to BETA, and `QUICK_SCAN` to BETA only when its preconditions hold (Story 10.11); 12.5 then promotes a new v1.0.0 tag with the same levels.)* *(SCP 2026-11-24 continuous-quick-scan: 10.24–10.27 are dropped; the continuous Quick Scan port chain **10.30 → 10.31 → 10.32 → 10.33** replaces them and runs before the Story 10.11 run that raises `QUICK_SCAN`.)*; all v1.0 scope (SCP 2026-11-20) *(SCP 2026-11-15; 10.14 added by SCP 2026-11-16; 10.5 split into 10.5 and 10.15 by SCP 2026-11-16 main-app entry points)*. *(SCP 2026-11-24 github-issue-triage: 10.28 (the recorder's count check, #337) after 10.20, independent of 10.27, before any new corner-fixture recording; it blocks neither 10.21 nor 10.11. 10.29 (Solution Playback shows the Lesson's Quick Check result, #326) is v1.1 scope, after 10.7. #321, #323, #325 and #313 are v1.0 issue fixes against Stories 10.15, 10.3 and 10.2.)* Device sessions: A = 10.10; A2 = 10.12; B = 10.2 and 10.4 acceptance (10.4 partial); B2 = 10.14; B3 = 10.5 (main app; re-runs the 10.4 checks not done on a device, #166); C = 11.1, 11.3 capture and 10.8. *(SCP 2026-11-25 continuous-fixture-recorder: → 10.34 → 10.35 after 10.33; they gate neither 10.11 nor any tag)*
 **Main-app rule (SCP 2026-11-16 main-app entry points):** a camera story is accepted on the main app build, reached from its real entry point. A debug-only launcher is never a story's device-session gate, and debug raises a flag above OFF only once that flag's entry point is wired in the main app (AD-15, AD-18).
 **Never blocks** tester-feedback fixes or Stories 12.3, 12.4, 12.5 and 13.6: camera stories merge only with release camera flags OFF, and Story 10.9's gate keeps the release free of camera code and permissions. *(Superseded by SCP 2026-11-20: for v1.0, Story 10.11 raises `CAMERA_SCAN`, `QUICK_SCAN` and `PLACEMENT` before Stories 12.3–12.5, and the Story 10.9 gate then checks the flags-ON release instead.)* *(SCP 2026-11-21 quick-scan-side-face-accuracy: `QUICK_SCAN` leaves this first raise and follows Story 10.21.)* *(SCP 2026-11-24 camera-release-timeline: Story 10.11 now runs after Stories 12.3, 12.4 and 13.6 and before 12.5. Its first run is release 0.11.0, and Story 12.5 promotes a v1.0.0 tag cut from main with the same flag levels.)*
 
@@ -3010,7 +3010,99 @@ So that I can make an informed BETA call for Story 10.11's `0.11.0` camera relea
 **When** the PO makes the release-level decision
 **Then** the PO records the `QUICK_SCAN` decision (`BETA` for Story 10.11's `0.11.0` release, or `OFF` with routed issues) in the PRD `.memlog.md`, closing `scp-2026-11-24-quick-scan-raise-preconditions`
 
-*(SCP 2026-11-25 continuous-fixture-recorder, approved: two deferred follow-ups come after Stories 10.30–10.33 — A, record and replay a continuous Quick Scan session in the developer fixture recorder; B, retire the Quick-Scan-only two-corner recorder and exporter paths after A. Story numbers are assigned when scheduled; fix stories routed from 10.33 do not block A.)*
+*(SCP 2026-11-25 continuous-fixture-recorder, approved: two follow-ups come after Stories 10.30–10.33 — Story 10.34, record and replay a continuous Quick Scan session in the developer fixture recorder; Story 10.35, retire the Quick-Scan-only two-corner recorder paths after 10.34. Fix stories routed from 10.33 do not block 10.34.)*
+
+### Story 10.34: Record and replay a continuous Quick Scan session in the developer fixture recorder
+
+As the developer investigating a Quick Scan failure,
+I want to record a scan while I turn the cube, with the order of observations kept, and replay it offline against labels I confirmed,
+So that I can reproduce where a continuous scan went wrong and test a new detector on the same pixels.
+
+**Refs:** FR-22 · recognition NFRs (Confidence calibration), NFR-11 · AD-9 (Frames, amended SCP 2026-11-25), AD-15, AD-18 · Stories 10.12, 10.20, 10.28, 10.30–10.33 · `sprint-change-proposal-2026-11-25-continuous-fixture-recorder.md`
+
+**Depends on** Stories 10.30–10.33 being done. Fix stories routed from Story 10.33 do not block it, and the PO may pull it forward to diagnose them. Starts only once the AD-9 Frames amendment and replay placement are confirmed by the architect role in the architecture `.memlog.md`. The recorder is a debug-only developer tool (AD-15), so this is not release scope and gates neither Story 10.11 nor any tag. **Human gate:** one recorded session on the Lenovo TB128XU (gating minimum), with the PO choosing one complete and one incomplete example. *(SCP 2026-11-25 continuous-fixture-recorder. Budgets below are defaults; the spec may change one only with a recorded reason.)*
+
+**Acceptance Criteria:**
+
+**Given** the debug build with the fixture recorder open
+**When** the operator starts a continuous session, turns the cube naturally, and stops or discards it
+**Then** each frame goes through the same detector, lattice fitter, sampler and stateful mapper the Solve-tab Quick Scan uses; the Guided single-face capture and the corner-mode capture used by Case recognition keep working unchanged; and in continuous mode the `CornerDetector` provider is never called (`testDebug` Robolectric test)
+
+**Given** a continuous session in progress on the analyzer thread
+**When** a frame is captured for the fixture
+**Then** the data is copied into a bounded writer queue (8 frames) drained by a separate writer executor; a frame that finds the queue full is not captured and is counted in the manifest's `captureSkips`; any skip, or a p50 analyzer latency more than 10% above the no-capture run on the same device, marks the session defective; and `docs/evidence/10-34/latency.md` records p50/p95 with and without capture on the Lenovo TB128XU
+
+**Given** the operator saves a session
+**When** the group is written
+**Then** a versioned manifest records the session ID, device, cube, lighting, model file SHA-256, LiteRT version and delegate/thread configuration, build commit, frame order and timing, rotation/crop geometry, dropped or skipped frames, and the outcome (complete, partial, failed or lost tracking); every frame's observations (the `(frameIndex, List<QuadObservation>)` passed to `ContinuousFaceletMapper.processFrame`) and its serialized `ContinuousScanSnapshot` are written, with frames that have no observations kept as empty entries; the detector's model input (256×256 RGB, lossless PNG) is kept for every Nth frame (default N = 3, recorded in the manifest), so image replay supports only candidate models with the same input contract; a session holds at most 600 frames and 40 MB on the device; files stream to a temporary directory under app-specific storage and become a complete group only by a final rename, so an interrupted write never reads as complete (`testDebug` JVM test)
+
+**Given** the release, benchmark, `cornerR8` and `release011` build types
+**When** their checks run
+**Then** the capture writer lives in a debug-only package reached only through an optional binding that the debug camera source set provides, shipped `continuous/` code contains no writer, a `FixtureWriterPolicy` in build-logic (beside `ShadowReaderPolicy`, covered by `FixtureWriterPolicyTest`) rejects any writer-package class, `check<Variant>FixtureWriter` is wired into `check` for every non-debuggable variant, and CI runs it for `cornerR8` and `release011` as it runs `checkCornerR8ShadowReader` (AD-9 Frames)
+
+**Given** a saved session the operator labels
+**When** reference stickers are confirmed
+**Then** they are stored separately from predicted colours with unknowns explicit; the Story 10.28 count and override rule is extracted from `RecorderRules.kt` into a format-neutral `StickerTruthCheck` in `:core:domain` main (54 stickers, nine of each colour, review provenance, override only with a non-empty reason), covered by a JVM test and called by both the two-hold recorder and the continuous labeller; a partial or deliberately invalid session stays available with its explicit outcome; and a session and its derivatives stay together in one tuning or held-out partition
+
+**Given** curated sessions copied into `Fixtures/continuous/`
+**When** `./gradlew check` runs
+**Then** `:checkFixtureSize` fails above 15 MB per session or 60 MB for `Fixtures/continuous/` (`Fixtures/` is 343 MB today with no LFS)
+
+**Given** a recorded session
+**When** `:core:domain:replayContinuousSession` runs (a JavaExec task in the evaluation source set, not wired into `check`)
+**Then** it replays the ordered observations through a fresh mapper per session and reports per-frame differences between the recorded snapshots and cue stream and those produced at HEAD; a complete example yields the recorded net in canonical face order compared against operator truth; a partial or failed example yields its last confirmed net and cue or conflict without filling unknowns; the report names the replay starting stage, observed coverage and label mismatches; and screen timing such as the completion hold is out of scope
+
+**Given** one curated session checked in
+**When** the evaluation-source-set JVM test runs
+**Then** state replay reproduces its recorded snapshots exactly, and the documented golden-refresh step is the only way to accept an intended mapper change
+
+**Given** an image session on an emulator or device
+**When** `ContinuousImageReplayDeviceTest` (in `app/src/androidTestDebug`, beside `LiteRtStickerCenterDetectorDeviceTest`) runs
+**Then** the saved inputs through the recorded detector version give the same sticker-center count, each center within 2 px in model-input coordinates of the captured baseline and the same per-sticker colour, and the same session run through a candidate detector reports its differences
+
+**Given** the existing fixtures
+**When** this story merges
+**Then** every fixture root keeps its reader and still runs: `Fixtures/live` (`evaluateScanAccuracy`, the live baseline, `evaluateRecognitionApproaches`, `LiveFixture` decoding), `Fixtures/corner` with `tools/sticker-model/holdout.json` (`exportKotlinStickerReads`), `Fixtures/matrix` (`evaluateMatrix`), and `Fixtures/labeled` with the photo groups; `docs/evidence/10-34/legacy-replay.md` lists each command run with its result and the archived revision and command for each legacy score (including the burst replay Story 10.32 retired); and at least one old fixture and one new continuous session replay successfully
+
+**Given** the delivered tool
+**When** another developer reads its documentation
+**Then** the operator procedure (including the adb trigger reused from `RecorderBurst`), the fixture format and the replay commands are recorded with the tooling, and `replayContinuousSession` is documented as the replacement for the Quick Scan use of `exportKotlinStickerReads`
+
+### Story 10.35: Retire the Quick-Scan-only two-corner recorder paths
+
+As the developer maintaining recognition,
+I want the two-corner Quick Scan code that no longer has a consumer removed, and every remaining consumer given an owner,
+So that the camera code carries one Quick Scan pipeline without losing Case recognition capture or historical evidence.
+
+**Refs:** FR-22, FR-28 · AD-9, AD-15, AD-18 · Stories 10.20, 10.32, 10.34 · `sprint-change-proposal-2026-11-25-continuous-fixture-recorder.md`
+
+**Depends on** Story 10.34, with its capture and replay demonstrations passed on a physical device. Device-free. Not release scope. *(SCP 2026-11-25 continuous-fixture-recorder.)*
+
+**Acceptance Criteria:**
+
+**Given** the tree after Stories 10.32 and 10.34
+**When** the caller inventory is taken
+**Then** `docs/evidence/10-35/inventory.md` lists every Android, domain, evaluation, Gradle, fixture-decoder and test caller of `QuickScanPlan` and `CenterCheck` (in `CornerCapturePlan.kt` after Story 10.32), `GridReason`, `SideLight`, `QuickScanClassification`, `CornerHold`, `RecorderBurst` and the recorder's two-hold helpers, each marked moved, kept with a named owner, or removed
+
+**Given** the historical readers
+**When** the inventory is applied
+**Then** `exportKotlinStickerReads`, `QuickScanClassification` and `LiveFixture` decoding are kept as the `Fixtures/corner` and `Fixtures/live` readers (owner: `:core:domain` evaluation), and so are `evaluateQuickScan` and `ScanDiagnostics.onQuickScanRun` (they measure the continuous scan for Story 10.33)
+
+**Given** a legacy path to retire
+**When** it is removed or deprecated
+**Then** its archived revision and command are already in `docs/evidence/10-34/legacy-replay.md` and Story 10.34's replacement replays pass; a disabled release flag alone never counts as evidence of dead code
+
+**Given** Case recognition (`CASE_RECOGNITION`)
+**When** this story merges
+**Then** corner-mode capture in the recorder, `CornerHold` as Case capture uses it, and `CornerLocator`/`CornerReader`/`CornerGuide` are kept, and Case capture tests pass
+
+**Given** a change to release `ScanDiagnostics` or an `app/src/main` caller
+**When** it is part of the removal
+**Then** it is reviewed as product code, and the release build and its checks pass
+
+**Given** `./gradlew spotlessCheck build` and `:app:checkCameraSize`
+**When** they run after the removal
+**Then** both pass, Guided capture and old fixture decoding still pass, and the class-byte change is recorded in `docs/evidence/10-35/`
 
 ## Epic 11: Scan shortcuts: Quick Scan, Placement and Case recognition
 
