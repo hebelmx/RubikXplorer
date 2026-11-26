@@ -2,7 +2,7 @@
 title: 'Continuous Quick Scan live viewfinder, growing net, Guided fallback, and Review hand-off'
 type: 'feature'
 created: '2026-11-25'
-status: 'done'
+status: 'draft'
 baseline_revision: '52b66aefa63ab02f8ae6b08cc6a6e5d769756be8'
 review_loop_iteration: 0
 followup_review_recommended: false
