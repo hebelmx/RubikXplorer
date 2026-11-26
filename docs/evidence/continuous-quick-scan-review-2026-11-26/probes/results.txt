@@ -1,0 +1,62 @@
+finger[cells 2-5]: twistBefore=false quals=[1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00] rgbs=[(228,206,31), (27,84,200), (229,231,233), (33,163,70), (198,37,41), (33,163,70), (229,231,233), (229,231,233), (33,163,70)]
+  occludedFrame=1 twist=false cue=TurnRemaining(remainingSides=3)
+  occludedFrame=2 twist=false cue=TurnRemaining(remainingSides=3)
+  occludedFrame=3 twist=false cue=TurnRemaining(remainingSides=3)
+  occludedFrame=4 twist=false cue=TurnRemaining(remainingSides=3)
+  occludedFrame=5 twist=false cue=TurnRemaining(remainingSides=3)
+  occludedFrame=6 twist=false cue=TurnRemaining(remainingSides=3)
+  occludedFrame=7 twist=false cue=TurnRemaining(remainingSides=3)
+  occludedFrame=8 twist=false cue=TurnRemaining(remainingSides=3)
+longSession: faces in still frame=1
+frames=1000 msPerFrame=0.358 heapMb=21.1 committed=3 twist=false
+frames=2000 msPerFrame=0.717 heapMb=22.2 committed=3 twist=false
+frames=3000 msPerFrame=1.176 heapMb=23.3 committed=3 twist=false
+frames=4000 msPerFrame=1.682 heapMb=24.3 committed=3 twist=false
+frames=5000 msPerFrame=2.031 heapMb=25.4 committed=3 twist=false
+frames=6000 msPerFrame=2.450 heapMb=26.4 committed=3 twist=false
+frames=7000 msPerFrame=3.526 heapMb=27.5 committed=3 twist=false
+frames=8000 msPerFrame=4.785 heapMb=28.5 committed=3 twist=false
+frames=9000 msPerFrame=5.455 heapMb=29.5 committed=3 twist=false
+frames=10000 msPerFrame=6.251 heapMb=30.7 committed=3 twist=false
+frames=11000 msPerFrame=6.768 heapMb=31.7 committed=3 twist=false
+frames=12000 msPerFrame=6.923 heapMb=32.7 committed=3 twist=false
+finger[row 0-1-2]: twistBefore=false quals=[1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00] rgbs=[(228,206,31), (27,84,200), (229,231,233), (33,163,70), (198,37,41), (33,163,70), (229,231,233), (229,231,233), (33,163,70)]
+  occludedFrame=1 twist=false cue=TurnRemaining(remainingSides=3)
+  occludedFrame=2 twist=false cue=TurnRemaining(remainingSides=3)
+  occludedFrame=3 twist=false cue=TurnRemaining(remainingSides=3)
+  occludedFrame=4 twist=false cue=TurnRemaining(remainingSides=3)
+  occludedFrame=5 twist=true cue=LayerTwistDetected
+  occludedFrame=6 twist=true cue=LayerTwistDetected
+  occludedFrame=7 twist=true cue=LayerTwistDetected
+  occludedFrame=8 twist=true cue=LayerTwistDetected
+finger[cells 0-1]: twistBefore=false quals=[1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00] rgbs=[(228,206,31), (27,84,200), (229,231,233), (33,163,70), (198,37,41), (33,163,70), (229,231,233), (229,231,233), (33,163,70)]
+  occludedFrame=1 twist=false cue=TurnRemaining(remainingSides=3)
+  occludedFrame=2 twist=false cue=TurnRemaining(remainingSides=3)
+  occludedFrame=3 twist=false cue=TurnRemaining(remainingSides=3)
+  occludedFrame=4 twist=false cue=TurnRemaining(remainingSides=3)
+  occludedFrame=5 twist=true cue=LayerTwistDetected
+  occludedFrame=6 twist=true cue=LayerTwistDetected
+  occludedFrame=7 twist=true cue=LayerTwistDetected
+  occludedFrame=8 twist=true cue=LayerTwistDetected
+
+growth3: faces=3
+frames=1000 msPerFrame=0.733
+frames=2000 msPerFrame=0.842
+frames=3000 msPerFrame=1.190
+frames=4000 msPerFrame=1.659
+frames=5000 msPerFrame=2.145
+frames=6000 msPerFrame=2.673
+finger rx=36.0 ry=22.0 scenario=1_scrambled_stickered_regrip: falseTwist=0/20 complete=20/20
+finger rx=36.0 ry=22.0 scenario=2_pastel_stickerless_awb_drift: falseTwist=0/20 complete=20/20
+finger rx=36.0 ry=22.0 scenario=5_finger_occlusion_jitter_clutter: falseTwist=0/20 complete=20/20
+finger rx=60.0 ry=30.0 scenario=1_scrambled_stickered_regrip: falseTwist=0/20 complete=20/20
+finger rx=60.0 ry=30.0 scenario=2_pastel_stickerless_awb_drift: falseTwist=0/20 complete=20/20
+finger rx=60.0 ry=30.0 scenario=5_finger_occlusion_jitter_clutter: falseTwist=0/20 complete=20/20
+finger rx=90.0 ry=40.0 scenario=1_scrambled_stickered_regrip: falseTwist=20/20 complete=0/20
+finger rx=90.0 ry=40.0 scenario=2_pastel_stickerless_awb_drift: falseTwist=0/20 complete=20/20
+finger rx=90.0 ry=40.0 scenario=5_finger_occlusion_jitter_clutter: falseTwist=0/20 complete=20/20
+control noFinger scenario=1_scrambled_stickered_regrip: falseTwist=0/20
+control noFinger scenario=2_pastel_stickerless_awb_drift: falseTwist=0/20
+control noFinger scenario=5_finger_occlusion_jitter_clutter: falseTwist=0/20
+
+edge p10=153.06372335170707 p50=194.13315989193063 p90=237.02678093200512

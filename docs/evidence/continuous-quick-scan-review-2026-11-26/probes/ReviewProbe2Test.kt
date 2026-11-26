@@ -1,0 +1,66 @@
+package dev.cubentia.domain.recognition.continuous
+
+import org.junit.jupiter.api.Test
+import java.io.File
+
+internal object FingerSize { var rx = 36.0; var ry = 22.0 }
+
+class ReviewProbe2Test {
+    private val out = File("/tmp/claude-1000/-mnt-e-Dynamic-IndFun-RubikXplorer/5fa36894-35c8-4f0d-a8c1-e6ebd0c5af03/scratchpad/probe-out2.txt")
+
+    @Test
+    fun fingerSeedSweep() {
+        val base = SyntheticCubeStream.buildScenarios()
+        val sb = StringBuilder()
+        for ((rx, ry) in listOf(36.0 to 22.0, 60.0 to 30.0, 90.0 to 40.0)) {
+            FingerSize.rx = rx; FingerSize.ry = ry
+            for (template in listOf(base[0], base[1], base[4])) {
+                var latched = 0
+                var completed = 0
+                val seeds = 1L..20L
+                for (seed in seeds) {
+                    val cfg = template.copy(fingerOcclusion = true, dropProb = 0.0, falseQuadProb = 0.0, motionBlurProb = 0.0, twistAtFrame = null, seed = seed, nFrames = 160)
+                    val m = ContinuousFaceletMapper()
+                    var snap: ContinuousScanSnapshot? = null
+                    var twist = false
+                    for (fr in SyntheticCubeStream.generateSequence(cfg)) {
+                        snap = m.processFrame(fr.frameIndex, fr.detections)
+                        if (snap.twistDetected) { twist = true; break }
+                    }
+                    if (twist) latched++
+                    if (snap is ContinuousScanSnapshot.Complete) completed++
+                }
+                sb.append("finger rx=$rx ry=$ry scenario=${template.name}: falseTwist=$latched/20 complete=$completed/20\n")
+            }
+        }
+        // control: no finger
+        FingerSize.rx = 36.0; FingerSize.ry = 22.0
+        for (template in listOf(base[0], base[1], base[4])) {
+            var latched = 0
+            for (seed in 1L..20L) {
+                val cfg = template.copy(fingerOcclusion = false, dropProb = 0.0, falseQuadProb = 0.0, motionBlurProb = 0.0, twistAtFrame = null, seed = seed, nFrames = 160)
+                val m = ContinuousFaceletMapper()
+                for (fr in SyntheticCubeStream.generateSequence(cfg)) { if (m.processFrame(fr.frameIndex, fr.detections).twistDetected) { latched++; break } }
+            }
+            sb.append("control noFinger scenario=${template.name}: falseTwist=$latched/20\n")
+        }
+        out.appendText(sb.toString())
+    }
+
+    @Test
+    fun growthThreeFaces() {
+        val frames = SyntheticCubeStream.generateSequence(SyntheticCubeStream.buildScenarios()[0])
+        val m = ContinuousFaceletMapper()
+        var idx = 0
+        val head = frames.take(40)
+        head.forEach { m.processFrame(idx++, it.detections) }
+        val still = head.maxBy { it.detections.size }.detections
+        val sb = StringBuilder("growth3: faces=${still.size}\n")
+        repeat(6) { b ->
+            val t0 = System.nanoTime()
+            repeat(1000) { m.processFrame(idx++, still) }
+            sb.append("frames=${(b + 1) * 1000} msPerFrame=${"%.3f".format((System.nanoTime() - t0) / 1e6 / 1000)}\n")
+        }
+        out.appendText(sb.toString())
+    }
+}
