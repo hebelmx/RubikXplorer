@@ -194,7 +194,7 @@ internal object GuidedScanFlow {
                 read(phase.captured)
             }
 
-            GuidedScanPhase.Continuous, GuidedScanPhase.Rationale, is GuidedScanPhase.Denied, GuidedScanPhase.Unavailable -> {
+            is GuidedScanPhase.QuickScan, GuidedScanPhase.Rationale, is GuidedScanPhase.Denied, GuidedScanPhase.Unavailable -> {
                 null
             }
         }

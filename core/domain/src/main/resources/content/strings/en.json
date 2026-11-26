@@ -21,6 +21,7 @@
   "btn.solve.quick-scan": "Quick Scan",
   "msg.quick-scan.counter": "{n} / {total}",
   "msg.quick-scan.sides-mapped": "Sides mapped: {n}/6",
+  "msg.quick-scan.unavailable": "Quick Scan isn't available right now. You can scan face by face or enter your cube's colors by hand.",
   "btn.quick-scan.reset": "Reset",
   "btn.quick-scan.face-by-face": "Scan face by face",
   "btn.quick-scan.review-and-correct": "Review and Correct",

@@ -20,10 +20,73 @@ class ContinuousScanEngineModuleTest {
         }
 
     @Test
+    fun `the frame that disables detection preserves the last map and new engines see the failure immediately`() {
+        var failInference = false
+        val session =
+            object : StickerCenterInferenceSession {
+                override fun run(
+                    input: ByteBuffer,
+                    output: ByteBuffer,
+                ) {
+                    check(!failInference)
+                }
+
+                override fun close() = Unit
+            }
+        val detector = LiteRtStickerCenterDetector(loadModel = { ByteBuffer.allocateDirect(1) }, openSession = { session })
+        val factory = ContinuousScanEngineModule.factory(detector)
+        val engine = factory.create()
+        assertFalse(engine.detectorUnavailable)
+        val previous = engine.processFrame(frame, 90, 1080, 1920)
+        val exported = engine.export()
+        failInference = true
+        repeat(2) {
+            assertEquals(previous.snapshot, engine.processFrame(frame, 90, 1080, 1920).snapshot)
+            assertEquals(exported, engine.export())
+            assertTrue(engine.detectorUnavailable)
+        }
+        assertTrue(factory.create().detectorUnavailable)
+    }
+
+    @Test
+    fun `over a detector that is already unavailable every engine reports it before any frame and reads no frame`() {
+        var detections = 0
+        val detector =
+            object : StickerCenterDetector {
+                override val unavailable = true
+
+                override fun detect(
+                    frame: YuvFrame,
+                    rotationDegrees: Int,
+                    viewWidth: Int,
+                    viewHeight: Int,
+                ): StickerCenterDetection {
+                    detections++
+                    return StickerCenterDetection.EMPTY
+                }
+            }
+        val factory = ContinuousScanEngineModule.factory(detector)
+        val engine = factory.create()
+        assertTrue(engine.detectorUnavailable)
+        val second = factory.create()
+        assertTrue(second.detectorUnavailable)
+        val exported = engine.export()
+        // A frame handed to the engine all the same is not read: an empty scanning snapshot, and the map as it was.
+        val snapshots = List(3) { engine.processFrame(frame, 90, 1080, 1920).snapshot }
+        assertTrue(snapshots.all { it.mappedFacesCount == 0 && it.committedCount == 0 && it.trackedQuads.isEmpty() })
+        assertEquals(0, detections)
+        assertEquals(exported, engine.export())
+        assertTrue(exported.handoff.faces.isEmpty())
+        assertTrue(engine.detectorUnavailable)
+    }
+
+    @Test
     fun `the engine numbers frames from zero, restarts at reset and then exports an empty unanchored hand-off`() {
         var detections = 0
         val detector =
             object : StickerCenterDetector {
+                override val unavailable = false
+
                 override fun detect(
                     frame: YuvFrame,
                     rotationDegrees: Int,

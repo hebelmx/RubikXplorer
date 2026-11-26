@@ -59,6 +59,42 @@ class ContinuousQuickScanScreenTest {
     @get:Rule val rule = createComposeRule()
     private val strings = ContentStrings((ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle.strings)
 
+    @Test fun unavailableCardAnnouncesOnFirstCompositionAndOffersBothHandOversAndClose() {
+        val taps = mutableListOf<String>()
+        val phase = mutableStateOf<GuidedScanPhase>(GuidedScanPhase.QuickScanUnavailable)
+        rule.setContent {
+            CubentiaTheme {
+                GuidedScanScreen(
+                    phase.value,
+                    strings,
+                    GuidedScanActions(
+                        onClose = { taps += "close" },
+                        onFaceByFace = { taps += "guided" },
+                        onEnterColors = { taps += "editor" },
+                    ),
+                    cornerTorch = true,
+                )
+            }
+        }
+        val message = "Quick Scan isn't available right now. You can scan face by face or enter your cube's colors by hand."
+        val title = SemanticsMatcher.expectValue(SemanticsProperties.PaneTitle, message)
+        rule.onNodeWithTag("quickScanUnavailable").assertIsDisplayed().assert(title)
+        rule.runOnIdle { phase.value = GuidedScanPhase.Continuous }
+        rule.onNodeWithTag("quickScan:continuous").assertIsDisplayed()
+        rule.runOnIdle { phase.value = GuidedScanPhase.QuickScanUnavailable }
+        rule.onNodeWithTag("quickScanUnavailable").assertIsDisplayed().assert(title)
+        rule.onNodeWithText(message).assertIsDisplayed()
+        rule.onNodeWithText("Scan face by face").performClick()
+        rule.onNodeWithText("Enter colors instead").performClick()
+        rule.onNodeWithText("Close").performClick()
+        assertEquals(listOf("guided", "editor", "close"), taps)
+        for (tag in listOf("continuous", "count", "cue", "net", "announcement", "reset", "torch", "reviewAndCorrect")) {
+            rule.onNodeWithTag("quickScan:$tag").assertDoesNotExist()
+        }
+        rule.onNodeWithTag("scanViewfinder").assertDoesNotExist()
+        rule.onNodeWithText("Bring the cube into view.").assertDoesNotExist()
+    }
+
     @Test fun onlyTheCueAndIncreasingCountArePoliteLiveRegions() {
         val state = mutableStateOf(ContinuousQuickScanFlow())
         rule.setContent {
