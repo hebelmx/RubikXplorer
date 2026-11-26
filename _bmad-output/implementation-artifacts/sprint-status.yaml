@@ -160,7 +160,7 @@ development_status:
   10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal: done
   10-33-continuous-quick-scan-physical-device-matrix-and-po-beta-cal: backlog
   10-34-record-and-replay-a-continuous-quick-scan-session-in-the-dev: backlog
-  10-35-retire-the-quick-scan-only-two-corner-recorder-paths: in-progress
+  10-35-retire-the-quick-scan-only-two-corner-recorder-paths: review
   10-36-record-new-scrambles-on-the-continuous-recorder-analyse-them: backlog
   10-22-quick-scan-captures-promptly-once-the-cube-is-in-view: done
   10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads: done
@@ -744,8 +744,8 @@ action_items:
       recorder launcher, SCP 2026-11-26 retire-recorder); at the Epic 10 retro and
       in each 10.11 run, check no Learner feature is reachable only from debug. Debug-only
       entry points that remain: the PruningTablesBenchmarkActivity and SolveCorpusBenchmarkActivity
-      benchmark harnesses (app/src/debug) and the opt-in Spike3dActivity launcher (-Pcubentia.spike3d);
-      ScanDiagnostics and StrictMode also stay"
+      benchmark harnesses (app/src/debug) and the opt-in Spike3dActivity launcher
+      (-Pcubentia.spike3d); ScanDiagnostics and StrictMode also stay"
     owner: "Dev (Amelia) + SM"
     status: open
     ref: "_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-16-main-app-entry-points.md"
@@ -2663,8 +2663,8 @@ action_items:
       Re-pointed to Story 10.35 (SCP 2026-11-26 retire-recorder), which recompiled
       epic-10-context.md from epics.md: 10.24-10.27 are dropped there, so the context
       lists them as dropped and states that their retake-merge, corner-naming and
-      cube-rule-fill rules and the two-corner exposure/prompt-capture rules do not apply;
-      10.29 stays because epics.md keeps it in Epic 10"
+      cube-rule-fill rules and the two-corner exposure/prompt-capture rules do not
+      apply; 10.29 stays because epics.md keeps it in Epic 10"
     owner: "Dev (Amelia)"
     status: done
     ref: "_bmad-output/implementation-artifacts/spec-10-28-the-fixture-recorder-checks-nine-of-each-colour-before-it-sa.md"
@@ -3042,9 +3042,9 @@ action_items:
     epic: 10
     action: "Closed in part by Story 10.35 (SCP 2026-11-26 retire-recorder): CenterCheck
       and the SideLight members only the recorder used are deleted. What remains:
-      QuickScanClassification.kt stays as an evaluation reader (owner :core:domain evaluation);
-      moving it to the evaluation source set is optional future clean-up (low; deferred
-      from 10.32, re-worded by 10.35)"
+      QuickScanClassification.kt stays as an evaluation reader (owner :core:domain
+      evaluation); moving it to the evaluation source set is optional future clean-up
+      (low; deferred from 10.32, re-worded by 10.35)"
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal.md"
