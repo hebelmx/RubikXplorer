@@ -112,6 +112,12 @@ internal sealed interface GuidedScanPhase {
          * mismatch, as when none exists); a retake from it reads with the same one.
          */
         val calibration: dev.cubentia.domain.recognition.CalibrationCenters? = null,
+        /**
+         * Story 10.32, *Review and Correct*: this review was opened from a continuous Quick Scan that is not complete.
+         * Back from it returns to that live scan with nothing of the review kept, and *Close* always asks first. Kept by
+         * `copy` through edits, a retake and a trip to calibration.
+         */
+        val early: Boolean = false,
     ) : GuidedScanPhase
 
     data class Calibration(
@@ -205,6 +211,8 @@ internal class GuidedScanActions(
     val onToggleTorch: () -> Unit = {},
     /** Quick Scan's *Reset* (Story 10.32): clears the map in place, with no confirmation. */
     val onReset: () -> Unit = {},
+    /** Quick Scan's *Review and Correct* (Story 10.32, Q8): opens Scan Review before the scan is complete. */
+    val onReviewAndCorrect: () -> Unit = {},
 )
 
 /**

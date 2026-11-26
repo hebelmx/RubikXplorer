@@ -23,6 +23,7 @@
   "msg.quick-scan.sides-mapped": "Sides mapped: {n}/6",
   "btn.quick-scan.reset": "Reset",
   "btn.quick-scan.face-by-face": "Scan face by face",
+  "btn.quick-scan.review-and-correct": "Review and Correct",
   "btn.quick-scan.torch-on": "Torch on",
   "btn.quick-scan.torch-off": "Torch off",
   "msg.scan.plain-light-surface": "Try a plain, light surface.",

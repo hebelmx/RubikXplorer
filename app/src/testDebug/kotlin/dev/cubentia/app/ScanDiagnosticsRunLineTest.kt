@@ -132,6 +132,33 @@ class ScanDiagnosticsRunLineTest {
         lines.forEach { assertTrue(it, parsed.containsMatchIn(it)) }
     }
 
+    @Test fun `a quick scan that ends from an early review adds earlyReview=1 and the evaluation still parses it`() {
+        ScanDiagnostics.onQuickScanRun(ScanDiagnostics.startRun(), 0, emptyMap(), null, "ACCEPTED", earlyReview = true)
+        ScanDiagnostics.onQuickScanRun(ScanDiagnostics.startRun(), 0, emptyMap(), null, "ACCEPTED", earlyReview = false)
+        ScanDiagnostics.onQuickScanRun(ScanDiagnostics.startRun(), 0, emptyMap(), null, "ACCEPTED")
+        val lines = runs("quickScan")
+        assertEquals(3, lines.size)
+        assertTrue(
+            lines[0],
+            Regex(
+                "quickScan run elapsedMs=\\d+ fallbackFaces=0 repromptFaces=0 corrections=0 outcome=ACCEPTED earlyReview=1 device=[A-Za-z0-9-]+",
+            ).matches(lines[0]),
+        )
+        // Without it the line is the one logged before the field existed.
+        val plain =
+            Regex("quickScan run elapsedMs=\\d+ fallbackFaces=0 repromptFaces=0 corrections=0 outcome=ACCEPTED device=[A-Za-z0-9-]+")
+        assertTrue(lines[1], plain.matches(lines[1]))
+        assertTrue(lines[2], plain.matches(lines[2]))
+        // The pattern of core/domain/src/evaluation/.../quickscan/QuickScanMeasurement.kt accepts the trailing field.
+        val parsed =
+            Regex(
+                "quickScan run elapsedMs=(\\d+|-) fallbackFaces=(\\d+) repromptFaces=(\\d+) corrections=(\\d+) " +
+                    "outcome=(ACCEPTED|CANCELLED|FELL_BACK_TO_EDITOR)(?: [A-Za-z][A-Za-z0-9]*=[^\\s=]+)*\\s*$",
+            )
+        val match = checkNotNull(parsed.find(lines[0])) { lines[0] }
+        assertEquals("ACCEPTED", match.groupValues[5])
+    }
+
     @Test fun `torch diagnostics contain numbers only`() {
         ScanDiagnostics.onTorch(hasFlash = false, torch = false)
         val lines = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }

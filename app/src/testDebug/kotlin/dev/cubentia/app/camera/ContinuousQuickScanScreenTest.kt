@@ -4,6 +4,7 @@ import android.app.Application
 import android.os.Build
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -15,8 +16,11 @@ import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.unit.dp
 import dev.cubentia.app.content.ContentStrings
 import dev.cubentia.app.preferences.LocalHaptics
 import dev.cubentia.app.ui.theme.CubentiaTheme
@@ -33,6 +37,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, qualifiers = "w360dp-h640dp-port")
@@ -101,6 +106,100 @@ class ContinuousQuickScanScreenTest {
                 .children
                 .isEmpty(),
         )
+    }
+
+    @Test fun reviewAndCorrectIsOnTheScreenOnlyWhileBothLimitsAreMet() {
+        val state = mutableStateOf(ContinuousQuickScanFlow())
+        var taps = 0
+        rule.setContent {
+            CubentiaTheme {
+                GuidedScanScreen(
+                    GuidedScanPhase.Continuous,
+                    strings,
+                    GuidedScanActions(onReviewAndCorrect = { taps++ }),
+                    continuous = state.value,
+                )
+            }
+        }
+
+        fun feed(
+            faces: Int,
+            cue: ContinuousScanCue = ContinuousScanCue.TiltAdjacent,
+        ) = rule.runOnIdle {
+            state.value = state.value.next(ContinuousFrame(testSnapshot(testHandoff(Face.entries.take(faces)), cue), emptyList()), 0)
+        }
+        // Hidden, not disabled: no frame yet, then three sides (27 stickers).
+        rule.onNodeWithTag("quickScan:reviewAndCorrect").assertDoesNotExist()
+        feed(3)
+        rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 3/6")
+        rule.onNodeWithTag("quickScan:reviewAndCorrect").assertDoesNotExist()
+        // Four sides and 36 stickers: on the screen, between *Scan face by face* and *Enter colors instead*.
+        feed(4)
+        val action =
+            rule
+                .onNodeWithTag("quickScan:reviewAndCorrect")
+                .assertIsDisplayed()
+                .assertIsEnabled()
+                .assertTextEquals("Review and Correct")
+                // It appears with no announcement: it is no live region, and the count's announcement is the count's own.
+                .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.LiveRegion))
+                .fetchSemanticsNode()
+                .boundsInRoot
+        assertTrue(
+            rule
+                .onNodeWithTag("quickScan:faceByFace")
+                .fetchSemanticsNode()
+                .boundsInRoot.bottom <= action.top,
+        )
+        assertTrue(
+            action.bottom <=
+                rule
+                    .onNodeWithTag("scanEnterColors")
+                    .fetchSemanticsNode()
+                    .boundsInRoot.top,
+        )
+        rule.onNodeWithTag("quickScan:announcement").assertContentDescriptionEquals("Sides mapped: 4/6")
+        rule.onNodeWithTag("quickScan:reviewAndCorrect").performClick()
+        assertEquals(1, taps)
+        // The same label under a latched twist; it hides again when a number falls back, and for the completion hold.
+        feed(4, ContinuousScanCue.LayerTwistDetected)
+        rule.onNodeWithTag("quickScan:reviewAndCorrect").assertIsDisplayed().assertTextEquals("Review and Correct")
+        feed(3)
+        rule.onNodeWithTag("quickScan:reviewAndCorrect").assertDoesNotExist()
+        feed(6)
+        rule.onNodeWithTag("quickScan:reviewAndCorrect").assertIsDisplayed()
+        feed(6, ContinuousScanCue.AllVerified)
+        rule.onNodeWithTag("quickScan:cue").assertTextEquals("All 54 stickers verified.")
+        rule.onNodeWithTag("quickScan:reviewAndCorrect").assertDoesNotExist()
+    }
+
+    /** The fill of the button [tag], sampled inside its left end, clear of its label. */
+    private fun fill(tag: String): androidx.compose.ui.graphics.Color {
+        val image = rule.onNodeWithTag(tag).captureToImage()
+        val x = with(rule.density) { 16.dp.roundToPx() }
+        return image.toPixelMap()[x, image.height / 2]
+    }
+
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun reviewAndCorrectIsNeverTheEmphasisedAction() {
+        val state = mutableStateOf(ContinuousQuickScanFlow())
+        rule.setContent {
+            CubentiaTheme { GuidedScanScreen(GuidedScanPhase.Continuous, strings, GuidedScanActions(), continuous = state.value) }
+        }
+
+        fun feed(cue: ContinuousScanCue) =
+            rule.runOnIdle {
+                state.value = state.value.next(ContinuousFrame(testSnapshot(testHandoff(Face.entries.take(5)), cue), emptyList()), 0)
+            }
+        // Scanning: every action is outlined, so all three look alike.
+        feed(ContinuousScanCue.TiltAdjacent)
+        assertEquals(fill("quickScan:faceByFace"), fill("quickScan:reviewAndCorrect"))
+        assertEquals(fill("quickScan:reset"), fill("quickScan:reviewAndCorrect"))
+        // A latched twist: *Reset* alone is filled; *Review and Correct* stays outlined like *Scan face by face*.
+        feed(ContinuousScanCue.LayerTwistDetected)
+        assertEquals(fill("quickScan:faceByFace"), fill("quickScan:reviewAndCorrect"))
+        assertTrue(fill("quickScan:reset") != fill("quickScan:reviewAndCorrect"))
     }
 
     @Test fun confirmAndRejectFallBackToALongPressBelowApi30() {

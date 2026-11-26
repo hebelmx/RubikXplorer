@@ -148,15 +148,17 @@ class ContinuousQuickScanRouteTest {
         anchored: Boolean = true,
         blank: FaceSlot? = null,
         canComplete: Boolean = true,
+        blanks: Set<FaceSlot> = setOfNotNull(blank),
+        conflicts: List<FaceSlot> = emptyList(),
     ) {
-        val handoff = testHandoff(faces, anchored, blank)
+        val handoff = testHandoff(faces, anchored, blanks = blanks)
         exported =
             if (cue == ContinuousScanCue.AllVerified && canComplete) {
                 ContinuousScanExport.Complete(CubeState.SOLVED, CubeState.SOLVED.toFacelets(), handoff)
             } else {
                 ContinuousScanExport.Partial(handoff)
             }
-        camera.feed(ScanFrame(stats(Color.WHITE), 0, continuous = ContinuousFrame(testSnapshot(handoff, cue), emptyList())))
+        camera.feed(ScanFrame(stats(Color.WHITE), 0, continuous = ContinuousFrame(testSnapshot(handoff, cue, conflicts), emptyList())))
     }
 
     @Test fun completionOpensReviewAndAcceptReturnsToSolve() {
@@ -348,6 +350,8 @@ class ContinuousQuickScanRouteTest {
             assertEquals(ScanOutcome.Accepted(CubeState.SOLVED), ScanFlowContract.decode(result.resultCode, result.resultIntent))
             val run = quickScanRuns().single()
             assertTrue(run, " fallbackFaces=3 " in "$run " && " outcome=ACCEPTED " in "$run ")
+            // A scan that never opened an early review carries no such mark.
+            assertTrue(run, "earlyReview" !in run)
         }
     }
 
@@ -588,6 +592,404 @@ class ContinuousQuickScanRouteTest {
         }
     }
 
+    // Review and Correct (PO clarification Q8): six sides mapped, two conflicted stickers and four unread ones.
+
+    /** Conflicted on R (review index 11) and F (index 21). */
+    private val conflicted = listOf(FaceSlot(Face.F, 3), FaceSlot(Face.R, 2))
+
+    /** Unread on U (indices 0 and 1), D (index 35) and B (index 52). */
+    private val unread = setOf(FaceSlot(Face.U, 0), FaceSlot(Face.U, 1), FaceSlot(Face.D, 8), FaceSlot(Face.B, 7))
+    private val earlyBlanks = listOf(0, 1, 11, 21, 35, 52)
+
+    /** The cue names the face of the first conflicted slot in sorted order (R), as the mapper does. */
+    private fun showStalled(cue: ContinuousScanCue = ContinuousScanCue.ResolveConflict(Face.R)) =
+        show(Face.entries, cue, blanks = conflicted.toSet() + unread, conflicts = conflicted)
+
+    /** Taps *Review and Correct* and returns the early review it opened. */
+    private fun openEarlyReview(model: GuidedScanViewModel): GuidedScanPhase.Review {
+        rule.onNodeWithTag("quickScan:reviewAndCorrect").assertIsDisplayed().performClick()
+        settle(model)
+        if (rule.onAllNodesWithTag("review:coach").fetchSemanticsNodes().isNotEmpty()) rule.onNodeWithTag("review:coach").performClick()
+        return model.phase as GuidedScanPhase.Review
+    }
+
+    private fun earlyReview(model: GuidedScanViewModel) = model.phase as GuidedScanPhase.Review
+
+    private fun paint(color: Color) = rule.onNodeWithTag("swatch:${color.name}").performScrollTo().performClick()
+
+    @Test fun reviewAndCorrectOpensTheReviewWithTheConflictedStickersFirstAndAcceptFinishesTheScan() {
+        camera.flash = true
+        quickScanActivity { scan, model ->
+            showStalled()
+            rule.onNodeWithTag("quickScan:torch").assert(hasText("Torch off")).performClick()
+            settle(model)
+            assertEquals(true, camera.torchCalls.last())
+            assertTrue(camera.analyzing())
+            val opened = openEarlyReview(model)
+            // The fresh export: confirmed stickers as read, the two conflicted and four unread ones blank, none guessed.
+            assertTrue(opened.early)
+            assertEquals(earlyBlanks, opened.review.blanks)
+            val solved = CubeState.SOLVED.toFacelets().colors
+            opened.review.stickers.forEachIndexed { index, color -> if (color != null) assertEquals(solved[index], color) }
+            // The first conflicted sticker is selected, although two unread blanks come before it in sticker order.
+            assertEquals(11, opened.review.selected)
+            // The torch is off, the camera has stopped and no frame is analysed while the review is open.
+            assertEquals(false, model.torchOn)
+            assertEquals(false, camera.torchCalls.last())
+            assertEquals(null, camera.receiver)
+            assertTrue(!camera.analyzing())
+            rule.onNodeWithTag("review:accept").performScrollTo().assertIsNotEnabled()
+            // Setting a colour goes to the other conflicted sticker, then to the unread ones in the usual order.
+            paint(Color.RED)
+            assertEquals(21, earlyReview(model).review.selected)
+            paint(Color.GREEN)
+            assertEquals(35, earlyReview(model).review.selected)
+            paint(Color.YELLOW)
+            assertEquals(52, earlyReview(model).review.selected)
+            paint(Color.BLUE)
+            assertEquals(0, earlyReview(model).review.selected)
+            paint(Color.WHITE)
+            assertEquals(1, earlyReview(model).review.selected)
+            paint(Color.WHITE)
+            assertTrue(earlyReview(model).early)
+            rule.onNodeWithTag("review:accept").performScrollTo().performClick()
+            assertEquals(ScanOutcome.Accepted(CubeState.SOLVED), outcome(scan.get()))
+            val run = quickScanRuns().single()
+            assertTrue(run, " fallbackFaces=0 " in "$run " && " outcome=ACCEPTED " in "$run ")
+            // The run line tells a scan finished by hand in an early review from one the camera finished.
+            assertTrue(run, " earlyReview=1 " in "$run ")
+        }
+    }
+
+    @Test fun backFromACalibrationOpenedInTheEarlyReviewReturnsToItAndThenToTheLiveScanWithTheTorchOff() {
+        camera.flash = true
+        quickScanActivity { scan, model ->
+            showStalled()
+            val opened = openEarlyReview(model)
+            rule.runOnIdle { model.phase = opened.copy(offerCalibration = true) }
+            val offered = earlyReview(model)
+            rule.onNodeWithTag("review:calibrate:offer").performScrollTo().performClick()
+            rule.onNodeWithTag("review:calibrate:confirm").performClick()
+            settle(model)
+            // A calibration opened from the review starts with the torch on (Story 10.21).
+            assertTrue(model.phase is GuidedScanPhase.Calibration)
+            assertEquals(true, model.torchOn)
+            waitForCamera(continuous = false)
+            settle(model)
+            assertEquals(true, camera.torchCalls.last())
+            // Back leaves the calibration for the same early review.
+            scan.get().onBackPressedDispatcher.onBackPressed()
+            settle(model)
+            assertTrue(model.phase === offered)
+            assertTrue(earlyReview(model).early)
+            rule.onNodeWithTag("review:accept").assertExists()
+            // Back again returns to the live scan, and turns off the torch the calibration had lit.
+            scan.get().onBackPressedDispatcher.onBackPressed()
+            settle(model)
+            assertTrue(!scan.get().isFinishing)
+            assertEquals(GuidedScanPhase.Continuous, model.phase)
+            assertEquals(false, model.torchOn)
+            waitForCamera(continuous = true)
+            settle(model)
+            assertEquals(false, camera.torchCalls.last())
+            rule.onNodeWithTag("quickScan:torch").assert(hasText("Torch off"))
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 6/6")
+        }
+    }
+
+    @Test fun enterColorsInTheEarlyReviewKeepsItsStickersForTheEditorAndAsksNothing() {
+        quickScanActivity { scan, model ->
+            showStalled()
+            openEarlyReview(model)
+            paint(Color.RED)
+            val stickers = earlyReview(model).review.stickers
+            assertEquals(Color.RED, stickers[11])
+            assertEquals(earlyBlanks - 11, earlyReview(model).review.blanks)
+            rule.onNodeWithTag("review:enterColors").performScrollTo().performClick()
+            rule.onNodeWithTag("review:discard").assertDoesNotExist()
+            assertEquals(ScanOutcome.FellBackToEditor(stickers), outcome(scan.get()))
+            val run = quickScanRuns().single()
+            assertTrue(run, " outcome=FELL_BACK_TO_EDITOR " in "$run " && " earlyReview=1 " in "$run ")
+        }
+    }
+
+    @Test fun aRotationKeepsTheEarlyReviewWithItsColoursAndBackStillReturnsToTheLiveScan() {
+        quickScanActivity { scan, model ->
+            showStalled()
+            val before = model.continuous
+            openEarlyReview(model)
+            paint(Color.RED)
+            scan.recreate()
+            settle(model)
+            assertTrue(ViewModelProvider(scan.get())[GuidedScanViewModel::class.java] === model)
+            val after = earlyReview(model)
+            assertTrue(after.early)
+            assertEquals(Color.RED, after.review.stickers[11])
+            assertEquals(earlyBlanks - 11, after.review.blanks)
+            assertEquals(21, after.review.selected)
+            rule.onNodeWithTag("review:accept").assertExists()
+            scan.get().onBackPressedDispatcher.onBackPressed()
+            settle(model)
+            rule.onNodeWithTag("review:discard").assertDoesNotExist()
+            assertTrue(!scan.get().isFinishing)
+            assertEquals(GuidedScanPhase.Continuous, model.phase)
+            assertTrue(model.continuous === before)
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 6/6")
+            rule.onNodeWithTag("quickScan:cue").assertTextEquals("Show the red face clearly to resolve a conflict.")
+            assertEquals(1, enginesCreated)
+            assertEquals(0, engineResets)
+        }
+    }
+
+    @Test fun theEarlyReviewCorrectsWronglyReadStickersAndAcceptFinishesTheScan() {
+        quickScanActivity { scan, model ->
+            // All 54 stickers are set, but U1 and R1 were read as each other's colour: no blank, and no valid cube.
+            val full = testHandoff(Face.entries)
+
+            fun misread(
+                face: Face,
+                color: Color,
+            ) = full.faces.getValue(face).let { it.copy(colors = it.colors.mapIndexed { cell, read -> if (cell == 0) color else read }) }
+            val wrong = full.copy(faces = full.faces + (Face.U to misread(Face.U, Color.RED)) + (Face.R to misread(Face.R, Color.WHITE)))
+            exported = ContinuousScanExport.Partial(wrong)
+            camera.feed(
+                ScanFrame(
+                    stats(Color.WHITE),
+                    0,
+                    continuous = ContinuousFrame(testSnapshot(wrong, ContinuousScanCue.KeepTurningRealign), emptyList()),
+                ),
+            )
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 6/6")
+            val opened = openEarlyReview(model)
+            assertTrue(opened.early)
+            assertTrue(opened.review.blanks.isEmpty())
+            assertEquals(Color.RED to Color.WHITE, opened.review.stickers[0] to opened.review.stickers[9])
+            rule.onNodeWithTag("review:accept").performScrollTo().assertIsNotEnabled()
+            // The Learner picks each wrong sticker (the first of its face) and sets its colour.
+            rule.onNodeWithTag("editor:face:${Face.U.ordinal}").performScrollTo().performClick()
+            assertEquals(0, earlyReview(model).review.selected)
+            paint(Color.WHITE)
+            rule.onNodeWithTag("review:accept").performScrollTo().assertIsNotEnabled()
+            rule.onNodeWithTag("editor:face:${Face.R.ordinal}").performScrollTo().performClick()
+            assertEquals(9, earlyReview(model).review.selected)
+            paint(Color.RED)
+            assertEquals(CubeState.SOLVED.toFacelets().colors, earlyReview(model).review.stickers)
+            rule.onNodeWithTag("review:accept").performScrollTo().performClick()
+            assertEquals(ScanOutcome.Accepted(CubeState.SOLVED), outcome(scan.get()))
+            val run = quickScanRuns().single()
+            assertTrue(run, " corrections=2 " in "$run " && " outcome=ACCEPTED " in "$run " && " earlyReview=1 " in "$run ")
+        }
+    }
+
+    @Test fun backFromTheEarlyReviewReturnsToTheLiveScanAsItWasAndDropsItsColours() {
+        camera.flash = true
+        quickScanActivity { scan, model ->
+            showStalled()
+            rule.onNodeWithTag("quickScan:torch").performClick()
+            settle(model)
+            val before = model.continuous
+            openEarlyReview(model)
+            paint(Color.RED)
+            paint(Color.GREEN)
+            assertEquals(listOf(0, 1, 35, 52), earlyReview(model).review.blanks)
+            // Back asks nothing, although the review was changed.
+            scan.get().onBackPressedDispatcher.onBackPressed()
+            settle(model)
+            rule.onNodeWithTag("review:discard").assertDoesNotExist()
+            rule.onNodeWithTag("scan:discard").assertDoesNotExist()
+            assertTrue(!scan.get().isFinishing)
+            assertEquals(GuidedScanPhase.Continuous, model.phase)
+            // The camera-built map, the count and the cue are the ones shown before the tap; the engine was not touched.
+            assertTrue(model.continuous === before)
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 6/6")
+            rule.onNodeWithTag("quickScan:cue").assertTextEquals("Show the red face clearly to resolve a conflict.")
+            assertEquals(0, engineResets)
+            assertEquals(1, enginesCreated)
+            // The torch stays off.
+            rule.onNodeWithTag("quickScan:torch").assert(hasText("Torch off"))
+            assertEquals(false, model.torchOn)
+            waitForCamera(continuous = true)
+            assertEquals(false, camera.torchCalls.last())
+            assertTrue(!model.analysisHeld && !model.busy && camera.analyzing())
+            // Opening it again shows the camera-built map without the colours set before.
+            val again = openEarlyReview(model)
+            assertEquals(earlyBlanks, again.review.blanks)
+            assertEquals(11, again.review.selected)
+            assertTrue(again.corrections.isEmpty() && !again.edited)
+            scan.get().onBackPressedDispatcher.onBackPressed()
+            settle(model)
+            // Scanning goes on: the next frame is analysed and shown.
+            waitForCamera(continuous = true)
+            show(Face.entries.take(5))
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 5/6")
+        }
+    }
+
+    @Test fun aRetakeFinishedInTheEarlyReviewIsDroppedOnBack() {
+        quickScanActivity { scan, model ->
+            showStalled()
+            val opened = openEarlyReview(model)
+            // Back keeps its nearer meanings first: it leaves retake mode, then a retake viewfinder, for this review.
+            rule.onNodeWithTag("review:retakeFaces").performScrollTo().performClick()
+            rule.onNodeWithTag("review:retake:start").assertExists()
+            scan.get().onBackPressedDispatcher.onBackPressed()
+            settle(model)
+            rule.onNodeWithTag("review:retake:start").assertDoesNotExist()
+            assertTrue(model.phase === opened)
+
+            fun startRetakeOfGreen() {
+                rule.onNodeWithTag("review:retakeFaces").performScrollTo().performClick()
+                rule.onNodeWithTag("reviewNet:face:${Face.F.ordinal}").performClick()
+                rule.onNodeWithTag("review:retake:start").performScrollTo().performClick()
+                rule.waitUntil(10_000) {
+                    shadowOf(Looper.getMainLooper()).idle()
+                    (model.phase as? GuidedScanPhase.Viewfinder)?.fromReview != null
+                }
+                waitForCamera(continuous = false)
+            }
+            startRetakeOfGreen()
+            scan.get().onBackPressedDispatcher.onBackPressed()
+            settle(model)
+            assertTrue(model.phase === opened)
+            // A finished retake of the green face fills its conflicted sticker; the review is still the early one.
+            startRetakeOfGreen()
+            camera.feed(ScanFrame(stats(Color.GREEN), 0))
+            shutter(model)
+            rule.waitUntil(10_000) {
+                shadowOf(Looper.getMainLooper()).idle()
+                model.phase is GuidedScanPhase.Review
+            }
+            val retaken = earlyReview(model)
+            assertTrue(retaken.early)
+            assertEquals(earlyBlanks - 21, retaken.review.blanks)
+            assertEquals(Color.GREEN, retaken.review.stickers[21])
+            assertEquals(11, retaken.review.selected)
+            // Back drops the retake with the rest of the review.
+            rule.onNodeWithTag("review:accept").assertExists()
+            scan.get().onBackPressedDispatcher.onBackPressed()
+            settle(model)
+            assertTrue(!scan.get().isFinishing)
+            assertEquals(GuidedScanPhase.Continuous, model.phase)
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 6/6")
+            waitForCamera(continuous = true)
+            val again = openEarlyReview(model)
+            assertEquals(earlyBlanks, again.review.blanks)
+            assertEquals(null, again.review.stickers[21])
+            assertTrue(again.samples.isEmpty())
+        }
+    }
+
+    @Test fun backReturnsToTheLiveScanEvenBeforeTheEarlyReviewIsDrawn() {
+        quickScanActivity { scan, model ->
+            showStalled()
+            val before = model.continuous
+            // The phase is the early review, but its screen is not composed yet: Back is then the activity's own.
+            rule.runOnIdle {
+                model.phase =
+                    GuidedScanPhase.Review(
+                        dev.cubentia.domain.recognition.ScanReview
+                            .from(exported.handoff),
+                        early = true,
+                    )
+                scan.get().onBackPressedDispatcher.onBackPressed()
+            }
+            settle(model)
+            assertTrue(!scan.get().isFinishing)
+            assertEquals(GuidedScanPhase.Continuous, model.phase)
+            assertTrue(model.continuous === before)
+        }
+    }
+
+    @Test fun closeInTheEarlyReviewAlwaysAsksAndDiscardCancelsTheScan() {
+        quickScanActivity { scan, model ->
+            showStalled()
+            openEarlyReview(model)
+            // Nothing was changed, and Close still asks "Discard this scan?".
+            rule.onNodeWithTag("review:close").performScrollTo().performClick()
+            rule.onNodeWithTag("review:discard").assertIsDisplayed()
+            rule.onNodeWithText("Discard this scan?").assertIsDisplayed()
+            assertTrue(!scan.get().isFinishing)
+            rule.onNodeWithTag("review:discard:cancel").performClick()
+            rule.onNodeWithTag("review:discard").assertDoesNotExist()
+            // Cancel stays in the review with its work.
+            paint(Color.RED)
+            rule.onNodeWithTag("review:close").performScrollTo().performClick()
+            rule.onNodeWithTag("review:discard:cancel").performClick()
+            assertTrue(!scan.get().isFinishing)
+            assertEquals(Color.RED, earlyReview(model).review.stickers[11])
+            assertTrue(earlyReview(model).early)
+            rule.onNodeWithTag("review:close").performScrollTo().performClick()
+            rule.onNodeWithTag("review:discard:confirm").performClick()
+            assertEquals(ScanOutcome.Cancelled, outcome(scan.get()))
+        }
+    }
+
+    @Test fun underALatchedTwistReviewAndCorrectStaysAndBackReturnsToTheWaitingScan() {
+        quickScanActivity { scan, model ->
+            showStalled(ContinuousScanCue.LayerTwistDetected)
+            exported = ContinuousScanExport.TwistDetected(1, exported.handoff)
+            assertTrue(model.analysisHeld)
+            val opened = openEarlyReview(model)
+            assertTrue(opened.early)
+            assertEquals(earlyBlanks, opened.review.blanks)
+            assertEquals(11, opened.review.selected)
+            scan.get().onBackPressedDispatcher.onBackPressed()
+            settle(model)
+            // The twist is still latched: the kept net and count, the twist cue, and no frame analysed until Reset.
+            assertEquals(GuidedScanPhase.Continuous, model.phase)
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 6/6")
+            rule.onNodeWithTag("quickScan:cue").assertTextEquals("A layer turned during the scan. Hold the layers steady and scan again.")
+            rule.onNodeWithTag("quickScan:reviewAndCorrect").assertIsDisplayed()
+            waitForCamera(continuous = true)
+            assertTrue(model.analysisHeld && !camera.analyzing())
+            assertEquals(0, engineResets)
+            rule.onNodeWithTag("quickScan:reset").performClick()
+            settle(model)
+            assertEquals(1, engineResets)
+            assertTrue(!model.analysisHeld && camera.analyzing())
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 0/6")
+            rule.onNodeWithTag("quickScan:reviewAndCorrect").assertDoesNotExist()
+        }
+    }
+
+    @Test fun reviewAndCorrectIsNotOfferedBelowItsLimitsOrDuringTheCompletionHold() {
+        quickScanActivity { _, model ->
+            rule.onNodeWithTag("quickScan:reviewAndCorrect").assertDoesNotExist()
+            show(Face.entries.take(3))
+            rule.onNodeWithTag("quickScan:reviewAndCorrect").assertDoesNotExist()
+            show(Face.entries.take(4))
+            rule.onNodeWithTag("quickScan:reviewAndCorrect").assertIsDisplayed()
+            show(Face.entries.take(3))
+            rule.onNodeWithTag("quickScan:reviewAndCorrect").assertDoesNotExist()
+            // A call that arrives with the action hidden opens nothing.
+            rule.runOnIdle { model.reviewAndCorrect() }
+            settle(model)
+            assertEquals(GuidedScanPhase.Continuous, model.phase)
+            // The completion hold: Review opens by itself, as the completed scan's review.
+            show(Face.entries, ContinuousScanCue.AllVerified)
+            rule.onNodeWithTag("quickScan:cue").assertTextEquals("All 54 stickers verified.")
+            rule.onNodeWithTag("quickScan:reviewAndCorrect").assertDoesNotExist()
+            advanceHold(model)
+            assertTrue(!earlyReview(model).early)
+        }
+    }
+
+    @Test fun anExportThatIsAlreadyCompleteOpensTheCompletedScansReview() {
+        quickScanActivity { scan, model ->
+            showStalled()
+            // The mapper finished between the shown frame and the tap: the fresh export is the completed scan.
+            val full = testHandoff(Face.entries)
+            exported = ContinuousScanExport.Complete(CubeState.SOLVED, CubeState.SOLVED.toFacelets(), full)
+            val opened = openEarlyReview(model)
+            assertTrue(!opened.early)
+            assertTrue(opened.review.blanks.isEmpty() && opened.review.checkFirst.isEmpty())
+            // The completed review's own rule: Close with no change asks nothing and keeps the scan for the Editor.
+            rule.onNodeWithTag("review:close").performScrollTo().performClick()
+            rule.onNodeWithTag("review:discard").assertDoesNotExist()
+            assertEquals(ScanOutcome.FellBackToEditor(full.toFallbackStickers()), outcome(scan.get()))
+        }
+    }
+
     /** Opens Quick Scan from the Solve tab (`solve:quickScan`) and runs [body] on its activity once the continuous camera runs. */
     private fun quickScanActivity(
         body: (org.robolectric.android.controller.ActivityController<GuidedScanActivity>, GuidedScanViewModel) -> Unit,
@@ -675,11 +1077,15 @@ class ContinuousQuickScanRouteTest {
 
         override fun preview(context: Context) = android.view.View(context)
 
+        /** The activity's own rule for whether a continuous frame is analysed now. */
+        @Volatile var analyzing: () -> Boolean = { false }
+
         override fun continuousMode(
             engine: ContinuousScanEngine?,
             analyzing: () -> Boolean,
         ) {
             continuous = engine != null
+            this.analyzing = analyzing
         }
 
         override fun start(

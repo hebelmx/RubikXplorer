@@ -245,6 +245,7 @@ class GuidedScanActivity : ComponentActivity() {
                 onFreezeEnd = { id -> scan.endFreeze(id) },
                 onFaceByFace = scan::switchToFaceByFace,
                 onReset = scan::resetContinuous,
+                onReviewAndCorrect = scan::reviewAndCorrect,
                 // Story 10.32: Quick Scan's torch choice survives a Reset and a rotation; hand-over and background turn it off.
                 // Story 10.21: locked in calibration from the first kept swatch until it is saved or left.
                 onToggleTorch = { if (!GuidedScanFlow.torchLocked(phase)) scan.torchOn = !scan.torchOn },
@@ -290,6 +291,10 @@ class GuidedScanActivity : ComponentActivity() {
 
                             // Back from Quick Scan's hand-over returns to Quick Scan with the map intact (Stories 10.17, 10.32).
                             viewfinder?.handOver == true -> scan.backOutOfHandOver()
+
+                            // Story 10.32: an early review's Back is the review screen's own; this covers the moment
+                            // before that screen is composed, so Back never ends the scan from an early review.
+                            (phase as? GuidedScanPhase.Review)?.early == true -> scan.backOutOfEarlyReview()
 
                             else -> closeOrConfirm()
                         }
@@ -382,6 +387,7 @@ class GuidedScanActivity : ComponentActivity() {
                                 },
                             onAccept = { finishWith(ScanOutcome.Accepted(it, scan.runScanColorsToReturn())) },
                             // GH #321: Close with no change keeps the scan for the Editor; Discard (after a change) cancels.
+                            // An early review (Story 10.32) always asks on Close, so it only ever reaches onDiscard.
                             onClose = { finishWith(fallBackToEditor()) },
                             onDiscard = { finishWith(ScanOutcome.Cancelled) },
                             enterColorsAsks = !seedsEditor,
@@ -399,6 +405,8 @@ class GuidedScanActivity : ComponentActivity() {
                                 scan.coachMarkPending = false
                                 lifecycleScope.launch(Dispatchers.IO) { ScanCoachMarkRecord.markSeen(applicationContext) }
                             },
+                            // Story 10.32: Back from an early review returns to the live scan; Close there always asks.
+                            onBack = if (reviewPhase.early) scan::backOutOfEarlyReview else null,
                         )
                     } else {
                         GuidedScanScreen(
@@ -491,9 +499,11 @@ class GuidedScanActivity : ComponentActivity() {
     }
 
     /**
-     * Close, and system Back when no retake, hand-over or calibration handles it first: asks "Discard this scan?" when it would drop at least one face
-     * Quick Scan captured, kept or read in its hand-over (Story 10.17), and "Discard the faces you captured?" when it
-     * would drop a face of a plain Guided 6-face viewfinder (GH #325); otherwise the scan ends Cancelled at once.
+     * Close, and system Back when no retake, hand-over, calibration or early review handles it first: asks "Discard this
+     * scan?" when it would drop at least one face Quick Scan captured, kept or read in its hand-over (Story 10.17), and
+     * "Discard the faces you captured?" when it would drop a face of a plain Guided 6-face viewfinder (GH #325);
+     * otherwise the scan ends Cancelled at once. An early review (Story 10.32, *Review and Correct*) never comes here:
+     * its Back returns to the live scan, and its *Close* asks in the review screen itself.
      */
     private fun closeOrConfirm() {
         val current = phase
@@ -580,6 +590,7 @@ class GuidedScanActivity : ComponentActivity() {
                 review?.corrections,
                 review?.initialStickers,
                 outcome,
+                earlyReview = review?.early == true,
             )
         }
         val (code, data) =
@@ -918,6 +929,37 @@ internal class GuidedScanViewModel : ViewModel() {
                 analysisHeld = false
             }
         }
+
+    /**
+     * Main thread: *Review and Correct* (Story 10.32, Q8). Scan Review opens on a fresh export, with the torch off:
+     * confirmed stickers as read, unread and conflicted ones blank, the shown snapshot's conflicted stickers first to
+     * check. An export that is already complete opens the completed scan's review instead. The engine, the shown
+     * [continuous] state and a latched twist are not touched, so [backOutOfEarlyReview] finds the scan as it was.
+     */
+    fun reviewAndCorrect() {
+        if (!continuous.reviewAndCorrectOffered()) return
+        exportContinuous { exported ->
+            torchOn = false
+            val handoff = exported.handoff
+            val early = exported !is ContinuousScanExport.Complete
+            val review = if (early) ScanReview.from(handoff, continuous.conflictedReviewIndices) else ScanReview.from(handoff)
+            publish(GuidedScanPhase.Review(review, calibration = reviewCalibration(handoff), early = early))
+        }
+    }
+
+    /**
+     * Main thread: Back from an early review (Story 10.32, Q8): the live continuous scan again, with its camera-built
+     * map, count and any latched twist as they were, and the torch off. Nothing done in the review is kept: its colours
+     * and retakes go with it (a held or frozen capture and a running retake included).
+     */
+    fun backOutOfEarlyReview() {
+        if ((phase as? GuidedScanPhase.Review)?.early != true) return
+        held = null
+        frozen = null
+        torchOn = false
+        phase = GuidedScanPhase.Continuous
+        analyzerExecutor.execute { retake = null }
+    }
 
     /** The calibration a review of [handoff] is read with: its own six centres when valid, else the saved calibration. */
     private fun reviewCalibration(handoff: ContinuousScanHandoff): CalibrationCenters? =

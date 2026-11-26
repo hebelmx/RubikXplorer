@@ -4,6 +4,7 @@ import android.os.Build
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -50,6 +52,9 @@ import dev.cubentia.domain.appearance.StickerAppearance
 import dev.cubentia.domain.recognition.continuous.FaceSlot
 import kotlinx.coroutines.channels.ReceiveChannel
 import dev.cubentia.domain.text.Text as ContentText
+
+/** Below this height (the compact window height class) the landscape panel pairs *Review and Correct* with *Enter colors instead*. */
+private val SHORT_PANEL_HEIGHT = 480.dp
 
 @Composable
 internal fun ContinuousQuickScanScreen(
@@ -93,7 +98,7 @@ internal fun ContinuousQuickScanScreen(
             }
         }
     }
-    val panel: @Composable (Modifier) -> Unit = { modifier ->
+    val panel: @Composable (Modifier, Boolean) -> Unit = { modifier, short ->
         Column(modifier.padding(horizontal = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             ContinuousNet(state, Modifier.weight(1f).fillMaxWidth())
             Text(strings.resolve(ContinuousQuickScanFlow.countText(state.count)), Modifier.testTag("quickScan:count"))
@@ -125,19 +130,41 @@ internal fun ContinuousQuickScanScreen(
             OutlinedButton(actions.onFaceByFace, Modifier.fillMaxWidth().testTag("quickScan:faceByFace")) {
                 Text(strings.resolve(ContentText("btn.quick-scan.face-by-face")))
             }
-            EnterColorsButton(strings, actions.onEnterColors)
+            // *Review and Correct* (Q8): shown or gone at once, with no animation or announcement; never the emphasised
+            // action. On a short panel (a phone in landscape) it shares the last row, so the net keeps a readable cell.
+            val reviewAndCorrect: @Composable (Modifier) -> Unit = { place ->
+                OutlinedButton(actions.onReviewAndCorrect, place.testTag("quickScan:reviewAndCorrect")) {
+                    Text(strings.resolve(ContentText("btn.quick-scan.review-and-correct")))
+                }
+            }
+            if (!state.reviewAndCorrectOffered()) {
+                EnterColorsButton(strings, actions.onEnterColors)
+            } else if (short) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // The minimum touch height, which *Enter colors instead* beside it sets for itself too.
+                    reviewAndCorrect(Modifier.weight(1f).heightIn(min = 48.dp))
+                    Box(Modifier.weight(1f)) { EnterColorsButton(strings, actions.onEnterColors) }
+                }
+            } else {
+                reviewAndCorrect(Modifier.fillMaxWidth())
+                EnterColorsButton(strings, actions.onEnterColors)
+            }
         }
     }
     BoxWithConstraints(Modifier.fillMaxSize().testTag("quickScan:continuous")) {
         if (maxWidth > maxHeight) {
             Row(Modifier.fillMaxSize()) {
                 camera(Modifier.weight(1f).fillMaxHeight())
-                panel(Modifier.weight(1f).fillMaxHeight())
+                panel(Modifier.weight(1f).fillMaxHeight(), this@BoxWithConstraints.maxHeight < SHORT_PANEL_HEIGHT)
             }
         } else {
             Column(Modifier.fillMaxSize()) {
                 camera(Modifier.fillMaxWidth().height(this@BoxWithConstraints.maxHeight * 0.34f))
-                panel(Modifier.weight(1f).fillMaxWidth())
+                panel(Modifier.weight(1f).fillMaxWidth(), false)
             }
         }
     }

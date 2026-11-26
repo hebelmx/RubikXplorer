@@ -50,9 +50,21 @@ class ContinuousQuickScanLargeFontTest {
     /** A landscape phone is narrower than 600 dp in neither direction a tablet is: it still gets preview left, panel right. */
     @Test
     @Config(qualifiers = "w640dp-h360dp-land", fontScale = 1f)
-    fun landscapePhone() = fits(landscape = true)
+    fun landscapePhone() = fits(landscape = true, pairedLastRow = true)
 
-    private fun fits(landscape: Boolean = false) {
+    /** Exactly at the 480 dp switch the panel is not short yet: the four actions stay stacked. */
+    @Test
+    @Config(qualifiers = "w800dp-h480dp-land", fontScale = 1f)
+    fun landscapeAtTheShortPanelSwitch() = fits(landscape = true, pairedLastRow = false)
+
+    /**
+     * [pairedLastRow]: whether *Review and Correct* shares the last row with *Enter colors instead* (the short landscape
+     * panel) or sits above it (every other layout); null leaves the arrangement unchecked.
+     */
+    private fun fits(
+        landscape: Boolean = false,
+        pairedLastRow: Boolean? = null,
+    ) {
         var touch = 0f
         rule.setContent {
             touch = with(LocalDensity.current) { 48.dp.toPx() }
@@ -75,7 +87,9 @@ class ContinuousQuickScanLargeFontTest {
                 .assertIsDisplayed()
                 .fetchSemanticsNode()
                 .boundsInRoot
-        val tags = listOf("quickScan:count", "quickScan:cue", "quickScan:net", "quickScan:reset", "quickScan:faceByFace", "scanEnterColors")
+        // Six sides under a latched twist: *Review and Correct* is on the screen too, the fullest panel there is.
+        val buttons = listOf("quickScan:reset", "quickScan:faceByFace", "quickScan:reviewAndCorrect", "scanEnterColors")
+        val tags = listOf("quickScan:count", "quickScan:cue", "quickScan:net") + buttons
         // The net's cells never shrink to nothing: its cell is the smaller of a twelfth of its width and a ninth of its height.
         val net = rule.onNodeWithTag("quickScan:net").fetchSemanticsNode().boundsInRoot
         assertTrue("net cell in $net (8 dp = ${touch / 6} px)", minOf(net.width / 12, net.height / 9) >= touch / 6 - 0.5f)
@@ -95,9 +109,25 @@ class ContinuousQuickScanLargeFontTest {
             ) {
                 assertTrue("$tag $bounds, camera $camera", if (landscape) bounds.left >= camera.right else bounds.top >= camera.bottom)
             }
-            if (tag in listOf("quickScan:reset", "quickScan:faceByFace", "scanEnterColors", "scanClose", "quickScan:torch")) {
+            if (tag in buttons + listOf("scanClose", "quickScan:torch")) {
                 assertTrue("$tag touch height", bounds.height >= touch - 0.5f)
             }
+        }
+        if (pairedLastRow == null) return
+
+        fun bounds(tag: String) = rule.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
+        val faceByFace = bounds("quickScan:faceByFace")
+        val review = bounds("quickScan:reviewAndCorrect")
+        val enterColors = bounds("scanEnterColors")
+        val where = "faceByFace $faceByFace, reviewAndCorrect $review, enterColors $enterColors"
+        assertTrue(where, review.top >= faceByFace.bottom && enterColors.top >= faceByFace.bottom)
+        if (pairedLastRow) {
+            // One row: *Review and Correct* on the left, *Enter colors instead* on the right, not overlapping.
+            assertTrue(where, review.top < enterColors.bottom && enterColors.top < review.bottom)
+            assertTrue(where, review.right <= enterColors.left && review.width > 0f && enterColors.width > 0f)
+        } else {
+            assertTrue(where, enterColors.top >= review.bottom)
+            assertTrue(where, review.left == faceByFace.left && review.right == faceByFace.right)
         }
     }
 

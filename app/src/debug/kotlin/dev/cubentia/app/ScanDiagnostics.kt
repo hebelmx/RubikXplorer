@@ -64,8 +64,10 @@ object ScanDiagnostics {
      * One continuous Quick Scan run, logged once when its screen finishes (Story 10.32), in the format
      * `evaluateQuickScan` parses: the time since the screen opened, how many faces the Guided hand-over was asked for
      * ([fallbackFaces]; 0 when *Scan face by face* was not used), no re-prompts (the hand-over never re-prompts), the
-     * review corrections that changed a sticker, and the outcome. Numbers and fixed words only: no frame, pixel or
-     * sticker data.
+     * review corrections that changed a sticker, and the outcome. A scan that ends from an early review (*Review and
+     * Correct*: that review, or a retake or calibration opened from it) adds `earlyReview=1` after the outcome, so it is
+     * told from a scan the camera finished; every other line is unchanged. Numbers and fixed words only: no frame,
+     * pixel or sticker data.
      */
     fun onQuickScanRun(
         started: Long?,
@@ -73,6 +75,7 @@ object ScanDiagnostics {
         corrections: Map<Int, Color>?,
         initial: List<Color?>?,
         outcome: String,
+        earlyReview: Boolean = false,
     ) {
         val changed = corrections?.count { (index, color) -> color != initial?.get(index) } ?: 0
         run(
@@ -82,6 +85,7 @@ object ScanDiagnostics {
             "repromptFaces=0",
             "corrections=$changed",
             "outcome=$outcome",
+            *listOfNotNull("earlyReview=1".takeIf { earlyReview }).toTypedArray(),
         )
     }
 

@@ -2,6 +2,7 @@ package dev.cubentia.app.camera
 
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.Face
+import dev.cubentia.domain.cube.Facelets
 import dev.cubentia.domain.recognition.CalibrationCenters
 import dev.cubentia.domain.recognition.CalibrationOffer
 import dev.cubentia.domain.recognition.FaceSample
@@ -46,6 +47,28 @@ internal data class ContinuousQuickScanFlow(
         }
     val cue get() = snapshot?.cue ?: ContinuousScanCue.BringIntoView
     val confirmClose get() = count > 0
+
+    /**
+     * Whether *Review and Correct* (PO clarification Q8) is on the screen: the shown count is more than [sidesFraction]
+     * of the six sides and the stickers set in the shown net are more than [stickersFraction] of the 54. Also under a
+     * latched twist (judged on the kept net); never before anchoring, nor once the scan is complete (Review opens by
+     * itself then).
+     */
+    fun reviewAndCorrectOffered(
+        sidesFraction: Double = REVIEW_SIDES_FRACTION,
+        stickersFraction: Double = REVIEW_STICKERS_FRACTION,
+    ): Boolean {
+        val shown = snapshot ?: return false
+        if (shown is ContinuousScanSnapshot.Complete || !shown.globalAnchored) return false
+        return count > Face.entries.size * sidesFraction && shown.committedCount > Facelets.SIZE * stickersFraction
+    }
+
+    /**
+     * The Scan Review indices of the shown snapshot's conflicted stickers (HOME face and cell, as the export uses): the
+     * stickers an early Review checks first. The export itself carries them only as blanks.
+     */
+    val conflictedReviewIndices: Set<Int> get() =
+        snapshot?.conflictedSlots.orEmpty().mapTo(sortedSetOf()) { it.face.ordinal * CELLS_PER_FACE + it.cellIndex }
 
     fun next(
         frame: ContinuousFrame,
@@ -121,6 +144,13 @@ internal data class ContinuousQuickScanFlow(
     }
 
     companion object {
+        /** *Review and Correct* needs more than this fraction of the six sides mapped. */
+        const val REVIEW_SIDES_FRACTION = 0.5
+
+        /** *Review and Correct* needs more than this fraction of the 54 stickers set in the shown net. */
+        const val REVIEW_STICKERS_FRACTION = 0.5
+        private const val CELLS_PER_FACE = 9
+
         fun countText(count: Int) = Text("msg.quick-scan.sides-mapped", mapOf("n" to count))
     }
 }

@@ -48,6 +48,7 @@ object ScanDiagnostics {
         corrections: Map<Int, Color>?,
         initial: List<Color?>?,
         outcome: String,
+        earlyReview: Boolean = false,
     ) = Unit
 
     fun onGuidedScanRun(

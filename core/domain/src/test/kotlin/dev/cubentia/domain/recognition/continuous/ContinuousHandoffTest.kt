@@ -443,6 +443,11 @@ class ContinuousHandoffTest {
         assertNull(partialReview.stickers[1])
         assertEquals(scrambledNet.getValue(Face.U)[2], partialReview.stickers[2])
         assertEquals(0, partialReview.selected)
+        // Story 10.32, Review and Correct: a sticker to check first is selected ahead of an earlier blank.
+        val checkFirstReview =
+            ScanReview.from(ContinuousScanHandoff(partialFaces, calibration = null, globalAnchored = true), checkFirst = setOf(1))
+        assertEquals(1, checkFirstReview.selected)
+        assertEquals(partialReview.stickers, checkFirstReview.stickers)
 
         // 3. Incomplete/invalid calibration -> review.evidence == null without throwing
         val badCal = CalibrationCenters(mapOf(Color.WHITE to Lab(Double.NaN, 0.0, 0.0)))

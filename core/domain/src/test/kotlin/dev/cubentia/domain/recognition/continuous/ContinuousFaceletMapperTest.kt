@@ -8,6 +8,7 @@ import dev.cubentia.domain.content.IcuResult
 import dev.cubentia.domain.cube.Color
 import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Face
+import dev.cubentia.domain.recognition.ScanReview
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
@@ -188,6 +189,7 @@ class ContinuousFaceletMapperTest {
         val greenRgb = RgbColor(34.0, 168.0, 72.0)
         val mapper = ContinuousFaceletMapper()
         var sawConflictSnap: ContinuousScanSnapshot? = null
+        var conflictHandoff: ContinuousScanHandoff? = null
         var fSeen = 0
         var dSeen = 0
 
@@ -227,6 +229,7 @@ class ContinuousFaceletMapperTest {
             val snap = mapper.processFrame(fr.frameIndex, mutatedDets)
             if (FaceSlot(Face.F, 1) in snap.conflictedSlots && sawConflictSnap == null) {
                 sawConflictSnap = snap
+                conflictHandoff = mapper.exportHandoff()
             }
         }
         val conflictSnap = requireNotNull(sawConflictSnap) { "Expected processFrame to reopen weaker slot F[1]" }
@@ -234,6 +237,18 @@ class ContinuousFaceletMapperTest {
         val cue = assertInstanceOf(ContinuousScanCue.ResolveConflict::class.java, conflictSnap.cue)
         assertEquals(Face.F, cue.face)
         assertEquals("green", cue.toText().args["color"])
+
+        // The export of that same frame carries every conflicted slot as a blank at the slot's own face and cell, which
+        // is what a review opened mid-scan (Story 10.32, Review and Correct) relies on to check those stickers first.
+        val handoff = requireNotNull(conflictHandoff)
+        assertTrue(handoff.globalAnchored)
+        conflictSnap.conflictedSlots.forEach { slot ->
+            assertNull(handoff.faces.getValue(slot.face).colors[slot.cellIndex], "Conflicted slot $slot must be null in the export")
+        }
+        val reviewIndex = Face.F.ordinal * 9 + 1
+        val review = ScanReview.from(handoff, setOf(reviewIndex))
+        assertNull(review.stickers[reviewIndex])
+        assertEquals(reviewIndex, review.selected)
 
         // Feed clean high-quality frames for F and D -> conflict resolves to Complete!
         var recovered: ContinuousScanSnapshot = conflictSnap

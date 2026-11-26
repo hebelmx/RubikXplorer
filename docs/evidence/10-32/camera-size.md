@@ -36,6 +36,24 @@ The story's acceptance criterion says `:app:checkCameraSize` "confirms reclaimed
 - The classes that already existed are about 38,500 B smaller in total (the bytes the removal reclaimed in the counted package): the two-corner branches of `GuidedScanActivity`, `GuidedScanViewModel`, `GuidedScanScreenKt` and `GuidedScanFlow`, the corner overlay smoother, and the cube-outline metering, settle signal and exposure-lock code of `CameraXFrameSource` (only the removed corner capture used them) are gone, less the continuous wiring added to the same classes. The settle and exposure-lock helpers the debug fixture recorder shares (`SettleTracker`, `ExposureLocks`, the metering-region functions) stay.
 - These are debug class bytes counted three times, a deliberately pessimistic projection. The real minified 0.11.0-profile size was re-measured: `-Pcubentia.release011=true :app:checkRelease011Size` gives **26,261,058 B** installed (AAB 16,643,555 B, universal APK 13,170,750 B, dex 4,312,236 B; headroom 3,738,942 B), against 26,079,010 B at Story 10.31 (+182,048 B). `checkRelease011ElfAlignment`, `checkRelease011MergedManifest`, `checkRelease011CameraClasspath` and `checkRelease011ShadowReader` pass.
 
+### After the *Review and Correct* addition (PO clarification Q8, 2026-11-25)
+
+The gate was run again after the mid-scan *Review and Correct* action was added (the action on the continuous screen, its availability rule, the early Scan Review with its Back and Close rules), and once more after that addition's review patches (one more argument on the debug run line; everything else in the patches is tests and comments). The table shows the last measurement:
+
+| Measure | After the follow-up review pass | After the *Review and Correct* addition | Difference |
+| --- | ---: | ---: | ---: |
+| Debug camera classes (excluding `recorder/**`, `sticker/**`, `corner/**`) | 1,151,930 B | 1,177,683 B | +25,753 B |
+| Classes as counted by the gate (× 3) | 3,455,790 B | 3,533,049 B | +77,259 B |
+| Default release estimate (`:app:checkReleaseSize`, camera flags OFF) | 13,025,179 B | 13,025,179 B | 0 B |
+| **Projected camera release size** | **28,557,040 B** | **28,634,299 B** | **+77,259 B** |
+| Headroom to the 30,000,000 B budget | 1,442,960 B | 1,365,701 B | −77,259 B |
+
+Verdict: **PASS** (`Forbidden artifacts: none`, `LiteRT allowed: true`). Against the Story 10.31 baseline the counted camera classes are now +117,241 B (1,060,442 B → 1,177,683 B). The addition's bytes are in `ContinuousQuickScanScreenKt` (the action and the paired last row of a short landscape panel), `ContinuousQuickScanFlow` (the rule and its two named fractions), `GuidedScanActivity` / `GuidedScanViewModel` (the tap, the return and the run-line argument) and `GuidedScanPhase.Review` (the early mark). Before the review patches the figure was 1,177,531 B (projected 28,633,843 B).
+
+The default release estimate was measured again in the same build, not copied: `app/build/reports/cubentia/release-size.txt` was rewritten with AAB 6,345,280 B, universal APK 3,439,603 B, uncompressed dex 3,143,992 B, installed estimate 13,025,179 B. It is byte-identical to the earlier figures although the release now carries one more `en.json` string (the rebuilt APK holds it) and changed `ScanReview` / `ScanReviewScreen` code. Why the lengths did not move was not investigated; with the camera flags OFF the Scan Review code is not reachable in that build.
+
+The minified 0.11.0-profile size was re-measured after the review patches: `-Pcubentia.release011=true :app:checkRelease011Size` gives **26,275,170 B** installed (AAB 16,649,451 B, universal APK 13,170,750 B, dex 4,316,940 B; headroom 3,724,830 B), +14,112 B over the 26,261,058 B measured before the addition. `checkRelease011ElfAlignment`, `checkRelease011MergedManifest`, `checkRelease011CameraClasspath` and `checkRelease011ShadowReader` pass.
+
 ## 2. Other checks run for this story
 
 - `./gradlew spotlessCheck build`: success (lint, JVM and Robolectric tests, Kover, `checkLearnerText`, boundary and manifest checks, debug and release APKs).
@@ -60,6 +78,6 @@ This story deletes the two-corner burst replay with the code it exercised (`Corn
 
 ## 4. Pending — not claimed by this run
 
-- **Human gate:** hands-on pass from the Solve tab's Quick Scan button on the Lenovo TB128XU and the Galaxy S24 FE (debug build, `QUICK_SCAN` at BETA): outlines in portrait and landscape, growing net, cues, haptics, TalkBack, torch (S24 FE only; the Lenovo has no flash), Reset, *Scan face by face*, *Enter colors instead*, completion into Scan Review and *Accept*. **Pending.**
+- **Human gate:** hands-on pass from the Solve tab's Quick Scan button on the Lenovo TB128XU and the Galaxy S24 FE (debug build, `QUICK_SCAN` at BETA): outlines in portrait and landscape, growing net, cues, haptics, TalkBack, torch (S24 FE only; the Lenovo has no flash), Reset, *Scan face by face*, *Enter colors instead*, completion into Scan Review and *Accept*. Since the Q8 addition, also *Review and Correct*: when it appears and hides (and whether the other buttons moving at that moment causes a wrong tap), the early Scan Review opening on the first conflicted sticker, filling and correcting stickers and *Accept* back to the Solve tab, a per-face retake there followed by Back, Back to the live scan, *Close* asking first, the action under a latched layer twist, TalkBack over the new action, 200% font, and the landscape-phone panel where the action shares the last row with *Enter colors instead*. **Pending.**
 - **Story 10.33:** the physical-device matrix and the product owner's BETA call. **Pending.**
 - No frame latency was measured in this story; the per-frame pipeline numbers remain those of Story 10.31.

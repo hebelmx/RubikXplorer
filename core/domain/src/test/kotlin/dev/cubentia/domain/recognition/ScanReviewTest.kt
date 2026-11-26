@@ -5,6 +5,8 @@ import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.CubeValidator
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.Facelets
+import dev.cubentia.domain.recognition.continuous.ContinuousFaceHandoff
+import dev.cubentia.domain.recognition.continuous.ContinuousScanHandoff
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -349,6 +351,100 @@ class ScanReviewTest {
         (faceRange(Face.R) + faceRange(Face.F)).forEach { idx ->
             assertNull(evidence.labs[idx], "Retaken slot $idx must clear Lab on NeedsCalibration")
         }
+    }
+
+    // Story 10.32, Review and Correct: the stickers to check first.
+
+    /** A continuous hand-off of the solved cube with the [blank] sticker indices unread (or conflicted: both are null). */
+    private fun handoff(blank: Set<Int>) =
+        ContinuousScanHandoff(
+            Face.entries.associateWith { face ->
+                val colors = List(9) { cell -> solved.colors[face.ordinal * 9 + cell].takeUnless { face.ordinal * 9 + cell in blank } }
+                ContinuousFaceHandoff(
+                    face,
+                    colors,
+                    colors.map { if (it == null) StickerConfidence.UNCERTAIN else StickerConfidence.CONFIDENT },
+                    List(9) { RecognitionFixtures.LABS.getValue(Color.home(face)) },
+                    orientationLocked = true,
+                )
+            },
+            CalibrationCenters(RecognitionFixtures.LABS),
+        )
+
+    @Test fun `stickers to check first are pre-selected and set before any other blank, then today's order follows`() {
+        // Blank: 2 and 7 (unread, on U), 20 (F) and 30 (D); the scan reported 30 and 20 as conflicted.
+        val review = ScanReview.from(handoff(setOf(2, 7, 20, 30)), checkFirst = setOf(30, 20))
+        assertEquals(listOf(2, 7, 20, 30), review.blanks)
+        assertEquals(listOf(20, 30), review.checkFirst.toList())
+        assertEquals(20, review.selected)
+        val second = review.paint(solved.colors[20])
+        assertEquals(30, second.selected)
+        // No sticker to check first is blank any more: the next blank in sticker order (wrapping), as in every review.
+        val third = second.paint(solved.colors[30])
+        assertEquals(2, third.selected)
+        val fourth = third.paint(solved.colors[2])
+        assertEquals(7, fourth.selected)
+        assertEquals(solved, fourth.paint(solved.colors[7]).accepted?.toFacelets())
+    }
+
+    @Test fun `setting another blank still moves on to a blank sticker to check first`() {
+        val review = ScanReview.from(handoff(setOf(2, 7, 20, 30)), checkFirst = setOf(20, 30))
+        // The Learner picks the unread sticker 2 and sets it: the selection goes to 20, not to the nearer blank 7.
+        assertEquals(20, review.select(2).paint(solved.colors[2]).selected)
+        // From the last sticker to check, the order wraps to the other one that is still blank.
+        assertEquals(20, review.select(30).paint(solved.colors[30]).selected)
+    }
+
+    @Test fun `a sticker to check first that is not blank, a center or an index off the cube is ignored`() {
+        val review = ScanReview.from(handoff(setOf(2, 30)), checkFirst = setOf(0, 4, 30, 99, -1))
+        // Sticker 0 holds a colour, so the first blank one to check is 30, ahead of the blank 2.
+        assertEquals(30, review.selected)
+        assertEquals(setOf(0, 30), review.checkFirst)
+        assertEquals(2, review.paint(solved.colors[30]).selected)
+    }
+
+    @Test fun `the stickers to check first survive select, paint and corrected, and take part in equality`() {
+        val review = ScanReview.from(handoff(setOf(2, 7, 20, 30)), checkFirst = setOf(20, 30))
+        assertEquals(setOf(20, 30), review.select(7).checkFirst)
+        assertEquals(setOf(20, 30), review.paint(solved.colors[20]).checkFirst)
+        // The last blank set keeps them too (the branch that looks for a suspect).
+        val last = ScanReview.from(handoff(setOf(20)), checkFirst = setOf(20)).paint(solved.colors[20])
+        assertEquals(setOf(20), last.checkFirst)
+        assertTrue(last.blanks.isEmpty())
+        val corrected = review.corrected(mapOf(2 to solved.colors[2]))
+        assertEquals(setOf(20, 30), corrected.checkFirst)
+        assertEquals(20, corrected.selected)
+        assertEquals(30, review.corrected(mapOf(20 to solved.colors[20])).selected)
+        val plain = ScanReview.from(handoff(setOf(2, 7, 20, 30)))
+        assertNotEquals(plain, review.select(2))
+        assertEquals(plain.select(20), ScanReview(review.stickers, 20, review.evidence))
+        assertEquals(review, ScanReview(review.stickers, 20, review.evidence, setOf(30, 20)))
+        assertEquals(review.hashCode(), ScanReview(review.stickers, 20, review.evidence, setOf(30, 20)).hashCode())
+        assertNotEquals(review, ScanReview(review.stickers, 20, review.evidence, setOf(20)))
+    }
+
+    @Test fun `a retake drops the retaken faces from the stickers to check first`() {
+        // 20 is on F, 30 on D; F is retaken and read in full.
+        val before = ScanReview.from(handoff(setOf(2, 7, 20, 30)), checkFirst = setOf(20, 30))
+        val after = ScanReview.retaken(before, listOf(shown(solved, Face.F)), emptyList())
+        assertEquals(setOf(30), after.checkFirst)
+        assertEquals(listOf(2, 7, 30), after.blanks)
+        assertEquals(30, after.selected)
+        // A retake that cannot calibrate blanks its face: those blanks are not stickers to check first either.
+        val bare = ScanReview(before.stickers, null, checkFirst = setOf(20, 30))
+        val blurred = ScanReview.retaken(bare, listOf(shown(solved, Face.F).copy(quality = CaptureQuality.BLURRED)), emptyList())
+        assertEquals(setOf(30), blurred.checkFirst)
+        assertEquals(listOf(2, 7) + faceRange(Face.F).filter { it != 22 } + 30, blurred.blanks)
+        assertEquals(30, blurred.selected)
+    }
+
+    @Test fun `with no sticker to check first a continuous review selects and advances as before`() {
+        val review = ScanReview.from(handoff(setOf(2, 7, 20, 30)))
+        assertTrue(review.checkFirst.isEmpty())
+        assertEquals(2, review.selected)
+        assertEquals(7, review.paint(solved.colors[2]).selected)
+        assertEquals(20, review.select(7).paint(solved.colors[7]).selected)
+        assertEquals(review, ScanReview.from(handoff(setOf(2, 7, 20, 30)), emptySet()))
     }
 
     @Test fun `merged samples replace retaken faces in place`() {

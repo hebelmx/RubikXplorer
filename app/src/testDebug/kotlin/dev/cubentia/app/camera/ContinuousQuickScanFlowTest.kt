@@ -26,11 +26,12 @@ internal fun testHandoff(
     faces: Collection<Face>,
     anchored: Boolean = true,
     blank: FaceSlot? = null,
+    blanks: Set<FaceSlot> = setOfNotNull(blank),
 ): ContinuousScanHandoff {
     val state = CubeState.SOLVED.toFacelets().colors
     return ContinuousScanHandoff(
         faces.associateWith { face ->
-            val colors = List(9) { i -> state[face.ordinal * 9 + i].takeUnless { FaceSlot(face, i) == blank } }
+            val colors = List(9) { i -> state[face.ordinal * 9 + i].takeUnless { FaceSlot(face, i) in blanks } }
             ContinuousFaceHandoff(
                 face,
                 colors,
@@ -203,6 +204,89 @@ class ContinuousQuickScanFlowTest {
         listOf(Face.B, Face.L, Face.D).forEach { face ->
             assertEquals(1, partial.stickers.subList(face.ordinal * 9, face.ordinal * 9 + 9).count { it != null })
         }
+    }
+
+    // Review and Correct (PO clarification Q8).
+
+    /** A shown state with [sides] mapped and [stickers] set, anchored and still scanning unless said otherwise. */
+    private fun shown(
+        sides: Int,
+        stickers: Int,
+        anchored: Boolean = true,
+    ) = ContinuousQuickScanFlow(
+        snapshot =
+            (testSnapshot(testHandoff(Face.entries, anchored)) as ContinuousScanSnapshot.Scanning)
+                .copy(mappedFacesCount = sides, committedCount = stickers),
+    )
+
+    @Test fun reviewAndCorrectNeedsMoreThanEachNamedFractionOfTheSidesAndOfTheStickers() {
+        // The last count that is NOT more than its fraction: today 3 of 6 sides and 27 of 54 stickers.
+        val sides = (Face.entries.size * ContinuousQuickScanFlow.REVIEW_SIDES_FRACTION).toInt()
+        val stickers = (54 * ContinuousQuickScanFlow.REVIEW_STICKERS_FRACTION).toInt()
+        assertEquals(3 to 27, sides to stickers)
+        assertTrue(shown(sides + 1, stickers + 1).reviewAndCorrectOffered())
+        assertFalse(shown(sides, stickers + 1).reviewAndCorrectOffered())
+        assertFalse(shown(sides + 1, stickers).reviewAndCorrectOffered())
+        assertFalse(shown(sides, 54).reviewAndCorrectOffered())
+        assertFalse(shown(6, stickers).reviewAndCorrectOffered())
+        assertTrue(shown(6, 53).reviewAndCorrectOffered())
+        // Before anchoring the shown count is 0, whatever the mapper counts; and with no frame yet nothing is offered.
+        assertFalse(shown(6, 53, anchored = false).reviewAndCorrectOffered())
+        assertFalse(ContinuousQuickScanFlow().reviewAndCorrectOffered())
+    }
+
+    @Test fun eachNamedFractionChangesTheReviewAndCorrectRule() {
+        val four = shown(4, 28)
+        assertTrue(four.reviewAndCorrectOffered())
+        // More than three quarters of the sides is 5 or 6; more than three quarters of the stickers is 41 or more.
+        assertFalse(four.reviewAndCorrectOffered(sidesFraction = 0.75))
+        assertTrue(shown(5, 28).reviewAndCorrectOffered(sidesFraction = 0.75))
+        assertFalse(four.reviewAndCorrectOffered(stickersFraction = 0.75))
+        assertTrue(shown(4, 41).reviewAndCorrectOffered(stickersFraction = 0.75))
+        // A lower fraction offers it earlier.
+        assertFalse(shown(2, 20).reviewAndCorrectOffered())
+        assertTrue(shown(2, 20).reviewAndCorrectOffered(sidesFraction = 0.25, stickersFraction = 0.25))
+    }
+
+    @Test fun reviewAndCorrectStaysUnderATwistHidesOnCompleteAndWhenANumberFallsBack() {
+        val blanks = setOf(FaceSlot(Face.F, 3), FaceSlot(Face.U, 0))
+        val handoff = testHandoff(Face.entries, blanks = blanks)
+        val scanning = ContinuousQuickScanFlow().feed(testSnapshot(handoff, ContinuousScanCue.TiltRemainingStickers(52)))
+        assertTrue(scanning.reviewAndCorrectOffered())
+        // A latched twist keeps the net, so the action stays (judged on the kept net).
+        val twist = scanning.feed(testSnapshot(handoff, ContinuousScanCue.LayerTwistDetected))
+        assertTrue(twist.reviewAndCorrectOffered())
+        // The completion hold: Review opens by itself.
+        val complete = scanning.feed(testSnapshot(testHandoff(Face.entries), ContinuousScanCue.AllVerified))
+        assertEquals(6, complete.count)
+        assertFalse(complete.reviewAndCorrectOffered())
+        // Either number falling back hides it again: three sides (27 stickers), then four sides.
+        val fewer = scanning.feed(testSnapshot(testHandoff(Face.entries.take(3))))
+        assertFalse(fewer.reviewAndCorrectOffered())
+        assertTrue(fewer.feed(testSnapshot(testHandoff(Face.entries.take(4)))).reviewAndCorrectOffered())
+    }
+
+    @Test fun theConflictedStickersOfTheShownSnapshotAreTheReviewsStickersToCheckFirst() {
+        // Conflicted: F3 (review index 21) and U0 (index 0); unread: D8 (index 35). All three are blank in the export.
+        val conflicts = listOf(FaceSlot(Face.F, 3), FaceSlot(Face.U, 0))
+        val handoff = testHandoff(Face.entries, blanks = conflicts.toSet() + FaceSlot(Face.D, 8))
+        val flow = ContinuousQuickScanFlow().feed(testSnapshot(handoff, ContinuousScanCue.ResolveConflict(Face.F), conflicts))
+        assertEquals(listOf(0, 21), flow.conflictedReviewIndices.toList())
+        assertTrue(ContinuousQuickScanFlow().conflictedReviewIndices.isEmpty())
+        val review = ScanReview.from(handoff, flow.conflictedReviewIndices)
+        assertEquals(listOf(0, 21, 35), review.blanks)
+        assertEquals(0, review.selected)
+        val next = review.paint(Color.WHITE)
+        assertEquals(21, next.selected)
+        assertEquals(35, next.paint(Color.GREEN).selected)
+        // The early review's mark and its stickers to check survive a retake; the retaken face's stickers leave the set.
+        val early = GuidedScanPhase.Review(review, early = true)
+        val retaken = GuidedScanFlow.reviewAfterRetake(early, listOf(sample(Face.F)))
+        assertTrue(retaken.early)
+        assertEquals(setOf(0), retaken.review.checkFirst)
+        assertEquals(listOf(0, 35), retaken.review.blanks)
+        assertEquals(0, retaken.review.selected)
+        assertFalse(GuidedScanPhase.Review(review).early)
     }
 
     private fun sample(face: Face) =

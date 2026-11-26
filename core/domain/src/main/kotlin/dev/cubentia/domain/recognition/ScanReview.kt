@@ -16,11 +16,17 @@ import java.util.Collections
  * An immutable review, with fixed home centers and no inferred colors. [evidence] (#174) is what the scan measured; it
  * only ranks [suspects] when the color counts are off and is never shown as a number. A sticker keeps its Lab only
  * while it holds the scanned color: [paint] drops that index's Lab.
+ *
+ * [checkFirst] (Story 10.32, *Review and Correct*) are the stickers to check before any other: the conflicted stickers
+ * of an unfinished continuous scan. While one of them is still blank it is the sticker pre-selected and the one the
+ * selection moves to after a color is set, ahead of every other blank; once none is blank the usual order applies.
+ * Nothing marks them on screen, and with none every review behaves as it did before.
  */
 class ScanReview(
     stickers: List<Color?>,
     selected: Int?,
     val evidence: ScanEvidence? = null,
+    checkFirst: Set<Int> = emptySet(),
 ) {
     val stickers: List<Color?> =
         Collections.unmodifiableList(
@@ -29,6 +35,8 @@ class ScanReview(
             },
         )
     val selected: Int? = selected?.takeIf(::editable)
+    val checkFirst: Set<Int> =
+        if (checkFirst.isEmpty()) emptySet() else Collections.unmodifiableSet(checkFirst.filterTo(sortedSetOf(), ::editable))
     val blanks: List<Int> get() = stickers.indices.filter { stickers[it] == null }
     private val facelets: Facelets? get() = if (blanks.isEmpty()) Facelets(stickers.filterNotNull()) else null
 
@@ -47,20 +55,27 @@ class ScanReview(
     val accepted: CubeState? get() = facelets?.let { (CubeValidator.validate(it) as? ValidationResult.Valid)?.state }
 
     override fun equals(other: Any?): Boolean =
-        other is ScanReview && stickers == other.stickers && selected == other.selected && evidence == other.evidence
+        other is ScanReview &&
+            stickers == other.stickers &&
+            selected == other.selected &&
+            evidence == other.evidence &&
+            checkFirst == other.checkFirst
 
-    override fun hashCode(): Int = 31 * (31 * stickers.hashCode() + (selected ?: -1)) + evidence.hashCode()
+    override fun hashCode(): Int = 31 * (31 * (31 * stickers.hashCode() + (selected ?: -1)) + evidence.hashCode()) + checkFirst.hashCode()
 
-    fun select(index: Int): ScanReview = if (editable(index)) ScanReview(stickers, index, evidence) else this
+    fun select(index: Int): ScanReview = if (editable(index)) ScanReview(stickers, index, evidence, checkFirst) else this
 
     fun paint(color: Color): ScanReview {
         val index = selected ?: return this
         val painted = stickers.toMutableList().also { it[index] = color }
-        val next = StickerOrder.next(index, wrap = true) { painted[it] == null }
+        // A sticker to check first that is still blank comes before any other blank (Story 10.32).
+        val next =
+            StickerOrder.next(index, wrap = true) { painted[it] == null && it in checkFirst }
+                ?: StickerOrder.next(index, wrap = true) { painted[it] == null }
         val kept = evidence?.without(setOf(index))
-        if (next != null) return ScanReview(painted, next, kept)
+        if (next != null) return ScanReview(painted, next, kept, checkFirst)
         // The last blank is set: if the counts are now off, move to the top suspect (#174).
-        val review = ScanReview(painted, index, kept)
+        val review = ScanReview(painted, index, kept, checkFirst)
         return review.suspects.firstOrNull()?.let { review.select(it.index) } ?: review
     }
 
@@ -71,7 +86,7 @@ class ScanReview(
      */
     fun corrected(corrections: Map<Int, Color>): ScanReview {
         val colors = stickers.mapIndexed { i, color -> corrections[i] ?: color }
-        return preselected(colors, evidence?.without(corrections.keys))
+        return preselected(colors, evidence?.without(corrections.keys), checkFirst)
     }
 
     companion object {
@@ -113,9 +128,13 @@ class ScanReview(
          * The review of a continuous scan [handoff]. Preserves all canonical `Orientation.HOME`
          * confident stickers and carries the six self-calibrated center Labs plus 54 cell Labs as
          * [evidence] for `#323` suspect ranking and Story 10.16 face retakes without requiring a
-         * saved FR-24 calibration.
+         * saved FR-24 calibration. [checkFirst] (Story 10.32, *Review and Correct*) are the sticker indices to check
+         * before any other, e.g. the conflicted stickers of an unfinished scan: see [ScanReview.checkFirst].
          */
-        fun from(handoff: ContinuousScanHandoff): ScanReview {
+        fun from(
+            handoff: ContinuousScanHandoff,
+            checkFirst: Set<Int> = emptySet(),
+        ): ScanReview {
             val colors =
                 List(Facelets.SIZE) { i ->
                     if (!handoff.globalAnchored) {
@@ -155,23 +174,29 @@ class ScanReview(
                         }
                     ScanEvidence(labs, cal.centers)
                 }
-            return preselected(colors, evidence)
+            return preselected(colors, evidence, checkFirst)
         }
 
-        /** Selects the first blank, else the top suspect, else the first sticker of the first problem naming stickers. */
+        /**
+         * Selects the first blank among [checkFirst], else the first blank, else the top suspect, else the first sticker
+         * of the first problem naming stickers.
+         */
         private fun preselected(
             colors: List<Color?>,
             evidence: ScanEvidence?,
+            checkFirst: Set<Int> = emptySet(),
         ): ScanReview {
-            val review = ScanReview(colors, null, evidence)
+            val review = ScanReview(colors, null, evidence, checkFirst)
+            val blanks = review.blanks
             val selected =
-                review.blanks.firstOrNull()
+                blanks.firstOrNull { it in review.checkFirst }
+                    ?: blanks.firstOrNull()
                     ?: review.suspects.firstOrNull()?.index
                     ?: review.problems
                         .firstOrNull { it.positions.isNotEmpty() }
                         ?.positions
                         ?.first()
-            return ScanReview(review.stickers, selected, evidence)
+            return ScanReview(review.stickers, selected, evidence, review.checkFirst)
         }
 
         private fun ScanEvidence.without(indices: Set<Int>): ScanEvidence =
@@ -184,7 +209,8 @@ class ScanReview(
          * faces come from [ScanAssembler.assembleRetake] with kept faces fixed, prefilled by the close-call rule, and
          * keep no earlier edit. Evidence is [before]'s Labs on kept faces and [ScanAssembler.assembleRetake]'s Labs on retaken
          * faces: measured for a placed retaken face, calibration-center placeholders for one that could not be placed. When the
-         * merged samples cannot self-calibrate, retaken faces are blank. Selection follows the [from] rule.
+         * merged samples cannot self-calibrate, retaken faces are blank. Selection follows the [from] rule; the
+         * stickers of retaken faces leave [checkFirst] (a retaken face is a new read, with nothing left to check first).
          */
         fun retaken(
             before: ScanReview,
@@ -196,6 +222,7 @@ class ScanReview(
             val kept = Face.entries.filter { it !in faces }
             val keptColors = kept.associateWith { face -> before.stickers.subList(face.ordinal * 9, face.ordinal * 9 + 9) }
             val retakenIndices = faces.flatMap { face -> face.ordinal * 9 until face.ordinal * 9 + 9 }.toSet()
+            val checkFirst = before.checkFirst - retakenIndices
             val fallbackSaved =
                 saved ?: before.evidence
                     ?.takeIf { samples.size < Face.entries.size }
@@ -207,6 +234,7 @@ class ScanReview(
                     ?: return preselected(
                         before.stickers.mapIndexed { i, color -> color.takeUnless { i in retakenIndices } },
                         before.evidence?.without(retakenIndices),
+                        checkFirst,
                     )
             val result = ScanAssembler.assembleRetake(keptColors, retaken, calibration)
             val colors =
@@ -218,7 +246,7 @@ class ScanReview(
                     }
                 }
             val labs = List(Facelets.SIZE) { i -> if (i in retakenIndices) result.labs?.get(i) else before.evidence?.labs?.get(i) }
-            return preselected(colors, ScanEvidence(labs, calibration.centers))
+            return preselected(colors, ScanEvidence(labs, calibration.centers), checkFirst)
         }
 
         /** [samples] with each face in [retaken] replaced by its retaken sample, in [samples] order (new faces last). */

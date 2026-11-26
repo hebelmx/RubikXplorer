@@ -97,6 +97,10 @@ private enum class DiscardAction { CLOSE, ENTER_COLORS }
  * GH #321: *Close* with no change calls [onClose]; after a change it asks "Discard this scan?" and *Discard* (also for
  * system Back) calls [onDiscard]. With [enterColorsAsks] false, *Enter colors instead* never asks: it keeps the review's
  * fixes for the caller's Editor, so nothing is discarded.
+ *
+ * Story 10.32 (*Review and Correct*): with [onBack], system Back in review mode calls it at once, changed or not and
+ * with no question, and *Close* always asks "Discard this scan?" ([onClose] is then never called). An open dialog and
+ * retake mode keep their own Back. Without [onBack] nothing changes.
  */
 @Composable
 fun ScanReviewScreen(
@@ -115,6 +119,7 @@ fun ScanReviewScreen(
     onRetake: ((Set<Face>) -> Unit)? = null,
     onDiscard: () -> Unit = onClose,
     enterColorsAsks: Boolean = true,
+    onBack: (() -> Unit)? = null,
 ) {
     // Retake mode (Story 10.16): the net selects whole faces to scan again; every other control is hidden.
     var retaking by rememberSaveable { mutableStateOf(false) }
@@ -154,6 +159,7 @@ fun ScanReviewScreen(
                     onClose = onClose,
                     onDiscard = onDiscard,
                     enterColorsAsks = enterColorsAsks,
+                    onBack = onBack,
                     modifier = Modifier,
                     windowSizeClass = windowSizeClass,
                     coachMarkPending = coachMarkPending,
@@ -253,6 +259,7 @@ private fun ReviewMode(
     paint: PaintMode,
     onDiscard: () -> Unit,
     enterColorsAsks: Boolean,
+    onBack: (() -> Unit)?,
     onRetakeFaces: (() -> Unit)?,
 ) {
     val painting = paint.locked
@@ -287,7 +294,10 @@ private fun ReviewMode(
     var changed by rememberSaveable { mutableStateOf(edited) }
     var confirmCalibration by rememberSaveable { mutableStateOf(false) }
     var discardAction by rememberSaveable { mutableStateOf<DiscardAction?>(null) }
-    BackHandler(enabled = changed && discardAction == null) { discardAction = DiscardAction.CLOSE }
+    // With [onBack] (Story 10.32) Back leaves at once, changed or not; else it asks before discarding a change.
+    BackHandler(enabled = discardAction == null && (changed || onBack != null)) {
+        if (onBack != null) onBack() else discardAction = DiscardAction.CLOSE
+    }
     var coachVisible by rememberSaveable { mutableStateOf(false) }
     val needsFix = review.blanks.isNotEmpty()
     LaunchedEffect(coachMarkPending && needsFix) {
@@ -344,7 +354,7 @@ private fun ReviewMode(
                         // filled the selected sticker itself: then the selection moves on as a plain paint's does.
                         val stroke = review.select(index).paint(locked)
                         val kept = if (index == review.selected) stroke.selected else review.selected
-                        val painted = ScanReview(stroke.stickers, kept, stroke.evidence)
+                        val painted = ScanReview(stroke.stickers, kept, stroke.evidence, stroke.checkFirst)
                         if (painted.stickers != review.stickers) {
                             changed = true
                             focusedIndex =
@@ -440,7 +450,7 @@ private fun ReviewMode(
             }
             // Always enabled, in `ink-primary`: never greyed.
             SecondaryButton(
-                onClick = { if (changed) discardAction = DiscardAction.CLOSE else onClose() },
+                onClick = { if (changed || onBack != null) discardAction = DiscardAction.CLOSE else onClose() },
                 label = strings.resolve(ContentText("btn.scan.close")),
                 tag = "review:close",
             )
