@@ -18,6 +18,10 @@ The probes are JVM tests run on a scratch copy of the code, not on a device. The
 | 7 | A frame the detector skipped counts as "cube lost" | **Confirmed in code** (low severity) | #403 |
 | 8 | After `close()`, the detector returns empty frames without setting `unavailable` | **Confirmed, latent**: only tests call `close()` | #404 |
 
+## PC spike vs app parity
+
+See [pc-vs-app-parity.md](pc-vs-app-parity.md): issues #410 (center-square retry), #411 (mapper deviations and golden replay), #412 (frame rate), #413 (same phone clips through both pipelines).
+
 ## Enhancement ideas (input for Story 10.33)
 
 - Crop the detector input to the tracked cube, plus a "move closer" cue: #407.
