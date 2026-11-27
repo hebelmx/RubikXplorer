@@ -5,7 +5,7 @@ created: '2026-11-27'
 status: 'done'
 baseline_revision: 'd9c7127d068f306d1d5f0c69942791b1392ca91c'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context: []
 warnings: ['oversized']
 deferred:
@@ -117,6 +117,35 @@ deferred:
   - `[false]` `[reject]` (intent) Run line is per engine life, not per Quick Scan run — the activity logs one run line per screen (quickLogged) from its one engine, so they coincide.
   - `[low]` `[defer]` (intent) Producer/parser agreement rests on a copied regex — same root cause as the verification-gap regex row; deferred with it.
 
+### 2026-11-27 — Review pass (follow-up)
+- verdicts: 25 findings — high 0, medium 0, low 15, false 10, maybe-false 0
+- findings:
+  - `[false]` `[reject]` (blind) fitNs left unset when sampling throws — carried: by spec fit/sample/map are recorded only for frames that reached the mapper; the sampler-throw path is pinned by ContinuousScanPipelineTimingTest.
+  - `[false]` `[reject]` (blind) sampleNs unset when a sampler call throws mid-frame — carried: same rule as the row above; the frame still counts in frames/analyzer.
+  - `[false]` `[reject]` (blind) Latch frame drops detector/inference cost — carried: the pipeline treats the latching frame as skipped (GH #390), matching "detector ran with a non-skipped result".
+  - `[low]` `[reject]` (blind) A frame whose analyse throws is not recorded — carried: the exception propagates out of the analyzer; the lost sample is negligible next to the failure.
+  - `[low]` `[reject]` (blind) The last partial window is never emitted — the run line covers every frame of the run, so no data is missing from evaluation; emitting a partial window needs a new flush API.
+  - `[low]` `[reject]` (blind) Stale pending timing line can attach to a later run — carried: the debug build logs it immediately before its run line (route test); only a truncated log reaches it.
+  - `[false]` `[reject]` (blind) runsMissingTimings can go negative for a hand-built Report — measure() is the only producer and attaches at most one RunTiming per run line, so runTimings.size <= runs always holds.
+  - `[false]` `[reject]` (blind) Sampler-exception path has no assertions — ContinuousScanPipelineTimingTest already pins it (frames=1 read=0, detector and inference sampled, fit/sample/map `-`).
+  - `[false]` `[reject]` (blind) Device readings not taken — carried: the PO clarification routes them to the deferred device-check entry; the issue stays open.
+  - `[low]` `[reject]` (edge) frames/read above Int.MAX_VALUE make toInt() throw in measure — the emitter's counts are Int, so a real line cannot overflow; only a corrupted log could, and the existing run-line parsing uses the same toInt() convention; a guard adds a branch for an unreachable case.
+  - `[low]` `[defer]` (verification-gap) Emitter format and parser linked only by a copied regex — carried: already in `deferred`; not deferred again.
+  - `[false]` `[reject]` (intent) Device-matrix outcome not exercised — carried: deferred device check per the PO clarification.
+  - `[low]` `[reject]` (intent) No test for the latch frame's timing — the latch skip itself is covered by the GH #390 tests and the timing path returns before any stage is stored; a new test adds no protection beyond those.
+  - `[low]` `[reject]` (intent) Allocation test covers record() only — carried: the pipeline timing path is primitive locals and NanoClock reads.
+  - `[low]` `[reject]` (intent) No concurrency test of the synchronized accumulator — plain synchronized methods; a two-thread test would be timing-dependent and flaky.
+  - `[low]` `[reject]` (intent) Route test (fake body) and module-engine test are not combined — each half is tested; combining needs a real detector in the activity test.
+  - `[low]` `[defer]` (intent) Producer/parser agreement rests on a copied regex — carried: same deferred entry as the verification-gap row.
+  - `[low]` `[reject]` (intent) No activity-level zero-frame finish test — null body logging nothing and the missing-count are both tested; the activity glue is one null-safe call.
+  - `[low]` `[reject]` (intent) Release "no accumulator" evidenced only by compile — forBuild() reads the release const QUICK_SCAN_TIMINGS = false; a release-variant test needs a new test source set.
+  - `[low]` `[reject]` (intent) fps of a single short span is not a camera frame rate — the contract defines fps as frames over the span; Story 10.33 runs have many frames.
+  - `[low]` `[reject]` (intent) Window-line logging cost falls outside analyzerMs — one Log.d at most every 2 s; negligible.
+  - `[false]` `[reject]` (intent) Run line is per engine life, not per run — carried: one engine and one run line per screen, so they coincide.
+  - `[false]` `[reject]` (intent) Report/markdown shape changes — the contract forbids changing existing fields' meaning, not adding fields; existing Report tests pass unchanged.
+  - `[low]` `[reject]` (intent) fitted/observations parsed but dropped from RunTiming — carried: outside the report fields the spec names; the raw log keeps them.
+  - `[false]` `[reject]` (intent) Spec file added under implementation-artifacts — that folder is not a planning artifact; the rule covers _bmad-output/planning-artifacts only.
+
 ## Verification
 
 **Commands:**
@@ -146,3 +175,15 @@ Status: done
 **Verification:** `./gradlew --no-daemon spotlessCheck build` and `./gradlew --no-daemon -Pcubentia.release011=true :app:compileRelease011Kotlin` both BUILD SUCCESSFUL after the patches.
 
 **Residual risks:** the Lenovo and S24 FE device readings are owed (deferred entry; the issue stays open); fps over a span that includes an analysis pause reads low (rejected low, see triage log).
+
+### Follow-up review pass (2026-11-27)
+
+**Summary:** A follow-up review of the GH #406 per-stage timings change (Codex blind, edge-case and verification-gap layers plus the Claude intent-alignment layer). No code changed in this pass.
+
+**Review:** 25 findings: 0 patched, 0 newly deferred (the copied-regex rows were carried onto the existing deferred entry), and 23 rejected with reasons in the triage log (10 false, 13 low).
+
+**Follow-up review recommended: false.** This was a follow-up pass and it patched no high finding, so the work has converged.
+
+**Verification:** No code changed, so the earlier `./gradlew --no-daemon spotlessCheck build` and `-Pcubentia.release011=true :app:compileRelease011Kotlin` results still hold for this tree.
+
+**Residual risks:** The Lenovo and S24 FE device readings are still owed (deferred entry). The emitter and the parser are still linked only by a copied regex (deferred, low).
