@@ -130,6 +130,12 @@ class ContinuousQuickScanRouteTest {
 
     @Volatile private var engineResets = 0
 
+    /**
+     * When set, the engine's export waits on the analyzer thread until it opens: an export the analyzer finishes before
+     * main suspends on it completes inside the tap, so a test that needs one in flight holds it here.
+     */
+    @Volatile private var exportGate: java.util.concurrent.CountDownLatch? = null
+
     @BindValue internal val engines: ContinuousScanEngineFactory =
         ContinuousScanEngineFactory {
             enginesCreated++
@@ -185,6 +191,7 @@ class ContinuousQuickScanRouteTest {
                 override fun export(): ContinuousScanExport {
                     assertTrue(Thread.currentThread() !== Looper.getMainLooper().thread)
                     exports++
+                    exportGate?.await()
                     return exported
                 }
             }
@@ -675,10 +682,18 @@ class ContinuousQuickScanRouteTest {
         quickScanActivity { scan, model ->
             showStalled()
             val before = model.continuous
-            // *Review and Correct* starts its export after the analyzer saw the frame and before main handles it.
-            feedUnavailable {
-                model.reviewAndCorrect()
-                assertTrue(model.busy)
+            // *Review and Correct* starts its export after the analyzer saw the frame and before main handles it; the export
+            // is held on the analyzer until main has handled the frame, so it is still in flight then.
+            val gate = java.util.concurrent.CountDownLatch(1)
+            exportGate = gate
+            try {
+                feedUnavailable {
+                    model.reviewAndCorrect()
+                    assertTrue(model.busy)
+                }
+            } finally {
+                gate.countDown()
+                exportGate = null
             }
             settle(model)
             assertTrue(earlyReview(model).early)
