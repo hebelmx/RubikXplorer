@@ -187,6 +187,9 @@ class ContinuousFaceletMapper {
     /** Current running log-RGB AWB drift of the active master fragment (zero if none). */
     val masterLogAwb: DoubleArray get() = master?.logAwb?.copyOf() ?: DoubleArray(3)
 
+    /** Consecutive frames with no plausible quad so far (read-only, GH #403 tests). */
+    val emptyFrameStreak: Int get() = emptyStreak
+
     /** Reset all session state in place. */
     fun reset() {
         master = null

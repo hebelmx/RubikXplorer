@@ -56,6 +56,8 @@ internal class ContinuousScanPipeline(
         val detection = detector.detect(frame, rotationDegrees, viewWidth, viewHeight)
         // GH #390: the frame that latched the detector is not an empty view of the cube; the map stays as it was.
         if (detectorUnavailable) return skippedFrame(frameIndex)
+        // GH #403: a frame the detector could not read is not "cube lost"; it already counted it, so no second count here.
+        if (detection.skipped) return skippedFrame(frameIndex)
         val fittedFaces = FaceLatticeFitter.fit(detection.centers)
         val observations =
             if (fittedFaces.isEmpty()) {
@@ -109,8 +111,8 @@ internal class ContinuousScanPipeline(
     }
 
     /**
-     * A frame that is not read (an invalid crop, the detector unavailable, or a frame the sampler cannot read, GH #397):
-     * the last snapshot again, the mapper untouched.
+     * A frame that is not read (an invalid crop, the detector unavailable, a frame the detector could not read, GH #403,
+     * or a frame the sampler cannot read, GH #397): the last snapshot again, the mapper untouched.
      */
     private fun skippedFrame(frameIndex: Int): ContinuousPipelineFrame {
         val snapshot =

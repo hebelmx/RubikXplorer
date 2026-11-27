@@ -22,7 +22,7 @@ class LiteRtStickerCenterDetectorBadFrameTest {
 
         fun logged() = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }
 
-        repeat(4) { assertEquals(StickerCenterDetection.EMPTY, detector.detect(short, 0)) }
+        repeat(4) { assertEquals(StickerCenterDetection.SKIPPED, detector.detect(short, 0)) }
         assertEquals(4, detector.failedFrames)
         val firstFour = listOf("quickScan frameFailed count=1", "quickScan frameFailed count=2", "quickScan frameFailed count=4")
         assertEquals(firstFour, logged())
@@ -33,7 +33,7 @@ class LiteRtStickerCenterDetectorBadFrameTest {
         assertEquals(firstFour, logged())
 
         // Counts 5, 6 and 7 stay silent; 8 is the next line.
-        repeat(4) { assertEquals(StickerCenterDetection.EMPTY, detector.detect(short, 0)) }
+        repeat(4) { assertEquals(StickerCenterDetection.SKIPPED, detector.detect(short, 0)) }
         assertEquals(8, detector.failedFrames)
         assertEquals(firstFour + "quickScan frameFailed count=8", logged())
         // Fixed words and the count only: no exception rides along.
@@ -50,7 +50,7 @@ class LiteRtStickerCenterDetectorBadFrameTest {
 
         detector.countFailedFrame()
         assertEquals(listOf("quickScan frameFailed count=1"), logged())
-        assertEquals(StickerCenterDetection.EMPTY, detector.detect(short, 0))
+        assertEquals(StickerCenterDetection.SKIPPED, detector.detect(short, 0))
         assertEquals(listOf("quickScan frameFailed count=1", "quickScan frameFailed count=2"), logged())
         assertEquals(2, detector.failedFrames)
     }
