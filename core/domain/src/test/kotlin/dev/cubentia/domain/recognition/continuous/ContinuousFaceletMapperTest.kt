@@ -503,4 +503,158 @@ class ContinuousFaceletMapperTest {
         val exported = assertInstanceOf(ContinuousScanExport.Complete::class.java, mapper.export())
         assertEquals(6, requireNotNull(exported.handoff.calibration).centers.size)
     }
+
+    @Test
+    fun `long still scans keep every per-cell list bounded and per-frame robust recomputations flat`() {
+        val cfg = SyntheticCubeStream.buildScenarios()[0]
+        val frames = SyntheticCubeStream.generateSequence(cfg)
+        val oneFaceIdx = frames.indexOfFirst { it.frameIndex >= 20 && it.visibleFaces.size == 1 && it.detections.size == 1 }
+        val threeFaceIdx = frames.indexOfFirst { it.visibleFaces.size == 3 && it.detections.size == 3 }
+        assertTrue(oneFaceIdx >= 0 && threeFaceIdx >= 0, "Scenario must contain a 1-face and a 3-face view")
+
+        for ((label, stillIdx) in listOf("1-face" to oneFaceIdx, "3-face" to threeFaceIdx)) {
+            val mapper = ContinuousFaceletMapper()
+            var idx = 0
+            for (k in 0..stillIdx) mapper.processFrame(idx++, frames[k].detections)
+            val still = frames[stillIdx].detections
+            val facesInView = still.size
+            val block = 1_000
+            val blocks = 10
+            val recomputesPerBlock = LongArray(blocks)
+            val msPerFrame = DoubleArray(blocks)
+            repeat(blocks) { b ->
+                val before = mapper.robustRecomputeCount
+                val t0 = System.nanoTime()
+                repeat(block) { mapper.processFrame(idx++, still) }
+                msPerFrame[b] = (System.nanoTime() - t0) / 1e6 / block
+                recomputesPerBlock[b] = mapper.robustRecomputeCount - before
+            }
+            println(
+                "GH-402 $label still scan: msPerFrame first=${"%.3f".format(msPerFrame.first())} " +
+                    "last=${"%.3f".format(msPerFrame.last())} recomputes/block=${recomputesPerBlock.toList()}",
+            )
+
+            assertEquals(MAX_OBS_PER_CELL, mapper.maxObsListSize, "$label: per-cell lists must saturate at the cap")
+            assertEquals(
+                recomputesPerBlock[1],
+                recomputesPerBlock[blocks - 1],
+                "$label: recomputations in frames 1,001-2,000 must equal those in the last 1,000 frames",
+            )
+            assertTrue(
+                recomputesPerBlock[blocks - 1] <= 2L * 9 * facesInView * block,
+                "$label: steady-state recomputations per frame must stay <= 2 x 9 x faces in view",
+            )
+        }
+    }
+
+    @Test
+    fun `regrip merge of a full pending fragment into a full master keeps per-cell lists bounded`() {
+        val cfg =
+            SyntheticCubeStream.ScenarioConfig(
+                name = "awb_plus_regrip",
+                state = SyntheticCubeStream.scramble("R U R' F' L2 D B' U2 R' F L D'"),
+                awbDrift = true,
+                regripRange = 52..65,
+                jitterPx = 0.0,
+                nFrames = 140,
+            )
+        val frames = SyntheticCubeStream.generateSequence(cfg)
+        // Master sees only U/R/F (frame 40); after the regrip blackout pending sees only B (frame 80), which has no
+        // shared face with master, so both fragments overfill the cap before R comes back into view.
+        val masterStill = frames[40]
+        val pendingStill = frames[80]
+        assertEquals(setOf(Face.U, Face.R, Face.F), masterStill.visibleFaces.keys)
+        assertEquals(setOf(Face.B), pendingStill.visibleFaces.keys)
+        val stillRepeats = MAX_OBS_PER_CELL + 64
+
+        val mapper = ContinuousFaceletMapper()
+        var idx = 0
+        for (k in 0..40) mapper.processFrame(idx++, frames[k].detections)
+        repeat(stillRepeats) { mapper.processFrame(idx++, masterStill.detections) }
+        assertEquals(MAX_OBS_PER_CELL, mapper.maxObsListSize, "Master must reach the cap before the regrip")
+        repeat(5) { mapper.processFrame(idx++, emptyList()) }
+        repeat(stillRepeats) { mapper.processFrame(idx++, pendingStill.detections) }
+        assertEquals(0, mapper.reappearanceMergeCount, "Pending must not merge while it shares no face with master")
+        assertEquals(MAX_OBS_PER_CELL, mapper.maxObsListSize)
+
+        // Play the post-regrip stream backwards so R (shared with master) comes back into view next to B.
+        assertTrue((79 downTo 66).any { Face.R in frames[it].visibleFaces }, "R must reappear in the reversed frames")
+        for (k in 79 downTo 66) {
+            mapper.processFrame(idx++, frames[k].detections)
+            assertTrue(mapper.maxObsListSize <= MAX_OBS_PER_CELL)
+        }
+        assertTrue(mapper.reappearanceMergeCount >= 1)
+        assertTrue(mapper.maxObsListSize <= MAX_OBS_PER_CELL)
+    }
+
+    private fun stillGreenFace(quality: Double): QuadObservation =
+        QuadObservation(
+            quad = Quad2D(listOf(Point2D(200.0, 150.0), Point2D(320.0, 150.0), Point2D(320.0, 270.0), Point2D(200.0, 270.0))),
+            cellRgbs = List(9) { RgbColor(34.0, 168.0, 72.0) },
+            cellQualities = List(9) { quality },
+            sharpness = 0.9,
+            hasGlare = false,
+        )
+
+    @Test
+    fun `long still scan with strictly rising quality evicts on every add and keeps recomputations flat and non-zero`() {
+        val mapper = ContinuousFaceletMapper()
+        // Qualities stay above the mapper's 0.55 / 0.60 twist-check gates so only the cap, not a gate, shapes the cost.
+        val block = 1_000
+        val recomputesPerBlock = LongArray(11)
+        val nFrames = block * recomputesPerBlock.size
+        for (f in 0 until nFrames) {
+            val before = mapper.robustRecomputeCount
+            mapper.processFrame(f, listOf(stillGreenFace(0.70 + 0.25 * f / nFrames)))
+            recomputesPerBlock[f / block] += mapper.robustRecomputeCount - before
+        }
+        println("GH-402 rising-quality still scan: recomputes/block=${recomputesPerBlock.toList()}")
+
+        assertEquals(MAX_OBS_PER_CELL, mapper.maxObsListSize)
+        assertTrue(recomputesPerBlock[1] > 0, "Every add evicts, so every frame must recompute")
+        assertEquals(recomputesPerBlock[1], recomputesPerBlock.last(), "Frames 1,001-2,000 vs the last 1,000 frames")
+        // Every retained observation is newer than any evicted one: quality rises strictly, so the oldest goes first.
+        val retained = mapper.masterCellObservations(Face.F, 4)
+        assertEquals(((nFrames - MAX_OBS_PER_CELL) until nFrames).toList(), retained.map { it.first })
+    }
+
+    @Test
+    fun `eviction keeps exactly the first cap entries of the stable descending-quality order of everything fed`() {
+        val mapper = ContinuousFaceletMapper()
+        val nFrames = MAX_OBS_PER_CELL + 64
+        val levels = doubleArrayOf(0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80)
+        val fed = ArrayList<Pair<Int, Double>>()
+        for (f in 0 until nFrames) {
+            val q = levels[(f * 37) % levels.size]
+            mapper.processFrame(f, listOf(stillGreenFace(q)))
+            // A single face is recorded from the second frame on (master needs a previous unattached sighting).
+            if (f >= 1) fed.add(f to q)
+        }
+        assertEquals(fed.take(5), mapper.masterCellObservations(Face.F, 4).take(5), "Stored qualities must equal the fed ones")
+        val expected = fed.sortedByDescending { it.second }.take(MAX_OBS_PER_CELL).sortedBy { it.first }
+        val retained = mapper.masterCellObservations(Face.F, 4).sortedBy { it.first }
+        assertEquals(MAX_OBS_PER_CELL, retained.size)
+        assertEquals(expected, retained)
+    }
+
+    @Test
+    fun `export mid-scan then more frames gives the same handoff as a single export at the end`() {
+        val frames = SyntheticCubeStream.generateSequence(SyntheticCubeStream.buildScenarios()[0])
+        val split = frames.size / 2
+        val twice = ContinuousFaceletMapper()
+        for (k in 0 until split) twice.processFrame(frames[k].frameIndex, frames[k].detections)
+        twice.export()
+        twice.exportHandoff()
+        for (k in split until frames.size) twice.processFrame(frames[k].frameIndex, frames[k].detections)
+
+        val once = ContinuousFaceletMapper()
+        for (fr in frames) once.processFrame(fr.frameIndex, fr.detections)
+
+        val expected = once.exportHandoff()
+        val actual = twice.exportHandoff()
+        assertEquals(expected.faces, actual.faces)
+        assertEquals(expected.calibration, actual.calibration)
+        assertEquals(expected, actual)
+        assertEquals(once.export(), twice.export())
+    }
 }
