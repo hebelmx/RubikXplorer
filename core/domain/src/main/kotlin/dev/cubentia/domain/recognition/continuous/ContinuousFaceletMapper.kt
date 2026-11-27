@@ -39,18 +39,25 @@ internal const val MAX_OBS_PER_CELL = 256
  * mid-scan layer-twist detection, and canonical `Orientation.HOME` handoff export.
  *
  * Deviations from mapper.py (GitHub #411). Each id is catalogued in `Fixtures/continuous/mapper-parity/expected-differences.json`;
- * `MapperParityReplayTest` pins the per-frame differences its three synthetic sessions show. On those inputs only E3
- * produces any (and D1 only together with I401); D2, D3, D4, I401, I402 and most E ids are not exercised there.
- * D1-D4, I401 and I402 are deliberate; E1-E8 are differences found by #411 and not yet reviewed (part b decides).
- * - **D1**: a face whose outer line looks twisted adds no observations on that frame, and the frame's AWB step is withheld
- *   when any face is line-twisted; mapper.py records them until the 5-frame twist streak fires and always applies the step.
- * - **D2**: the zero-mean log-AWB is bounded by scaling all channels jointly to max |channel| 0.36; mapper.py clips each
- *   channel to ±0.36.
- * - **D3**: a merge rescales pending's `rgbAwb` by master's AWB scale and adds pending's log-AWB into master's; mapper.py
- *   copies `rgb_awb` unchanged and leaves master's log-AWB alone.
- * - **D4**: the shared-edge contradiction guard compares the AWB-compensated centre Lab; mapper.py the raw centre Lab.
- * - **I401**: a twist flip counts only when the cell's history and new colour are both sticker colours (#401).
- * - **I402**: per-cell observation lists are capped at [MAX_OBS_PER_CELL] (#402); mapper.py appends without bound.
+ * `MapperParityReplayTest` pins the per-frame differences of its synthetic sessions: three run_spike scenarios (part a; there
+ * only E3 produces any) and one scenario per named deviation (part b), on which each of D1-D4, I401 and I402 changes a
+ * compared field; the part (b) sessions also show E3 cue differences in every session and E8 differences in
+ * `pyspike-d4-pastel-strong-cast-v1`. D1-D4, I401 and I402 are deliberate and each carries a verdict decided by truth labels: Kotlin is kept
+ * where it is not worse than mapper.py on its evidence session (no more wrong stickers, the true outcome whenever mapper.py
+ * reaches it); all six are kept, none reverted. E1-E8 are differences found by #411 and not yet reviewed.
+ * - **D1** (verdict: keep; Kotlin detects an early twist mapper.py misses): a face whose outer line looks twisted adds no
+ *   observations on that frame, and the frame's AWB step is withheld when any face is line-twisted; mapper.py records them
+ *   until the 5-frame twist streak fires and always applies the step.
+ * - **D2** (verdict: keep; tie): the zero-mean log-AWB is bounded by scaling all channels jointly to max |channel| 0.36;
+ *   mapper.py clips each channel to ±0.36.
+ * - **D3** (verdict: keep; Kotlin completes a scan mapper.py leaves empty): a merge rescales pending's `rgbAwb` by master's
+ *   AWB scale and adds pending's log-AWB into master's; mapper.py copies `rgb_awb` unchanged and leaves master's log-AWB alone.
+ * - **D4** (verdict: keep; tie): the shared-edge contradiction guard compares the AWB-compensated centre Lab; mapper.py the
+ *   raw centre Lab.
+ * - **I401** (verdict: keep; Kotlin completes where mapper.py reports a false twist): a twist flip counts only when the
+ *   cell's history and new colour are both sticker colours (#401); mapper.py counts any non-glare change.
+ * - **I402** (verdict: keep; tie): per-cell observation lists are capped at [MAX_OBS_PER_CELL] (#402); mapper.py appends
+ *   without bound.
  * - **E1**: once a twist is detected, [processFrame] returns at once (no tracking or sampling) and the detecting frame keeps
  *   the previous trackers; mapper.py keeps tracking after the twist.
  * - **E2**: `AllVerified` is checked first (before `BringIntoView` and the pending cues) and needs a valid cube; a 54-sticker
@@ -160,6 +167,7 @@ class ContinuousFaceletMapper {
         ) {
             val idx = face.ordinal * 9 + cellIdx
             val lst = obs[idx]
+            // Kept (GH #411 I402): the cap bounds per-frame time and heap on a long scan; its long-hold evidence ends equal to mapper.py.
             if (lst.size >= MAX_OBS_PER_CELL) {
                 var minIdx = 0
                 for (i in 1 until lst.size) {
@@ -708,6 +716,7 @@ class ContinuousFaceletMapper {
                     }
                     // Contradiction guard against already-confirmed center in this fragment (AWB-compensated: parity D4, GH #411;
                     // mapper.py compares the raw centre Lab)
+                    // Kept (GH #411 D4): compensated centre against compensated history compares like with like under a strong cast.
                     if (fb in confirmed && cQ > 0.25) {
                         val hist = frag.faceRobustLab(fb, 4)
                         if (hist != null) {
@@ -805,6 +814,7 @@ class ContinuousFaceletMapper {
         // 2. Nonrigid layer-twist check across ALL visible faces BEFORE mutating AWB or appending observations
         val pendingObs = LinkedHashMap<Face, Triple<List<RgbColor>, List<LabVec>, List<Double>>>(sampled.size)
         // Parity D1 (GH #411): line-twisted faces skip this frame's observations and withhold its AWB step (see below).
+        // Kept (GH #411 D1): a line-twisted face adds no samples, so a twist seen soon after the face is first observed is still detected.
         val lineTwistedFaces = HashSet<Face>()
         // Issue #401 (parity I401): a layer turn swaps one sticker colour for another, so a flip counts only when both the cell's history
         // and its new colour are sticker colours; a typical finger or shadow, arriving or leaving, is neither (a skin tone
@@ -848,6 +858,7 @@ class ContinuousFaceletMapper {
                             if (deAll < 14.0) {
                                 stableCells++
                             } else if (
+                                // Kept (GH #411 I401): a covered line whose new colour is no sticker colour is not a layer turn.
                                 deAll > 33.0 &&
                                 isStickerColour(labs[ci], stickerPrototypes) &&
                                 isStickerColour(h.lab, stickerPrototypes)
@@ -1056,6 +1067,7 @@ class ContinuousFaceletMapper {
             return
         }
 
+        // Kept (GH #411 D3): adding pending's log-AWB keeps the cast that drifted while pending was alive (mapper.py loses it).
         val mergeAwbScaleR = exp(-m.logAwb[0])
         val mergeAwbScaleG = exp(-m.logAwb[1])
         val mergeAwbScaleB = exp(-m.logAwb[2])
@@ -1527,6 +1539,7 @@ class ContinuousFaceletMapper {
 
         /** Zero-mean, then joint scaling to max |channel| 0.36. Parity D2 (GH #411): mapper.py clips each channel instead. */
         fun normalizeLogAwbInPlace(logAwb: DoubleArray) {
+            // Kept (GH #411 D2): joint scaling keeps the cast direction past the bound; clipping was not better on its evidence.
             val meanAwb = (logAwb[0] + logAwb[1] + logAwb[2]) / 3.0
             var maxAbsAwb = 0.0
             for (c in 0 until 3) {

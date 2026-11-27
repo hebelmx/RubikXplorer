@@ -22,37 +22,85 @@
       "id": "D1",
       "deliberate": true,
       "summary": "A face whose outer line looks twisted (lineTwistedFaces) adds no observations on that frame, and the whole frame's AWB step is withheld (not committed to the fragment) when any face is line-twisted; mapper.py records the face's observations until the 5-frame streak fires and always applies the AWB step.",
-      "note": "No compared difference in these sessions. Reverting D1 alone makes Kotlin miss pyspike-7's frame-83 twist (outcome PARTIAL; cue and twistFrame differ on frames 83-94): the twisted cells' samples then enter history and I401 no longer counts the blended history as a sticker colour. Reverting D1 and I401 together matches mapper.py again, so in this scenario the two deviations cancel out."
+      "verdict": "keep",
+      "reason": "a line-twisted face adds no samples, so a twist seen soon after the face is first observed is still detected instead of being absorbed into its short history",
+      "evidence": [
+        {
+          "session": "pyspike-d1-early-twist-u-v1",
+          "trueOutcome": "FAILED"
+        }
+      ],
+      "note": "Part (a) sessions: no compared difference; reverting D1 alone makes Kotlin miss pyspike-7's frame-83 twist (the twisted samples enter history and I401 no longer counts the blend as a sticker colour), so D1 and I401 cancel there. pyspike-d1-early-twist-u-v1 (U twist at frame 32): mapper.py records the twisted top rows while its streak builds and never detects the twist; Kotlin detects it at frame 36. Truth: Kotlin wrong 0 / FAILED (correct), mapper.py wrong 0 / PARTIAL (not correct): not worse, keep. Attribution: with D1 switched to mapper.py's behaviour in the working tree (line-twisted faces recorded, AWB step applied) Kotlin also ends PARTIAL and MapperParityReplayTest fails with 144 entries: the 119 D1 entries of pyspike-d1-early-twist-u-v1 stale and 25 unlisted pyspike-7 entries (the missed frame-83 twist)."
     },
     {
       "id": "D2",
       "deliberate": true,
       "summary": "normalizeLogAwbInPlace bounds the zero-mean log-AWB by scaling all three channels jointly so the largest |channel| is 0.36 (keeps the chromaticity direction); mapper.py clips each channel to [-0.36, 0.36] independently.",
-      "note": "No compared difference: |log_awb| peaks at 0.315 (pyspike-2, mapper.py), below the 0.36 bound, so neither bound acts. Reverting it changes no compared field."
+      "verdict": "keep",
+      "reason": "joint scaling keeps the cast direction when the log-AWB passes the bound; per-channel clipping distorts it and is never better here",
+      "evidence": [
+        {
+          "session": "pyspike-d2-strong-cast-v1",
+          "trueOutcome": "COMPLETE"
+        }
+      ],
+      "note": "Part (a) sessions: no compared difference (|log_awb| peaks at 0.315 < 0.36). pyspike-d2-strong-cast-v1 (gains ramping to exp(0, -0.9, -1.2)): the zero-mean log-AWB passes 0.36 on two channels; the bounds differ and Kotlin commits B5 one frame earlier (net and cue frame 116). Truth: Kotlin wrong 0 / COMPLETE, mapper.py wrong 0 / COMPLETE (both correct): tie, keep. Attribution: with per-channel clipping in the working tree the 2 D2 entries go stale and MapperParityReplayTest fails."
     },
     {
       "id": "D3",
       "deliberate": true,
       "summary": "tryMergePending rescales each merged pending observation's rgbAwb by master's AWB scale and adds pending's logAwb into master's (then renormalises); mapper.py copies rgb_awb unchanged and leaves master's log_awb untouched.",
-      "note": "No compared difference: pyspike-1 merges once (frame 68) with |log_awb| < 0.02 in both fragments, so the rescale moves no sticker. Reverting it changes no compared field."
+      "verdict": "keep",
+      "reason": "adding the pending fragment's log-AWB at a merge keeps the cast that drifted during the pending life; mapper.py loses it and never completes",
+      "evidence": [
+        {
+          "session": "pyspike-d3-regrip-cast-drift-v1",
+          "trueOutcome": "COMPLETE"
+        }
+      ],
+      "note": "Part (a) sessions: no compared difference (pyspike-1 merges once with |log_awb| < 0.02). pyspike-d3-regrip-cast-drift-v1 (pastel F2L regrip, gains ramping to exp(0, -0.6, -0.9) over frames 68-88 while the pending fragment lives; it merges at 87 with log_awb (0.19, -0.04, -0.16)): from frame 88 mapper.py keeps cueing KeepTurningRealign and never anchors again, Kotlin anchors at 95 and completes. Truth: Kotlin wrong 0 / COMPLETE (correct), mapper.py wrong 0 / PARTIAL with 0 committed (not correct): not worse, keep. Attribution: with the merge AWB rescale and log-AWB add removed in the working tree Kotlin matches mapper.py there and MapperParityReplayTest fails with the 128 D3 entries stale. Reverting D4 alone also moves 4 of them (cue 94-95, net and globalAnchored 95), but D3 is the first cause: D3 alone removes them all."
     },
     {
       "id": "D4",
       "deliberate": true,
       "summary": "The shared-edge contradiction guard in attachBySharedEdge compares the candidate centre against the confirmed face's history in AWB-compensated shading-invariant Lab; mapper.py compares the raw (uncompensated) centre Lab.",
-      "note": "No compared difference: reverting it (raw centre Lab in the guard) changes no compared field in these sessions."
+      "verdict": "keep",
+      "reason": "comparing the AWB-compensated centre with the AWB-compensated history compares like with like; the raw centre under a strong cast is not, and it is never better here",
+      "evidence": [
+        {
+          "session": "pyspike-d4-pastel-strong-cast-v1",
+          "trueOutcome": "COMPLETE"
+        }
+      ],
+      "note": "Part (a) sessions: no compared difference. pyspike-d4-pastel-strong-cast-v1 (pastel, own drift off, gains ramping to exp(0, -0.9, -1.2)): late in the scan mapper.py's raw-Lab guard refuses returning faces and it falls into the pending cues (frames 113-119), Kotlin keeps ResolveConflict(U). Truth: Kotlin wrong 3 / PARTIAL, mapper.py wrong 3 / PARTIAL (neither correct): tie, keep. Attribution: with the raw centre Lab in the guard in the working tree MapperParityReplayTest fails with 11 stale entries: the 7 D4 entries and 4 D3 entries of pyspike-d3-regrip-cast-drift-v1 (see D3)."
     },
     {
       "id": "I401",
       "deliberate": true,
       "summary": "Issue #401 twist guard: a cell counts as flipped only when both its history and its new colour lie within dE 14 of a sticker prototype (twistStickerPrototypes / isStickerColour); mapper.py counts any dE > 33 change that is not a glare wash-out.",
-      "note": "No compared difference on its own: reverting it changes no compared field (see D1 for the interaction)."
+      "verdict": "keep",
+      "reason": "a covered outer line whose new colour is no sticker colour is not a layer turn, so a finger no longer fails the scan",
+      "evidence": [
+        {
+          "session": "pyspike-i401-skin-occluder-v1",
+          "trueOutcome": "COMPLETE"
+        }
+      ],
+      "note": "Part (a) sessions: no compared difference on its own (see D1 for the interaction). pyspike-i401-skin-occluder-v1 (skin-tone patch over F cells 6-7 on frames 14-21): mapper.py counts the covered line as flipped for five frames and reports a twist at frame 18; Kotlin's guard rejects the skin colour and completes. Truth: Kotlin wrong 0 / COMPLETE (correct), mapper.py wrong 0 / FAILED (not correct): not worse, keep. Attribution: with the sticker-colour guard off in the working tree Kotlin also fails at frame 18 and MapperParityReplayTest fails with the 445 I401 entries stale."
     },
     {
       "id": "I402",
       "deliberate": true,
       "summary": "Issue #402: each per-cell observation list is capped at MAX_OBS_PER_CELL = 256 (lowest quality dropped); mapper.py appends without bound.",
-      "note": "No compared difference at these session lengths: the longest per-cell list is 84 observations (pyspike-7), far below 256, so the cap never acts. Reverting it changes no compared field."
+      "verdict": "keep",
+      "reason": "the cap bounds per-frame time and heap on a long scan; on a 525-frame hold it only shifts when a covered cell turns back, and the final net is equal",
+      "evidence": [
+        {
+          "session": "pyspike-i402-long-hold-v1",
+          "trueOutcome": "COMPLETE"
+        }
+      ],
+      "note": "Part (a) sessions: no compared difference (longest per-cell list 84). pyspike-i402-long-hold-v1 (525 frames, a 275-frame hold with a magenta patch over F cell 1, then F frontal without it): F's lists pass 256, so Kotlin's capped list lets the patch uncommit F1 one frame earlier (frame 423) and the true colour back three frames earlier (frames 482-484). Truth: Kotlin wrong 0 / COMPLETE, mapper.py wrong 0 / COMPLETE (both correct): tie, keep. Attribution: with the cap removed in the working tree the 8 I402 entries go stale and MapperParityReplayTest fails."
     },
     {
       "id": "E1",
@@ -70,7 +118,7 @@
       "id": "E3",
       "deliberate": false,
       "summary": "The TurnRemaining / TiltAwayLightRemaining side count (and the gate before the conflict and sticker cues) uses master's confirmed faces (>= 2 observations, centre quality >= 0.40); mapper.py uses master's observed faces, so it reports fewer remaining sides earlier.",
-      "note": "The only cause of compared differences in these sessions (20 cue frames). Reverting it (observed faces) removes all of them."
+      "note": "The only cause of compared differences in the part (a) sessions (20 cue frames), and of the early cue differences of every part (b) session (frame 0 and while a newly observed face is not yet confirmed). Reverting it (observed faces) removes all of them."
     },
     {
       "id": "E4",
@@ -100,7 +148,7 @@
       "id": "E8",
       "deliberate": false,
       "summary": "ResolveConflict names the first conflicted slot in URFDLB face order (FaceSlot ordering); mapper.py sorts slots by face letter (B < D < F < L < R < U).",
-      "note": "No compared difference: no conflict cue is shown in these sessions. Reverting it changes no compared field."
+      "note": "No conflict cue in the part (a) sessions. pyspike-d4-pastel-strong-cast-v1 frames 107-112: mapper.py names D first (face letter order), Kotlin U (URFDLB order); reverting it removes those 6 cue entries."
     }
   ],
   "differences": [
@@ -171,6 +219,358 @@
       ],
       "deviation": "E3",
       "reason": "mapper.py counts observed faces, Kotlin confirmed faces: fewer remaining sides on the first frame and while a newly observed face is not yet confirmed."
+    },
+    {
+      "session": "pyspike-d1-early-twist-u-v1",
+      "field": "outcome",
+      "frames": [
+        [
+          -1,
+          -1
+        ]
+      ],
+      "deviation": "D1",
+      "reason": "Kotlin FAILED (the true outcome), mapper.py PARTIAL."
+    },
+    {
+      "session": "pyspike-d1-early-twist-u-v1",
+      "field": "twistFrame",
+      "frames": [
+        [
+          36,
+          94
+        ]
+      ],
+      "deviation": "D1",
+      "reason": "Kotlin detects the U twist at frame 36 (line-twisted face samples kept out of history); mapper.py absorbs them and never detects it."
+    },
+    {
+      "session": "pyspike-d1-early-twist-u-v1",
+      "field": "cue",
+      "frames": [
+        [
+          36,
+          94
+        ]
+      ],
+      "deviation": "D1",
+      "reason": "Kotlin LayerTwistDetected from frame 36; mapper.py TurnRemaining(3)."
+    },
+    {
+      "session": "pyspike-d1-early-twist-u-v1",
+      "field": "cue",
+      "frames": [
+        [
+          0,
+          0
+        ],
+        [
+          24,
+          28
+        ]
+      ],
+      "deviation": "E3",
+      "reason": "mapper.py counts observed faces, Kotlin confirmed faces: fewer remaining sides on the first frame and while a newly observed face is not yet confirmed, or the sticker cue instead of a side count once all six are observed."
+    },
+    {
+      "session": "pyspike-d2-strong-cast-v1",
+      "field": "net",
+      "frames": [
+        [
+          116,
+          116
+        ]
+      ],
+      "deviation": "D2",
+      "reason": "joint log-AWB scaling vs per-channel clipping past the 0.36 bound: Kotlin commits B5 one frame earlier."
+    },
+    {
+      "session": "pyspike-d2-strong-cast-v1",
+      "field": "cue",
+      "frames": [
+        [
+          116,
+          116
+        ]
+      ],
+      "deviation": "D2",
+      "reason": "the sticker count of the same frame (41 vs 40)."
+    },
+    {
+      "session": "pyspike-d2-strong-cast-v1",
+      "field": "cue",
+      "frames": [
+        [
+          0,
+          0
+        ],
+        [
+          17,
+          19
+        ],
+        [
+          59,
+          59
+        ],
+        [
+          83,
+          84
+        ],
+        [
+          114,
+          115
+        ]
+      ],
+      "deviation": "E3",
+      "reason": "mapper.py counts observed faces, Kotlin confirmed faces: fewer remaining sides on the first frame and while a newly observed face is not yet confirmed, or the sticker cue instead of a side count once all six are observed."
+    },
+    {
+      "session": "pyspike-d3-regrip-cast-drift-v1",
+      "field": "outcome",
+      "frames": [
+        [
+          -1,
+          -1
+        ]
+      ],
+      "deviation": "D3",
+      "reason": "Kotlin COMPLETE (the true outcome), mapper.py PARTIAL."
+    },
+    {
+      "session": "pyspike-d3-regrip-cast-drift-v1",
+      "field": "net",
+      "frames": [
+        [
+          95,
+          134
+        ]
+      ],
+      "deviation": "D3",
+      "reason": "Kotlin re-anchors at frame 95 and completes the net; mapper.py commits nothing."
+    },
+    {
+      "session": "pyspike-d3-regrip-cast-drift-v1",
+      "field": "globalAnchored",
+      "frames": [
+        [
+          95,
+          134
+        ]
+      ],
+      "deviation": "D3",
+      "reason": "Kotlin anchored from frame 95; mapper.py not."
+    },
+    {
+      "session": "pyspike-d3-regrip-cast-drift-v1",
+      "field": "cue",
+      "frames": [
+        [
+          88,
+          134
+        ]
+      ],
+      "deviation": "D3",
+      "reason": "after the frame-87 merge mapper.py's master keeps a stale log-AWB, loses tracking and cues KeepTurningRealign; Kotlin cues the side count, then AllVerified."
+    },
+    {
+      "session": "pyspike-d3-regrip-cast-drift-v1",
+      "field": "cue",
+      "frames": [
+        [
+          0,
+          0
+        ],
+        [
+          18,
+          19
+        ]
+      ],
+      "deviation": "E3",
+      "reason": "mapper.py counts observed faces, Kotlin confirmed faces: fewer remaining sides on the first frame and while a newly observed face is not yet confirmed, or the sticker cue instead of a side count once all six are observed."
+    },
+    {
+      "session": "pyspike-d4-pastel-strong-cast-v1",
+      "field": "cue",
+      "frames": [
+        [
+          113,
+          119
+        ]
+      ],
+      "deviation": "D4",
+      "reason": "mapper.py's raw-Lab guard refuses returning faces under the strong cast and it cues TiltAdjacent / KeepTurningRealign; Kotlin keeps ResolveConflict(U)."
+    },
+    {
+      "session": "pyspike-d4-pastel-strong-cast-v1",
+      "field": "cue",
+      "frames": [
+        [
+          0,
+          0
+        ],
+        [
+          16,
+          17
+        ],
+        [
+          54,
+          54
+        ],
+        [
+          77,
+          77
+        ],
+        [
+          105,
+          106
+        ]
+      ],
+      "deviation": "E3",
+      "reason": "mapper.py counts observed faces, Kotlin confirmed faces: fewer remaining sides on the first frame and while a newly observed face is not yet confirmed, or the sticker cue instead of a side count once all six are observed."
+    },
+    {
+      "session": "pyspike-d4-pastel-strong-cast-v1",
+      "field": "cue",
+      "frames": [
+        [
+          107,
+          112
+        ]
+      ],
+      "deviation": "E8",
+      "reason": "conflict cue: mapper.py names the first conflicted slot in face-letter order (D), Kotlin in URFDLB order (U)."
+    },
+    {
+      "session": "pyspike-i401-skin-occluder-v1",
+      "field": "outcome",
+      "frames": [
+        [
+          -1,
+          -1
+        ]
+      ],
+      "deviation": "I401",
+      "reason": "Kotlin COMPLETE (the true outcome), mapper.py FAILED."
+    },
+    {
+      "session": "pyspike-i401-skin-occluder-v1",
+      "field": "twistFrame",
+      "frames": [
+        [
+          18,
+          129
+        ]
+      ],
+      "deviation": "I401",
+      "reason": "mapper.py reports a twist at frame 18 for the skin patch over F cells 6-7; Kotlin does not count a non-sticker colour as flipped."
+    },
+    {
+      "session": "pyspike-i401-skin-occluder-v1",
+      "field": "net",
+      "frames": [
+        [
+          20,
+          129
+        ]
+      ],
+      "deviation": "I401",
+      "reason": "mapper.py frozen empty after its false twist; Kotlin anchors at 20 and completes."
+    },
+    {
+      "session": "pyspike-i401-skin-occluder-v1",
+      "field": "globalAnchored",
+      "frames": [
+        [
+          20,
+          129
+        ]
+      ],
+      "deviation": "I401",
+      "reason": "Kotlin anchored from frame 20; mapper.py not."
+    },
+    {
+      "session": "pyspike-i401-skin-occluder-v1",
+      "field": "cue",
+      "frames": [
+        [
+          18,
+          129
+        ]
+      ],
+      "deviation": "I401",
+      "reason": "mapper.py LayerTwistDetected from frame 18; Kotlin keeps scanning to AllVerified."
+    },
+    {
+      "session": "pyspike-i401-skin-occluder-v1",
+      "field": "cue",
+      "frames": [
+        [
+          0,
+          0
+        ],
+        [
+          17,
+          17
+        ]
+      ],
+      "deviation": "E3",
+      "reason": "mapper.py counts observed faces, Kotlin confirmed faces: fewer remaining sides on the first frame and while a newly observed face is not yet confirmed, or the sticker cue instead of a side count once all six are observed."
+    },
+    {
+      "session": "pyspike-i402-long-hold-v1",
+      "field": "net",
+      "frames": [
+        [
+          423,
+          423
+        ],
+        [
+          482,
+          484
+        ]
+      ],
+      "deviation": "I402",
+      "reason": "F1 past 256 observations: Kotlin's capped list uncommits it one frame earlier (423) and recommits the true colour three frames earlier (482-484)."
+    },
+    {
+      "session": "pyspike-i402-long-hold-v1",
+      "field": "cue",
+      "frames": [
+        [
+          423,
+          423
+        ],
+        [
+          482,
+          484
+        ]
+      ],
+      "deviation": "I402",
+      "reason": "the cue of the same frames follows the net (sticker count, or AllVerified in Kotlin on 482-484)."
+    },
+    {
+      "session": "pyspike-i402-long-hold-v1",
+      "field": "cue",
+      "frames": [
+        [
+          0,
+          0
+        ],
+        [
+          61,
+          62
+        ],
+        [
+          92,
+          95
+        ],
+        [
+          164,
+          167
+        ]
+      ],
+      "deviation": "E3",
+      "reason": "mapper.py counts observed faces, Kotlin confirmed faces: fewer remaining sides on the first frame and while a newly observed face is not yet confirmed, or the sticker cue instead of a side count once all six are observed."
     }
   ]
 }
