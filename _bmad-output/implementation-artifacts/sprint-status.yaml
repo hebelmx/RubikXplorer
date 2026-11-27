@@ -3246,3 +3246,15 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-397-face-sampler-short-frame-skip.md"
+  - id: "issue-403-deferred-null-fill-path-untested"
+    epic: 10
+    action: "The fillYuvInput-returns-null path in LiteRtStickerCenterDetector.detect, with its new recordFailedFrame and SKIPPED return, is unreachable from JVM tests and checked only by reading the code; add a test if a seam ever makes it reachable (low; deferred from #403, LiteRtStickerCenterDetector.kt:103)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-403-skipped-frame-not-cube-lost.md"
+  - id: "issue-403-deferred-skipped-frame-device-check"
+    epic: 10
+    action: "The skipped-frame-is-not-cube-lost fix is verified only on the JVM; confirm on a physical device that continuous Quick Scan keeps the master across unreadable frames and logs quickScan frameFailed once per skipped frame (low, unverified; deferred from #403)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-403-skipped-frame-not-cube-lost.md"
