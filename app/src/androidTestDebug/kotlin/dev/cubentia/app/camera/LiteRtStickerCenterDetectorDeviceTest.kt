@@ -143,6 +143,34 @@ class LiteRtStickerCenterDetectorDeviceTest {
         }
     }
 
+    /** Story 10.34: the session recording's model-input copy is empty before any inference and the model input after one. */
+    @Test
+    fun copyModelInputIsFalseBeforeAnyDetectAndFillsInputBytesAfterDetectRgb() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val detector = LiteRtStickerCenterDetector(context)
+        val executor = Executors.newSingleThreadExecutor()
+        try {
+            executor
+                .submit {
+                    val into = ByteArray(StickerCenterModelContract.INPUT_BYTES) { SENTINEL }
+                    assertFalse("copyModelInput before any detect", detector.copyModelInput(into))
+                    assertTrue("untouched before any detect", into.all { it == SENTINEL })
+                    val size = StickerCenterModelContract.INPUT_SIZE
+                    val rgb = ByteArray(size * size * 3).also { Random(34).nextBytes(it) }
+                    detector.detectRgb(rgb, size, size)
+                    assertTrue("copyModelInput after detectRgb", detector.copyModelInput(into))
+                    assertTrue("INPUT_BYTES filled after detectRgb", into.any { it != SENTINEL })
+                    assertFalse(
+                        "a buffer shorter than INPUT_BYTES is refused",
+                        detector.copyModelInput(ByteArray(StickerCenterModelContract.INPUT_BYTES - 1)),
+                    )
+                }.get()
+        } finally {
+            executor.shutdown()
+            detector.close()
+        }
+    }
+
     @Test
     fun endToEndPipelineMeetsPhysicalR8LatencyBudgetAndRejectsNegatives() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -557,6 +585,7 @@ class LiteRtStickerCenterDetectorDeviceTest {
         const val TAG = "LiteRtCenterDeviceTest"
         const val TUNING_STILLS_DIR = "/data/local/tmp/cubentia-10-31-tuning"
         const val ROW_PADDING = 32
+        const val SENTINEL: Byte = 0x5A
 
         val BENCHMARK_SIZES = listOf(640 to 480, 1280 to 960)
 

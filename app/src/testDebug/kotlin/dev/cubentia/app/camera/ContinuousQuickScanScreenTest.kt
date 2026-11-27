@@ -443,4 +443,54 @@ class ContinuousQuickScanScreenTest {
     @Test fun noHapticPlaysWithTheHapticsSettingOff() {
         assertTrue(played(enabled = false, sdk = Build.VERSION_CODES.R).isEmpty())
     }
+
+    /** Story 10.34: with no session (every non-debuggable build) there is no Rec node; a session draws in the camera area. */
+    @Test fun withoutASessionOverlayThereIsNoRecControlAndWithOneItSitsInTheCameraArea() {
+        val overlay = mutableStateOf<(@androidx.compose.runtime.Composable androidx.compose.foundation.layout.BoxScope.() -> Unit)?>(null)
+        val enabled = mutableStateOf(true)
+        // Four sides and 36 stickers: a state that offers Review and Correct.
+        val offering = ContinuousQuickScanFlow().next(ContinuousFrame(testSnapshot(testHandoff(Face.entries.take(4))), emptyList()), 0)
+        assertTrue(offering.reviewAndCorrectOffered())
+        rule.setContent {
+            CubentiaTheme {
+                GuidedScanScreen(
+                    GuidedScanPhase.Continuous,
+                    strings,
+                    GuidedScanActions(),
+                    continuous = offering,
+                    sessionOverlay = overlay.value,
+                    quickScanActionsEnabled = enabled.value,
+                )
+            }
+        }
+        rule.onNodeWithTag("quickScan:continuous").assertIsDisplayed()
+        rule.onNodeWithTag("quickScan:rec").assertDoesNotExist()
+        rule.onNodeWithTag("quickScan:reset").assertIsEnabled()
+        rule.onNodeWithTag("quickScan:reviewAndCorrect").assertIsDisplayed()
+        rule.runOnIdle {
+            overlay.value = {
+                androidx.compose.material3.Text(
+                    "Rec",
+                    Modifier.align(androidx.compose.ui.Alignment.BottomStart).testTag("quickScan:rec"),
+                )
+            }
+            enabled.value = false
+        }
+        rule
+            .onNode(
+                androidx.compose.ui.test
+                    .hasTestTag("quickScan:rec") and
+                    androidx.compose.ui.test
+                        .hasAnyAncestor(
+                            androidx.compose.ui.test
+                                .hasTestTag("scanViewfinder"),
+                        ),
+            ).assertExists()
+        // The session's baseline run disables Reset, Scan face by face and Enter colors instead.
+        rule.onNodeWithTag("quickScan:reset").assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Disabled))
+        rule.onNodeWithTag("quickScan:faceByFace").assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Disabled))
+        rule.onNodeWithTag("scanEnterColors").assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Disabled))
+        // ... and hides Review and Correct (its place kept, no node), though the state offers it.
+        rule.onNodeWithTag("quickScan:reviewAndCorrect").assertDoesNotExist()
+    }
 }

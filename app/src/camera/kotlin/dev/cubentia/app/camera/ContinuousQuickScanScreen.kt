@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -64,6 +65,13 @@ internal fun ContinuousQuickScanScreen(
     actions: GuidedScanActions,
     torch: Boolean?,
     preview: @Composable () -> Unit,
+    /**
+     * Story 10.34: the debug Quick Scan session recording's controls (Rec, indicator, notice, sheet), drawn inside the
+     * camera area; null in every non-debuggable build, so no Rec node exists there.
+     */
+    sessionOverlay: (@Composable BoxScope.() -> Unit)? = null,
+    /** Story 10.34: false during the session recording's baseline run (Reset, Scan face by face, Review and Correct, Enter colors instead). */
+    actionsEnabled: Boolean = true,
 ) {
     val highlight = RubikTheme.tokens.stickerHighlight
     val camera: @Composable (Modifier) -> Unit = { modifier ->
@@ -97,6 +105,7 @@ internal fun ContinuousQuickScanScreen(
             ) {
                 TorchButton(TorchControl(torch, strings, actions.onToggleTorch), Modifier.align(Alignment.TopEnd).padding(4.dp))
             }
+            sessionOverlay?.invoke(this)
         }
     }
     val panel: @Composable (Modifier, Boolean) -> Unit = { modifier, short ->
@@ -123,18 +132,22 @@ internal fun ContinuousQuickScanScreen(
             Text(strings.resolve(state.cue.toText()), Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag("quickScan:cue"))
             val reset = strings.resolve(ContentText("btn.quick-scan.reset"))
             if (state.snapshot?.twistDetected == true) {
-                Button(actions.onReset, Modifier.fillMaxWidth().testTag("quickScan:reset")) { Text(reset) }
+                Button(actions.onReset, Modifier.fillMaxWidth().testTag("quickScan:reset"), enabled = actionsEnabled) { Text(reset) }
             } else {
-                OutlinedButton(actions.onReset, Modifier.fillMaxWidth().testTag("quickScan:reset")) { Text(reset) }
+                OutlinedButton(
+                    actions.onReset,
+                    Modifier.fillMaxWidth().testTag("quickScan:reset"),
+                    enabled = actionsEnabled,
+                ) { Text(reset) }
             }
-            OutlinedButton(actions.onFaceByFace, Modifier.fillMaxWidth().testTag("quickScan:faceByFace")) {
+            OutlinedButton(actions.onFaceByFace, Modifier.fillMaxWidth().testTag("quickScan:faceByFace"), enabled = actionsEnabled) {
                 Text(strings.resolve(ContentText("btn.quick-scan.face-by-face")))
             }
             // *Review and Correct* (Q8): shown or gone at once, with no animation or announcement; never the emphasised
             // action. Hidden, it still takes its place (not drawn, not tappable, and no node for TalkBack), so no other
             // action moves under a finger when it appears or goes. On a short panel (a phone in landscape) it shares
             // the last row, so the net keeps a readable cell.
-            val offered = state.reviewAndCorrectOffered()
+            val offered = state.reviewAndCorrectOffered() && actionsEnabled
             val reviewAndCorrect: @Composable (Modifier) -> Unit = { place ->
                 OutlinedButton(
                     actions.onReviewAndCorrect,
@@ -152,11 +165,11 @@ internal fun ContinuousQuickScanScreen(
                 ) {
                     // The minimum touch height, which *Enter colors instead* beside it sets for itself too.
                     reviewAndCorrect(Modifier.weight(1f).heightIn(min = 48.dp))
-                    Box(Modifier.weight(1f)) { EnterColorsButton(strings, actions.onEnterColors) }
+                    Box(Modifier.weight(1f)) { EnterColorsButton(strings, actions.onEnterColors, enabled = actionsEnabled) }
                 }
             } else {
                 reviewAndCorrect(Modifier.fillMaxWidth())
-                EnterColorsButton(strings, actions.onEnterColors)
+                EnterColorsButton(strings, actions.onEnterColors, enabled = actionsEnabled)
             }
         }
     }

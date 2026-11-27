@@ -55,6 +55,7 @@ jobs:
                       :macrobenchmark:checkModuleBoundaries :macrobenchmark:assembleBenchmark \
                       :app:checkBenchmarkMergedManifest :app:checkBenchmarkSdkDenylist \
                       :app:checkReleaseShadowReader :app:checkBenchmarkShadowReader \
+                      :app:checkReleaseFixtureWriter :app:checkBenchmarkFixtureWriter :checkFixtureSize \
                       :core:solver:compileBenchmarkKotlin; do
             # Match the whole task path at line start, so one module's task cannot stand in for another's.
             if ! grep -qE -- "^${task} " <<<"$plan"; then
@@ -83,7 +84,11 @@ jobs:
       # Story 10.18: assemble the opt-in R8 cornerR8 build type and its androidTest APK on every PR, so an R8 /
       # keep-rule break in LiteRT fails here instead of on a device run. Assemble only; no connected task.
       - name: Assemble cornerR8 (R8 + LiteRT keep rules)
-        run: ./gradlew -Pcubentia.cornerR8=true :app:assembleCornerR8 :app:assembleCornerR8AndroidTest :app:checkCornerR8ShadowReader
+        run: ./gradlew -Pcubentia.cornerR8=true :app:assembleCornerR8 :app:assembleCornerR8AndroidTest :app:checkCornerR8ShadowReader :app:checkCornerR8FixtureWriter
+
+      # Story 10.34 (AD-9 Frames): the 0.11.0-profile release011 build carries no continuous-session fixture writer.
+      - name: release011 fixture-writer guard
+        run: ./gradlew -Pcubentia.release011=true :app:checkRelease011FixtureWriter
 
       - name: build-logic policy tests
         run: ./gradlew -p build-logic test

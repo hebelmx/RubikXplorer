@@ -5,6 +5,8 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dev.cubentia.app.camera.ContinuousFrame
+import dev.cubentia.app.camera.ContinuousFrameTap
+import dev.cubentia.app.camera.ContinuousModelIdentity
 import dev.cubentia.app.camera.ContinuousScanEngine
 import dev.cubentia.app.camera.ContinuousScanEngineFactory
 import dev.cubentia.app.camera.StickerCenterDetector
@@ -13,9 +15,23 @@ import dev.cubentia.app.camera.YuvFrame
 @Module
 @InstallIn(SingletonComponent::class)
 internal object ContinuousScanEngineModule {
+    /** Story 10.34: the identity of the bundled detector, for the debug Quick Scan session manifest. */
+    val MODEL_IDENTITY =
+        ContinuousModelIdentity(
+            file = StickerCenterModelContract.MODEL_ASSET,
+            sha256 = StickerCenterModelContract.MODEL_SHA256,
+            inputSize = StickerCenterModelContract.INPUT_SIZE,
+            delegate = "XNNPACK",
+            threads = StickerCenterModelContract.NUM_THREADS,
+        )
+
     @Provides
     fun factory(detector: StickerCenterDetector): ContinuousScanEngineFactory =
-        ContinuousScanEngineFactory { PipelineEngine(ContinuousScanPipeline(detector)) }
+        object : ContinuousScanEngineFactory {
+            override fun create(): ContinuousScanEngine = PipelineEngine(ContinuousScanPipeline(detector))
+
+            override val modelIdentity: ContinuousModelIdentity get() = MODEL_IDENTITY
+        }
 }
 
 private class PipelineEngine(
@@ -35,9 +51,27 @@ private class PipelineEngine(
         return ContinuousFrame(result.snapshot, result.viewOverlays)
     }
 
-    override fun reset() {
+    override fun reset() = record(null)
+
+    /** Story 10.34: a new scan whose frames [tap] sees; the frame index restarts at 0. */
+    override fun record(tap: ContinuousFrameTap?) {
         frameIndex = 0
+        pipeline.tap = tap
         pipeline.reset()
+    }
+
+    override fun frameDone(
+        sensorTimestampNs: Long,
+        analyzerNs: Long,
+        rotation: Int,
+        imageWidth: Int,
+        imageHeight: Int,
+        cropLeft: Int,
+        cropTop: Int,
+        cropRight: Int,
+        cropBottom: Int,
+    ) {
+        pipeline.tap?.frameDone(sensorTimestampNs, analyzerNs, rotation, imageWidth, imageHeight, cropLeft, cropTop, cropRight, cropBottom)
     }
 
     override fun export() = pipeline.export()

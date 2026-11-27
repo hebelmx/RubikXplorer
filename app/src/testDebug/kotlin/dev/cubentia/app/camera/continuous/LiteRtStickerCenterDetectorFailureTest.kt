@@ -185,6 +185,36 @@ class LiteRtStickerCenterDetectorFailureTest {
     }
 
     @Test
+    fun `the model-input copy is the last good frame's input and the detection carries the letterbox it used`() {
+        val session = CountingStickerCenterSession()
+        val detector = session.detector
+        val into = ByteArray(StickerCenterModelContract.INPUT_BYTES)
+        assertFalse(detector.copyModelInput(into), "no input before any frame")
+        val frame =
+            makeBlankYuv(64, 48).apply {
+                for (i in 0 until y.buffer.capacity()) y.buffer.put(i, (i % 200 + 50).toByte())
+            }
+        val detection = detector.detect(frame, rotationDegrees = 90)
+        assertTrue(detector.copyModelInput(into))
+        assertArrayEquals(session.lastInput, into)
+        assertFalse(detector.copyModelInput(ByteArray(StickerCenterModelContract.INPUT_BYTES - 1)), "a short buffer is refused")
+        val (uprightWidth, uprightHeight) = StickerCenterModelTransform.uprightDimensions(frame.width, frame.height, 90)
+        val letterbox = checkNotNull(StickerCenterModelTransform.letterbox(uprightWidth, uprightHeight))
+        assertEquals(letterbox.scale, detection.inputScale)
+        assertEquals(letterbox.padLeft, detection.inputPadLeft)
+        assertEquals(letterbox.padTop, detection.inputPadTop)
+        assertEquals(uprightWidth to uprightHeight, detection.uprightWidth to detection.uprightHeight)
+        // A following bad frame leaves no model input to copy.
+        val short = makeBlankYuv(64, 48).apply { y.buffer.limit(1) }
+        assertEquals(StickerCenterDetection.EMPTY, detector.detect(short, 0))
+        assertFalse(detector.copyModelInput(into))
+        // The RGB path sets it again.
+        detector.detectRgb(ByteArray(16 * 16 * 3) { 9 }, 16, 16)
+        assertTrue(detector.copyModelInput(into))
+        assertArrayEquals(session.lastInput, into)
+    }
+
+    @Test
     fun `an Error is not a bad frame - it reaches the caller and is not counted`() {
         val fatal = Error("not a bad frame")
         val detector =

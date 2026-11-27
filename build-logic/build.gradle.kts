@@ -102,6 +102,13 @@ gradlePlugin {
                     .pluginId
             implementationClass = "dev.cubentia.buildlogic.ReleaseConventionPlugin"
         }
+        register("fixtures") {
+            id =
+                libs.plugins.cubentia.fixtures
+                    .get()
+                    .pluginId
+            implementationClass = "dev.cubentia.buildlogic.FixtureConventionPlugin"
+        }
         register("androidMacrobenchmark") {
             id =
                 libs.plugins.cubentia.android.macrobenchmark

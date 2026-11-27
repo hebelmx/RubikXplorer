@@ -24,6 +24,10 @@ internal data class StickerCenterDetection(
     val uprightWidth: Int,
     val uprightHeight: Int,
     val inferenceMs: Double = 0.0,
+    /** Story 10.34: the letterbox into the square model input (model-input = upright × [inputScale] + pad); 0 when unknown. */
+    val inputScale: Double = 0.0,
+    val inputPadLeft: Int = 0,
+    val inputPadTop: Int = 0,
 ) {
     val centers: List<Point2D> get() = peaks.map(StickerCenterPeak::toPoint2D)
 
@@ -53,4 +57,10 @@ internal interface StickerCenterDetector {
         viewWidth: Int = 0,
         viewHeight: Int = 0,
     ): StickerCenterDetection
+
+    /**
+     * Story 10.34: copies the model input of the last [detect] into [into] (`INPUT_SIZE² × 3` RGB bytes); false when
+     * there is none or the detector does not expose it. Same thread as [detect].
+     */
+    fun copyModelInput(into: ByteArray): Boolean = false
 }

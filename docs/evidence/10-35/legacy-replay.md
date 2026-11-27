@@ -55,6 +55,17 @@ Run on branch `feat/10-35-retire-the-quick-scan-only-two-corner-recorder-paths` 
   produced byte-identical outputs (line endings aside) to the post-removal run. The removal changes no reader output. Both
   files were restored with `git restore`; refreshing them is left out of this story (it is not a recorder change).
 
-## Story 10.34 continuous-session replay
+## Story 10.34 continuous-session replay (2026-11-26)
 
-_Left for Story 10.34: append the continuous-session replay (at least one old fixture and one new continuous session) here._
+Run on branch `feat/10-34-rebuild-debug-quick-scan-recording` (based on `79704f22`) with
+`export JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64 ANDROID_HOME=$HOME/Android/Sdk`, after the synthetic sessions were
+regenerated for the format additions (`geometryChanges`, `skipped`). Every command succeeded.
+
+| Command | Fixtures read | Exit | Outcome |
+| --- | --- | --- | --- |
+| `./gradlew :core:domain:replayContinuousSession` | `Fixtures/continuous` (new continuous sessions) | 0 | `synthetic-complete-v1`: COMPLETE recorded and replayed, 116/130 frames with observations, 0 skipped, 6/6 sides, 54/54 stickers, 0 snapshot/cue diffs, 0 label mismatches. `synthetic-partial-v1`: PARTIAL recorded and replayed, 83/96 frames with observations, 0 skipped, 5/6 sides, 46/54 stickers (8 unknown, never filled), last cue `TurnRemaining(1)`, 0 snapshot/cue diffs, 0 label mismatches |
+| `./gradlew :core:domain:test` (includes `ContinuousSessionReplayTest`, the golden state replay) | `Fixtures/continuous` | 0 | BUILD SUCCESSFUL |
+| `./gradlew :core:domain:evaluateQuickScan --args="$PWD/Fixtures/matrix/lenovo-tb128xu_stka_warm_quickscan.log"` | `Fixtures/matrix` (old fixture) | 0 | BUILD SUCCESSFUL; Runs 1, successful 0, fallback faces 1, recommendation BETA (the same as the Story 10.35 row above) |
+
+Device sessions recorded from the debug build's Quick Scan are added by the PO at the Lenovo TB128XU gate; each gets its
+plain replay report under `docs/evidence/10-34/` before any `--refresh-golden` (`docs/evidence/10-34/latency.md`).

@@ -112,3 +112,4 @@ cubentia-android-app = { id = "cubentia.android-app" }
 cubentia-quality = { id = "cubentia.quality" }
 cubentia-release = { id = "cubentia.release" }
 cubentia-android-macrobenchmark = { id = "cubentia.android-macrobenchmark" }
+cubentia-fixtures = { id = "cubentia.fixtures" }

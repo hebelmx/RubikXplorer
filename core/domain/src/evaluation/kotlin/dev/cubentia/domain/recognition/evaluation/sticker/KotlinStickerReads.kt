@@ -28,6 +28,11 @@ import java.io.File
  * - `gated`: the agreement gate of the two ([QuickScanClassification.read]), what Quick Scan decides with.
  *
  * Item ids match `tools/sticker-model/assemble.py`: `live/<dir>/<FACE>` and `corner/<dir>/corner-<hold>/<FACE>`.
+ *
+ * Story 10.34: this exporter keeps its legacy readers (`Fixtures/corner` + `tools/sticker-model/holdout.json`, the
+ * two-corner hold format). It is **not** the tool for continuous Quick Scan: a recorded continuous session is replayed with
+ * `./gradlew :core:domain:replayContinuousSession` (`evaluation/continuous/ContinuousSessionReplay`), which replaces the
+ * Quick Scan use of this export (see `Fixtures/continuous/README.md`).
  */
 object KotlinStickerReads {
     data class Face(

@@ -1,5 +1,6 @@
 package dev.cubentia.app.camera.continuous
 
+import dev.cubentia.app.camera.ContinuousFrameTap
 import dev.cubentia.app.camera.ContinuousOverlayQuad
 import dev.cubentia.app.camera.StickerCenterDetection
 import dev.cubentia.app.camera.StickerCenterDetector
@@ -34,6 +35,9 @@ internal class ContinuousScanPipeline(
     private val sampler: ContinuousFaceSampler = ContinuousFaceSampler(),
     private val mapper: ContinuousFaceletMapper = ContinuousFaceletMapper(),
 ) {
+    /** Story 10.34: the debug Quick Scan session recording's neutral frame tap; null unless a session records. */
+    var tap: ContinuousFrameTap? = null
+
     /** GH #390: the detector's own state, readable from any thread with or without a frame. */
     val detectorUnavailable get() = detector.unavailable
 
@@ -61,6 +65,12 @@ internal class ContinuousScanPipeline(
             }
         val snapshot = mapper.processFrame(frameIndex, observations)
         lastSnapshot = snapshot
+        tap?.let { t ->
+            // One copy, straight into the tap's preallocated buffer; no allocation on the analyzer thread.
+            val buffer = t.modelInputBuffer(frameIndex)
+            val filled = buffer != null && copyModelInput(buffer)
+            t.onFrame(frameIndex, observations, snapshot, detection, filled)
+        }
         val overlays =
             snapshot.trackedQuads.map { tracked ->
                 ContinuousOverlayQuad(
@@ -107,6 +117,8 @@ internal class ContinuousScanPipeline(
                 invariantViolationCount = 0,
                 pendingFragmentFaces = 0,
             )
+        // Story 10.34: the mapper was not called, so the tap records a skipped frame, never this (stale) snapshot.
+        tap?.onSkippedFrame(frameIndex)
         return ContinuousPipelineFrame(
             snapshot = snapshot,
             detection = StickerCenterDetection.EMPTY,
@@ -114,6 +126,14 @@ internal class ContinuousScanPipeline(
             viewOverlays = emptyList(),
         )
     }
+
+    /** GH #389: a failing model-input copy drops only this frame's input, never the analyzer. */
+    private fun copyModelInput(buffer: ByteArray): Boolean =
+        try {
+            detector.copyModelInput(buffer)
+        } catch (_: Exception) {
+            false
+        }
 
     fun reset() {
         lastSnapshot = null

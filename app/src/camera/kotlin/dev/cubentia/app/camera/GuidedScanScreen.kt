@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -287,6 +288,10 @@ internal fun GuidedScanScreen(
     cornerTorch: Boolean? = null,
     /** Story 10.21: whether the calibration phase's *Keep* is enabled (false while a torch change is pending). */
     keepEnabled: Boolean = true,
+    /** Story 10.34: the debug Quick Scan session recording's controls on the continuous scan; null without a session. */
+    sessionOverlay: (@Composable BoxScope.() -> Unit)? = null,
+    /** Story 10.34: false during the session recording's baseline run. */
+    quickScanActionsEnabled: Boolean = true,
     viewfinder: @Composable () -> Unit = {},
 ) {
     if (confirmDiscard) DiscardDialog(strings, actions, discardKind)
@@ -316,7 +321,15 @@ internal fun GuidedScanScreen(
             }
             when (phase) {
                 GuidedScanPhase.Continuous -> {
-                    ContinuousQuickScanScreen(continuous, strings, actions, cornerTorch, viewfinder)
+                    ContinuousQuickScanScreen(
+                        continuous,
+                        strings,
+                        actions,
+                        cornerTorch,
+                        viewfinder,
+                        sessionOverlay,
+                        quickScanActionsEnabled,
+                    )
                 }
 
                 GuidedScanPhase.QuickScanUnavailable -> {
@@ -1037,10 +1050,12 @@ private fun DiscardDialog(
 internal fun EnterColorsButton(
     strings: ContentStrings,
     onClick: () -> Unit,
+    enabled: Boolean = true,
 ) {
     OutlinedButton(
         onClick,
         Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("scanEnterColors"),
+        enabled = enabled,
     ) {
         Text(strings.resolve(ContentText("btn.scan.enter-colors-instead")))
     }
