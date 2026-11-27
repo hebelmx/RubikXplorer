@@ -28,11 +28,20 @@ internal data class StickerCenterDetection(
     val inputScale: Double = 0.0,
     val inputPadLeft: Int = 0,
     val inputPadTop: Int = 0,
+    /**
+     * GH #403: the detector could not read this frame (its model input could not be filled, or conversion or peak
+     * decoding threw); a skipped frame, not an empty view. The pipeline leaves the mapper untouched for it. A degenerate
+     * crop or an unavailable detector returns [EMPTY] instead.
+     */
+    val skipped: Boolean = false,
 ) {
     val centers: List<Point2D> get() = peaks.map(StickerCenterPeak::toPoint2D)
 
     companion object {
         val EMPTY = StickerCenterDetection(emptyList(), 0, 0, 0.0)
+
+        /** GH #403: a frame whose model input could not be filled, or whose conversion or decoding threw; not an empty view. */
+        val SKIPPED = StickerCenterDetection(emptyList(), 0, 0, 0.0, skipped = true)
     }
 }
 
@@ -51,6 +60,11 @@ internal interface StickerCenterDetector {
      */
     val unavailable: Boolean
 
+    /**
+     * Detects sticker centers in [frame]. A frame whose model input could not be filled, or whose conversion or peak
+     * decoding threw, returns [StickerCenterDetection.SKIPPED] (GH #403), so the pipeline does not take it for a view
+     * with no cube. A degenerate crop or an unavailable detector still returns [StickerCenterDetection.EMPTY].
+     */
     fun detect(
         frame: YuvFrame,
         rotationDegrees: Int,

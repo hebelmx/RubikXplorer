@@ -171,7 +171,7 @@ class ContinuousScanPipelineShortFrameTest {
         assertEquals(1, detector.failedFrames)
         // A #389 bad frame adds to the same count.
         val short = makeBlankYuv(64, 48).apply { y.buffer.limit(1) }
-        assertEquals(StickerCenterDetection.EMPTY, detector.detect(short, 0))
+        assertEquals(StickerCenterDetection.SKIPPED, detector.detect(short, 0))
         assertEquals(2, detector.failedFrames)
         detector.countFailedFrame()
         assertEquals(3, detector.failedFrames)

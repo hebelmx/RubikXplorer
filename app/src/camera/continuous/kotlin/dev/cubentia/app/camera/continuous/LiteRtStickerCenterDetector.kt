@@ -32,8 +32,9 @@ internal interface StickerCenterInferenceSession {
  * LiteRT v2 INT8 sticker-center heatmap detector (`com.google.ai.edge.litert`, AD-9 / Story 10.31).
  *
  * Runs exclusively off the main thread on XNNPACK CPU with 2 threads using pre-allocated direct buffers.
- * A frame that fails input conversion or peak decoding is counted and skipped, and so is a frame the pipeline could not
- * sample ([countFailedFrame], GH #397): one count for both. Its session stays open for the next frame.
+ * A frame that fails input conversion or peak decoding is counted once and returns [StickerCenterDetection.SKIPPED]
+ * (GH #403), not an empty view; a frame the pipeline could not sample is counted too ([countFailedFrame], GH #397): one
+ * count for both. Its session stays open for the next frame.
  * Model initialization and inference failures latch [unavailable] for the lifetime of this singleton,
  * and so does [close] (GH #404): a disabled detector must never look like an empty view (GH #390).
  * Never persists, writes to disk, or transmits any camera frame (AD-13).
@@ -99,7 +100,11 @@ internal class LiteRtStickerCenterDetector
                 return try {
                     val params =
                         StickerCenterModelTransform.fillYuvInput(frame, rotationDegrees, inputBytes, yuvScratch)
-                            ?: return StickerCenterDetection.EMPTY
+                            ?: run {
+                                // GH #403: a frame it cannot read is a skipped frame, counted once like a failed conversion.
+                                recordFailedFrame()
+                                return StickerCenterDetection.SKIPPED
+                            }
                     val dtMs = runInference(active) ?: return StickerCenterDetection.EMPTY
                     inputValid = true
                     val peaks =
@@ -126,7 +131,7 @@ internal class LiteRtStickerCenterDetector
                 } catch (_: Exception) {
                     inputValid = false
                     recordFailedFrame()
-                    StickerCenterDetection.EMPTY
+                    StickerCenterDetection.SKIPPED
                 }
             }
         }

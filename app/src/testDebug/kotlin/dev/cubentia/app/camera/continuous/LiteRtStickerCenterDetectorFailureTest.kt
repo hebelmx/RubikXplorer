@@ -139,7 +139,7 @@ class LiteRtStickerCenterDetectorFailureTest {
         val session = CountingStickerCenterSession()
         val short = makeBlankYuv(64, 48).apply { y.buffer.limit(1) }
         for ((index, rotation) in listOf(0, 90, 180, 270).withIndex()) {
-            assertEquals(StickerCenterDetection.EMPTY, session.detector.detect(short, rotation))
+            assertEquals(StickerCenterDetection.SKIPPED, session.detector.detect(short, rotation))
             assertFalse(session.detector.unavailable)
             assertEquals(index + 1, session.detector.failedFrames)
         }
@@ -158,8 +158,8 @@ class LiteRtStickerCenterDetectorFailureTest {
         val session = CountingStickerCenterSession()
         val shortU = makeBlankYuv(64, 48).apply { u.buffer.limit(1) }
         val shortV = makeBlankYuv(64, 48).apply { v.buffer.limit(1) }
-        assertEquals(StickerCenterDetection.EMPTY, session.detector.detect(shortU, 0))
-        assertEquals(StickerCenterDetection.EMPTY, session.detector.detect(shortV, 0))
+        assertEquals(StickerCenterDetection.SKIPPED, session.detector.detect(shortU, 0))
+        assertEquals(StickerCenterDetection.SKIPPED, session.detector.detect(shortV, 0))
         assertEquals(2, session.detector.failedFrames)
         assertEquals(0, session.runs)
         assertEquals(0, session.closes)
@@ -179,7 +179,7 @@ class LiteRtStickerCenterDetectorFailureTest {
         // Conversion fails half-way down the frame, after the upper rows were already written.
         val session = CountingStickerCenterSession()
         val truncated = patterned().apply { y.buffer.limit(64 * 24) }
-        assertEquals(StickerCenterDetection.EMPTY, session.detector.detect(truncated, 0))
+        assertEquals(StickerCenterDetection.SKIPPED, session.detector.detect(truncated, 0))
         assertEquals(0, session.runs)
         session.detector.detect(validFrame, 0)
         assertEquals(1, session.runs)
@@ -208,7 +208,7 @@ class LiteRtStickerCenterDetectorFailureTest {
         assertEquals(uprightWidth to uprightHeight, detection.uprightWidth to detection.uprightHeight)
         // A following bad frame leaves no model input to copy.
         val short = makeBlankYuv(64, 48).apply { y.buffer.limit(1) }
-        assertEquals(StickerCenterDetection.EMPTY, detector.detect(short, 0))
+        assertEquals(StickerCenterDetection.SKIPPED, detector.detect(short, 0))
         assertFalse(detector.copyModelInput(into))
         // The RGB path sets it again.
         detector.detectRgb(ByteArray(16 * 16 * 3) { 9 }, 16, 16)
