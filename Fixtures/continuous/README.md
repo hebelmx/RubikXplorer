@@ -23,6 +23,45 @@ not device evidence. Regenerate them with `./gradlew :core:domain:generateSynthe
 Curated Lenovo TB128XU sessions (one complete, one incomplete) are added by the PO at the human gate
 (`docs/evidence/10-34/latency.md`).
 
+## Mapper parity sessions (#411)
+
+`mapper-parity/` holds three **synthetic** sessions exported from the Python reference mapper `pc_spike/mapper.py`
+(`_bmad-output/planning-artifacts/research/technical-continuous-facelet-scan-2026-11-24/pc_spike/`), one per
+`run_spike.build_scenarios()` scenario with its config and seed unchanged:
+
+| Session | Scenario | mapper.py outcome |
+| --- | --- | --- |
+| `pyspike-1-scrambled-stickered-regrip-v1/` | `1_scrambled_stickered_regrip` (regrip and merge) | COMPLETE |
+| `pyspike-2-pastel-stickerless-awb-drift-v1/` | `2_pastel_stickerless_awb_drift` (AWB drift) | COMPLETE |
+| `pyspike-7-mid-scan-layer-twist-u-v1/` | `7_mid_scan_layer_twist_U` (layer twist) | FAILED |
+
+Their `frames.jsonl` holds the cell samples mapper.py itself computes for every detection (raw corner order, the
+`QuadObservation` contract; no images), and their `snapshots.jsonl` holds **mapper.py's predictions**, not Kotlin goldens.
+`MapperParityReplayTest` (in `:core:domain:test`) replays them through a fresh `ContinuousFaceletMapper` and requires the
+per-frame differences on `net`, `globalAnchored`, `twistFrame`, `conflictedSlots`, `cue` (plus the session `outcome` and
+`snapshotCount`) to equal, exactly, the list in `mapper-parity/expected-differences.json`; every entry names a deviation from
+its catalogue, and the mapper's KDoc names every catalogued id (the test checks both). The test pins only the differences these
+three sessions show: on them only E3 produces any (D1 only together with I401); D2, D3, D4, I401, I402 and most E ids are
+catalogued but not exercised here. D1-D4, I401 and I402 are deliberate; E1-E8 were found by #411 and are not yet reviewed. `kind`, `state`, `trackedQuads`, the counts and
+`pendingFragmentFaces` are not compared. So a plain replay of this folder
+(`./gradlew :core:domain:replayContinuousSession --args='Fixtures/continuous/mapper-parity'`) reports diffs and exits 1:
+that is expected. Never run `--refresh-golden` on it (it would overwrite the Python predictions).
+
+The folder has no `manifest.json`, so the golden test `ContinuousSessionReplayTest` and the default replay task do not
+see these sessions; `:checkFixtureSize` counts them in the folder total only.
+
+When the test reports unlisted or stale entries, attribute each one by temporarily reverting the suspect Kotlin behaviour in
+the working tree (never committed), re-running the test and restoring it. Then update the `frames` ranges, and for a new
+cause add a catalogue id with its summary and a matching `**<id>**` entry in the `ContinuousFaceletMapper` KDoc.
+
+The committed sessions were exported with opencv-python-headless 5.1.0 and numpy 2.5.5 (unpinned; another version can
+change the cell samples). Regenerate (from `pc_spike/`; nothing is installed system-wide), then review the diff (only
+`buildCommit` should change):
+
+```sh
+uv run --no-project --with opencv-python-headless --with numpy python export_parity_sessions.py
+```
+
 ## Format (schema 1)
 
 One neutral format (`core/domain/.../continuous/session/ContinuousSession.kt`) is used by the writer, the replay and the tests.
