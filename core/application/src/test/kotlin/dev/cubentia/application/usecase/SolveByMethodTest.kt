@@ -9,6 +9,7 @@ import dev.cubentia.domain.content.Algorithm
 import dev.cubentia.domain.content.AlgorithmId
 import dev.cubentia.domain.content.AlgorithmStatus
 import dev.cubentia.domain.content.CaseId
+import dev.cubentia.domain.content.ContentBundle
 import dev.cubentia.domain.content.ContentLoadResult
 import dev.cubentia.domain.content.ContentLoader
 import dev.cubentia.domain.content.ContentSource
@@ -61,13 +62,25 @@ class SolveByMethodTest {
 
     private val cross = StageId("stage-02-first-cross")
 
+    /**
+     * Tests that run the real search check what it returns, not how fast a loaded CI runner gets there:
+     * the 3 s wall-clock deadline is a production budget, and the timeout path has its own deterministic test.
+     */
+    private val noDeadline = Long.MAX_VALUE
+
+    private fun unbounded(
+        content: ContentBundle = bundle,
+        algorithmStatuses: AlgorithmStatusRepository? = null,
+        solver: MethodSolveFunction = MethodSolveFunction(MethodSolve::solve),
+    ) = SolveByMethod(content, deadlineMillis = noDeadline, solver = solver, algorithmStatuses = algorithmStatuses)
+
     @Test
     fun `solved - re-verified segments echo the effect's id and revision, off the caller's thread`() =
         runBlocking {
             val caller = Thread.currentThread()
             var worker: Thread? = null
             val spy =
-                SolveByMethod(bundle, solver = { state, method, content, statuses, go ->
+                unbounded(solver = { state, method, content, statuses, go ->
                     worker = Thread.currentThread()
                     MethodSolve.solve(state, method, content, statuses, go)
                 })
@@ -85,7 +98,7 @@ class SolveByMethodTest {
     @Test
     fun `a solved cube is an empty solution`() =
         runBlocking {
-            assertEquals(MethodSolveOutcome.Solved(emptyList()), SolveByMethod(bundle)(effect(CubeState.SOLVED)).outcome)
+            assertEquals(MethodSolveOutcome.Solved(emptyList()), unbounded()(effect(CubeState.SOLVED)).outcome)
         }
 
     @Test
@@ -216,13 +229,13 @@ class SolveByMethodTest {
         runBlocking {
             listOf(SolveMethod.TWO_LOOK, SolveMethod.FULL_OLL_PLL).forEach { method ->
                 listOf(scrambled, scrambled.reoriented(Orientation.of(Face.R, Face.F)), oll45).forEach { input ->
-                    val completion = SolveByMethod(bundle)(effect(input, method))
+                    val completion = unbounded()(effect(input, method))
                     assertEquals(61L, completion.effectId)
                     val solved = assertInstanceOf(MethodSolveOutcome.Solved::class.java, completion.outcome, "$method")
                     assertTrue(solved.segments.any { it.tag is SegmentTag.OfCase }, "$method")
                     assertTrue(input.apply(solved.segments.flatMap { it.moves }).isSolved, "$method")
                 }
-                assertEquals(MethodSolveOutcome.Solved(emptyList()), SolveByMethod(bundle)(effect(CubeState.SOLVED, method)).outcome)
+                assertEquals(MethodSolveOutcome.Solved(emptyList()), unbounded()(effect(CubeState.SOLVED, method)).outcome)
             }
         }
 
@@ -233,7 +246,7 @@ class SolveByMethodTest {
             var seen: Map<AlgorithmId, AlgorithmStatus>? = null
 
             fun spying(repository: AlgorithmStatusRepository?) =
-                SolveByMethod(bundle, algorithmStatuses = repository, solver = { state, method, content, statuses, go ->
+                unbounded(algorithmStatuses = repository, solver = { state, method, content, statuses, go ->
                     seen = statuses
                     MethodSolve.solve(state, method, content, statuses, go)
                 })
@@ -291,7 +304,7 @@ class SolveByMethodTest {
             val alternative = Algorithm(AlgorithmId("alg-oll-45-b"), CaseId("case-oll-45"), "y2 B L U L' U' B' y2")
             val content = bundle.copy(algorithms = bundle.algorithms + alternative)
             val statuses = FakeStatuses(AlgorithmStatusLoad.Loaded(mapOf(alternative.id to AlgorithmStatus.LEARNING)))
-            val completion = SolveByMethod(content, algorithmStatuses = statuses)(effect(oll45, SolveMethod.FULL_OLL_PLL))
+            val completion = unbounded(content, algorithmStatuses = statuses)(effect(oll45, SolveMethod.FULL_OLL_PLL))
             val solved = assertInstanceOf(MethodSolveOutcome.Solved::class.java, completion.outcome)
             val body = moves(alternative.notation)
             assertTrue(
