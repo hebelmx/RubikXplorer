@@ -1,0 +1,58 @@
+{
+    "schemaVersion": 1,
+    "sessionId": "pyspike-d2-strong-cast-v1",
+    "synthetic": true,
+    "createdAt": "2026-11-27T00:00:00Z",
+    "device": {
+        "model": "synthetic (pc_spike synth_video.py)",
+        "manufacturer": "synthetic"
+    },
+    "cube": "pc_spike run_spike scenario d2_strong_cast (seed 101)",
+    "lighting": "synthetic stickered palette",
+    "partition": "UNASSIGNED",
+    "model": {
+        "file": "none (synthetic observations)",
+        "sha256": "none",
+        "litertVersion": "none",
+        "delegate": "none",
+        "threads": 0
+    },
+    "buildCommit": "d0468518be02c6f2b5faca5ed56c009b986e3761",
+    "frameCount": 130,
+    "framesWithObservations": 130,
+    "imageEvery": 0,
+    "imageFrames": 0,
+    "geometry": {
+        "rotationDegrees": 0,
+        "analysisWidth": 640,
+        "analysisHeight": 480,
+        "cropLeft": 0,
+        "cropTop": 0,
+        "cropRight": 640,
+        "cropBottom": 480,
+        "uprightWidth": 640,
+        "uprightHeight": 480,
+        "inputSize": 256,
+        "letterboxScale": 0.4,
+        "padLeft": 0,
+        "padTop": 32
+    },
+    "geometryChanges": [],
+    "timing": {
+        "firstTimestampMs": 0,
+        "lastTimestampMs": 4257,
+        "durationMs": 4257,
+        "meanFrameIntervalMs": 33.0
+    },
+    "captureSkips": 0,
+    "droppedFrames": 0,
+    "stopReason": "OPERATOR",
+    "outcome": "COMPLETE",
+    "latencyP50Ms": null,
+    "latencyP95Ms": null,
+    "latencyBaselineP50Ms": null,
+    "defective": false,
+    "defectReasons": [],
+    "bytes": 203419,
+    "goldenRevision": null
+}
