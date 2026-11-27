@@ -3317,7 +3317,7 @@ action_items:
     epic: 10
     action: "The three synthetic parity sessions make none of D1-D4, I401 or I402 change a compared field on their own (only E3 does), so reverting any of them still passes MapperParityReplayTest; add scenarios that make each bite (AWB drift past 0.36, merge with large log-AWB, forced conflict, long scan) with the part (b) revert-or-keep evidence (medium; deferred from #411, Fixtures/continuous/mapper-parity/expected-differences.json:28)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-411-mapper-parity-golden-replay.md"
   - id: "issue-411-deferred-pin-opencv-numpy-versions"
     epic: 10
