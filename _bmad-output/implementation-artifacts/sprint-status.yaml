@@ -3071,7 +3071,7 @@ action_items:
       the continuous Quick Scan analyzer; guard that path or catch in the analyzer
       (medium; deferred from #389, ContinuousFaceSampler.kt:182)"
     owner: "Dev (Amelia)"
-    status: open
+    status: done
     ref: "_bmad-output/implementation-artifacts/spec-gh-389-continuous-quick-scan-bad-frame-skip.md"
   - id: "issue-390-deferred-all-frames-fail-never-unavailable"
     epic: 10
@@ -3228,3 +3228,21 @@ action_items:
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-404-litert-detector-close-unavailable.md"
+  - id: "issue-397-deferred-analyzer-catch-backstop"
+    epic: 10
+    action: "The Quick Scan analyzer in ScanFrameSource.read is still try/finally with no catch, so an Error or an exception from outside sampling (mapper, overlay mapping, frameDone) still ends the scan; add a catch(Exception) backstop around engine.processFrame that reports a skipped frame (medium; deferred from #397, ScanFrameSource.kt:363-367)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-397-face-sampler-short-frame-skip.md"
+  - id: "issue-397-deferred-error-test-jvm-dependent"
+    epic: 10
+    action: "The Error-propagation test in ContinuousScanPipelineShortFrameTest relies on a truncated memory-mapped file faulting as InternalError and skips via assumeTrue elsewhere; make it deterministic by injecting a throwing sampler through the existing constructor parameter (low; deferred from #397, ContinuousScanPipelineShortFrameTest.kt:178-214)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-397-face-sampler-short-frame-skip.md"
+  - id: "issue-397-deferred-short-frame-device-check"
+    epic: 10
+    action: "The short-frame skip is verified only on the JVM and no device is known to produce such frames; confirm on a physical device that continuous Quick Scan keeps running and logs quickScan frameFailed if one occurs (low, unverified; deferred from #397)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-397-face-sampler-short-frame-skip.md"

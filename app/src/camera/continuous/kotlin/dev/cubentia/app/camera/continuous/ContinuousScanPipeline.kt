@@ -61,7 +61,13 @@ internal class ContinuousScanPipeline(
             if (fittedFaces.isEmpty()) {
                 emptyList()
             } else {
-                fittedFaces.mapNotNull { face -> sampler.sample(frame, rotationDegrees, face) }
+                // GH #397: a plane short in rows the detector never read is a bad frame, not the end of the scan.
+                try {
+                    fittedFaces.mapNotNull { face -> sampler.sample(frame, rotationDegrees, face) }
+                } catch (_: Exception) {
+                    detector.countFailedFrame()
+                    return skippedFrame(frameIndex)
+                }
             }
         val snapshot = mapper.processFrame(frameIndex, observations)
         lastSnapshot = snapshot
@@ -102,7 +108,10 @@ internal class ContinuousScanPipeline(
         )
     }
 
-    /** A frame that is not read (an invalid crop, or the detector unavailable): the last snapshot again, the mapper untouched. */
+    /**
+     * A frame that is not read (an invalid crop, the detector unavailable, or a frame the sampler cannot read, GH #397):
+     * the last snapshot again, the mapper untouched.
+     */
     private fun skippedFrame(frameIndex: Int): ContinuousPipelineFrame {
         val snapshot =
             lastSnapshot ?: ContinuousScanSnapshot.Scanning(
