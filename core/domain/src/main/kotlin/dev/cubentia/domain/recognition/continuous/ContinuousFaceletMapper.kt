@@ -19,6 +19,20 @@ import kotlin.math.min
 import kotlin.math.sqrt
 
 /**
+ * Cap on each per-cell observation list in [ContinuousFaceletMapper] (GitHub issue #402). This is a deliberate deviation
+ * from `pc_spike/mapper.py`, which appends without bound: unbounded lists make per-frame time and heap grow linearly
+ * with scan length on a long or stalled scan. While every list is <= the cap, results are identical to the uncapped
+ * mapper; 256 is well above the longest per-cell list measured across the S1-S7 stress, hand-off and golden replay
+ * sessions (86), so those stay bit-identical. Beyond the cap it is a deliberate approximation: the retained list is the
+ * first K entries of the stable descending-quality order by insertion position (a merge appends pending observations
+ * after master's own, whatever their frame index), and the robust value's top-K size, count and quality sum are then
+ * derived from that retained list, not the full history. Trade-off: once a list is full, a new observation (including a
+ * merged pending one) enters only if its quality is strictly above the retained minimum, so later equal-or-lower-quality
+ * evidence is ignored.
+ */
+internal const val MAX_OBS_PER_CELL = 256
+
+/**
  * Pure-JVM port of `pc_spike/mapper.py`: intrinsics-free 2D shared-edge face graph, historical
  * center-color lock, 24-SO(3) regrip merger with symmetry/outlier guards, zero-mean bounded
  * log-RGB AWB drift, shading-invariant CIELAB + WHITE-referenced hue + exact 8-per-color balanced
@@ -76,28 +90,90 @@ class ContinuousFaceletMapper {
         val shift: Int,
     )
 
+    /** Cumulative count of uncached [CubeFragment.faceRobustLab] computations, shared by every fragment of one mapper. */
+    private class RobustRecomputeCounter {
+        var count: Long = 0
+    }
+
     private class CubeFragment(
         val fragId: Int,
+        private val recomputeCounter: RobustRecomputeCounter,
     ) {
-        val obs: Array<ArrayList<CellObs>> = Array(Face.entries.size * 9) { ArrayList() }
+        private val obs: Array<ArrayList<CellObs>> = Array(Face.entries.size * 9) { ArrayList() }
+        private val robustCache: Array<RobustLab?> = arrayOfNulls(Face.entries.size * 9)
+        private val robustCacheValid: BooleanArray = BooleanArray(Face.entries.size * 9)
+        private val robustStdCache: Array<RobustLab?> = arrayOfNulls(Face.entries.size * 9)
+        private val robustStdCacheValid: BooleanArray = BooleanArray(Face.entries.size * 9)
         val observedFaces: MutableSet<Face> = LinkedHashSet()
         var tracked: MutableMap<Face, TrackedFace> = LinkedHashMap()
         val logAwb: DoubleArray = DoubleArray(3)
         val twistStreak: IntArray = IntArray(Face.entries.size)
         var frameCount: Int = 0
 
+        /** Read-only view of one cell's observations; every mutation goes through [addObs]. */
         fun obsList(
             face: Face,
             cellIdx: Int,
-        ): ArrayList<CellObs> = obs[face.ordinal * 9 + cellIdx]
+        ): List<CellObs> = obs[face.ordinal * 9 + cellIdx]
 
+        /** Largest per-cell observation list in this fragment. */
+        fun maxObsListSize(): Int = obs.maxOf { it.size }
+
+        /**
+         * The only mutation path for a cell's observation list. Keeps at most [MAX_OBS_PER_CELL] entries: when the list
+         * is full, the observation that sorts last in the stable descending-quality order is dropped (minimum quality;
+         * on ties the latest by insertion position, which may be [o] itself), so the retained membership is the first K
+         * entries of that order. Results match the uncapped list only while it is <= the cap; past it this is a
+         * deliberate approximation (see [MAX_OBS_PER_CELL]), and a new observation enters a full list only if its
+         * quality is strictly above the retained minimum. The cell's robust cache is invalidated only when the list
+         * actually changes.
+         */
+        fun addObs(
+            face: Face,
+            cellIdx: Int,
+            o: CellObs,
+        ) {
+            val idx = face.ordinal * 9 + cellIdx
+            val lst = obs[idx]
+            if (lst.size >= MAX_OBS_PER_CELL) {
+                var minIdx = 0
+                for (i in 1 until lst.size) {
+                    // <= keeps the latest index among equal minimum qualities.
+                    if (lst[i].quality <= lst[minIdx].quality) minIdx = i
+                }
+                // The new observation is the latest, so it loses every tie and is the one dropped.
+                if (o.quality <= lst[minIdx].quality) return
+                lst.removeAt(minIdx)
+            }
+            lst.add(o)
+            robustCacheValid[idx] = false
+            robustStdCacheValid[idx] = false
+            robustCache[idx] = null
+            robustStdCache[idx] = null
+        }
+
+        /** Cached robust value of one cell; identical to [computeFaceRobustLab] for the cell's current list. */
         fun faceRobustLab(
             face: Face,
             cellIdx: Int,
+            includeStandardLab: Boolean = false,
+        ): RobustLab? {
+            val idx = face.ordinal * 9 + cellIdx
+            val valid = if (includeStandardLab) robustStdCacheValid else robustCacheValid
+            val cache = if (includeStandardLab) robustStdCache else robustCache
+            if (valid[idx]) return cache[idx]
+            val r = computeFaceRobustLab(obs[idx], includeStandardLab = includeStandardLab)
+            recomputeCounter.count++
+            cache[idx] = r
+            valid[idx] = true
+            return r
+        }
+
+        private fun computeFaceRobustLab(
+            lst: List<CellObs>,
             topKFrac: Double = 0.45,
             includeStandardLab: Boolean = false,
         ): RobustLab? {
-            val lst = obsList(face, cellIdx)
             if (lst.isEmpty()) return null
             val ordered = lst.sortedByDescending { it.quality }
             val maxQ = ordered[0].quality
@@ -180,6 +256,21 @@ class ContinuousFaceletMapper {
     private var pendingMissStreak: Int = 0
     private var lastCue: ContinuousScanCue = ContinuousScanCue.BringIntoView
     private val reappearanceMergeCountInternal: MutableList<Int> = mutableListOf()
+
+    private val robustRecomputeCounter = RobustRecomputeCounter()
+
+    /** Test hook: largest per-cell observation list across the live master and pending fragments. */
+    internal val maxObsListSize: Int
+        get() = max(master?.maxObsListSize() ?: 0, pending?.maxObsListSize() ?: 0)
+
+    /** Test hook: retained (frameIndex, quality) observations of one master cell, in insertion order. */
+    internal fun masterCellObservations(
+        face: Face,
+        cellIdx: Int,
+    ): List<Pair<Int, Double>> = master?.obsList(face, cellIdx)?.map { it.frameIndex to it.quality } ?: emptyList()
+
+    /** Test hook: cumulative number of uncached per-cell robust-Lab computations since construction. */
+    internal val robustRecomputeCount: Long get() = robustRecomputeCounter.count
 
     /** Number of regrip reappearance merges/promotions recorded during this session. */
     val reappearanceMergeCount: Int get() = reappearanceMergeCountInternal.size
@@ -419,7 +510,7 @@ class ContinuousFaceletMapper {
         return (CubeValidator.validate(Facelets(all)) as? ValidationResult.Valid)?.state
     }
 
-    private fun newFragment(): CubeFragment = CubeFragment(nextFragId++)
+    private fun newFragment(): CubeFragment = CubeFragment(nextFragId++, robustRecomputeCounter)
 
     private fun filterPlausibleQuads(detections: List<QuadObservation>): List<QuadObservation> {
         if (detections.isEmpty()) return emptyList()
@@ -745,7 +836,9 @@ class ContinuousFaceletMapper {
                 if (fname in lineTwistedFaces) continue
                 val (rgbsAwb, labs, quals) = triple
                 for (ci in 0 until 9) {
-                    frag.obsList(fname, ci).add(
+                    frag.addObs(
+                        fname,
+                        ci,
                         CellObs(
                             frameIndex = frameIndex,
                             rgbAwb = rgbsAwb[ci],
@@ -894,7 +987,6 @@ class ContinuousFaceletMapper {
                 val obsList = p.obsList(pf, pi)
                 if (obsList.isEmpty()) continue
                 val mSlot = ContinuousCubeGeometry.rotateSlot(pf, pi, best.rotIdx)
-                val target = m.obsList(mSlot.face, mSlot.cellIndex)
                 for (o in obsList) {
                     val alignedRgbAwb =
                         RgbColor(
@@ -902,7 +994,7 @@ class ContinuousFaceletMapper {
                             (o.rgbAwb.g * mergeAwbScaleG).coerceIn(0.0, 255.0),
                             (o.rgbAwb.b * mergeAwbScaleB).coerceIn(0.0, 255.0),
                         )
-                    target.add(CellObs(o.frameIndex, alignedRgbAwb, o.lab + best.shift, o.quality))
+                    m.addObs(mSlot.face, mSlot.cellIndex, CellObs(o.frameIndex, alignedRgbAwb, o.lab + best.shift, o.quality))
                 }
                 m.observedFaces.add(mSlot.face)
             }

@@ -3246,3 +3246,9 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-397-face-sampler-short-frame-skip.md"
+  - id: "issue-402-deferred-full-cell-color-freeze"
+    epic: 10
+    action: "Once a ContinuousFaceletMapper cell holds MAX_OBS_PER_CELL (256) observations it accepts only strictly higher-quality ones and its robust value becomes an approximation of the uncapped one, so on a long stalled real scan the cell colour can freeze on early frames and miss later lighting or AWB drift; check it in the Story 10.33 device matrix and add age-aware eviction if it shows up (medium; deferred from #402, ContinuousFaceletMapper.kt:139)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-402-bound-mapper-per-frame-cost.md"
