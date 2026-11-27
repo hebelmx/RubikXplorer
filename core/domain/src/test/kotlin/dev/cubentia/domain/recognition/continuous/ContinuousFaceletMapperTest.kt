@@ -478,6 +478,76 @@ class ContinuousFaceletMapperTest {
         assertEquals(awbBeforeTwist, mapper.masterLogAwb.toList(), "Twisted streak frames must not mutate masterLogAwb")
     }
 
+    private val twistTestQuad =
+        Quad2D(listOf(Point2D(200.0, 150.0), Point2D(320.0, 150.0), Point2D(320.0, 270.0), Point2D(200.0, 270.0)))
+    private val fingerSkin = RgbColor(196.0, 150.0, 128.0)
+
+    @Test
+    fun `finger over one edge row before anchoring latches no layer twist`() {
+        // Issue #401: a uniformly coloured, high-quality finger is not a sticker colour, so it is no layer turn.
+        val mapper = ContinuousFaceletMapper()
+        // Yellow is about as bright as skin, so the glare-washout rule cannot be what rejects the finger here.
+        val yellow = RgbColor(235.0, 212.0, 32.0)
+        val clean = QuadObservation(twistTestQuad, List(9) { yellow }, List(9) { 0.9 }, sharpness = 0.95, hasGlare = false)
+        repeat(7) { f -> mapper.processFrame(f, listOf(clean)) }
+        val fingered = clean.copy(cellRgbs = List(9) { i -> if (i in 0..2) fingerSkin else yellow })
+        var twisted = false
+        for (f in 7 until 17) {
+            val snap = mapper.processFrame(f, listOf(fingered))
+            assertFalse(snap.globalAnchored)
+            if (snap.twistDetected) twisted = true
+        }
+        assertFalse(twisted, "A finger over one edge row must not latch a layer twist")
+    }
+
+    @Test
+    fun `finger lifting off one edge row before anchoring latches no layer twist`() {
+        // Issue #401: history learned the finger, so the true sticker colour returning is no layer turn either.
+        val mapper = ContinuousFaceletMapper()
+        val green = RgbColor(34.0, 168.0, 72.0)
+        val clean = QuadObservation(twistTestQuad, List(9) { green }, List(9) { 0.9 }, sharpness = 0.95, hasGlare = false)
+        val fingered = clean.copy(cellRgbs = List(9) { i -> if (i in 0..2) fingerSkin else green })
+        repeat(7) { f -> mapper.processFrame(f, listOf(fingered)) }
+        var twisted = false
+        for (f in 7 until 17) {
+            val snap = mapper.processFrame(f, listOf(clean))
+            assertFalse(snap.globalAnchored)
+            if (snap.twistDetected) twisted = true
+        }
+        assertFalse(twisted, "A finger lifting off one edge row must not latch a layer twist")
+    }
+
+    @Test
+    fun `finger over one edge row after global anchoring latches no layer twist`() {
+        val frames = SyntheticCubeStream.generateSequence(SyntheticCubeStream.buildScenarios()[0])
+        val mapper = ContinuousFaceletMapper()
+        var anchoredIdx = -1
+        for ((k, fr) in frames.withIndex()) {
+            val snap = mapper.processFrame(fr.frameIndex, fr.detections)
+            assertFalse(snap.twistDetected)
+            if (snap.globalAnchored && fr.detections.isNotEmpty()) {
+                anchoredIdx = k
+                break
+            }
+        }
+        assertTrue(anchoredIdx >= 0, "S1 must reach global anchoring")
+        assertTrue(mapper.exportHandoff().globalAnchored)
+        val still = frames[anchoredIdx].detections
+        val largest = still.indices.maxBy { i -> ProjectiveGeometry.quadArea(still[i].quad) }
+        val fingered =
+            still.mapIndexed { i, det ->
+                if (i != largest) det else det.copy(cellRgbs = List(9) { ci -> if (ci in 0..2) fingerSkin else det.cellRgbs[ci] })
+            }
+        var twisted = false
+        var idx = frames[anchoredIdx].frameIndex + 1
+        repeat(10) {
+            val snap = mapper.processFrame(idx++, fingered)
+            assertTrue(snap.globalAnchored)
+            if (snap.twistDetected) twisted = true
+        }
+        assertFalse(twisted, "A finger over one edge row after anchoring must not latch a layer twist")
+    }
+
     @Test
     fun `regrip merge under AWB drift keeps masterLogAwb bounded zero-mean and exports consistent calibration`() {
         val cfg =

@@ -5,6 +5,7 @@ import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.Orientation
 import dev.cubentia.domain.recognition.ScanReview
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -143,6 +144,108 @@ class ContinuousStressScenariosTest {
         assertEquals(0, score.wrong)
         assertEquals(0, score.maxTransientWrong)
         assertInstanceOf(ContinuousScanSnapshot.Complete::class.java, score.lastSnapshot)
+    }
+
+    @Test
+    fun `large finger over one edge row latches no layer twist and the scan completes across 20 seeds`() {
+        // Issue #401: a ~90x40 px finger (about one edge row of a ~194 px face) on 10 of every 24 frames.
+        val template = SyntheticCubeStream.buildScenarios()[0]
+        val falseTwistSeeds = ArrayList<Long>()
+        val incompleteSeeds = ArrayList<Long>()
+        for (seed in 1L..20L) {
+            val cfg =
+                template.copy(
+                    fingerOcclusion = true,
+                    fingerRadiiPx = 90.0 to 40.0,
+                    dropProb = 0.0,
+                    falseQuadProb = 0.0,
+                    motionBlurProb = 0.0,
+                    twistAtFrame = null,
+                    seed = seed,
+                    nFrames = 160,
+                )
+            val mapper = ContinuousFaceletMapper()
+            var last: ContinuousScanSnapshot? = null
+            var twisted = false
+            for (fr in SyntheticCubeStream.generateSequence(cfg)) {
+                last = mapper.processFrame(fr.frameIndex, fr.detections)
+                if (last.twistDetected) twisted = true
+            }
+            if (twisted) falseTwistSeeds.add(seed)
+            val complete = last as? ContinuousScanSnapshot.Complete
+            if (complete == null || complete.state.toFacelets() != cfg.state.toFacelets()) incompleteSeeds.add(seed)
+        }
+        assertEquals(emptyList<Long>(), falseTwistSeeds, "False layer twist latched under a large finger")
+        assertEquals(emptyList<Long>(), incompleteSeeds, "Scan did not complete correctly under a large finger")
+    }
+
+    @Test
+    fun `pastel real R and F twists before global anchoring are still detected`() {
+        // Issue #401 (Option A): an off-reference (pastel) cube switches the sticker-colour guard off before anchoring,
+        // so real layer turns latch exactly as they did before the guard.
+        val template = SyntheticCubeStream.buildScenarios()[6]
+        val twistAt = requireNotNull(template.twistAtFrame) { "S7 must define a twist frame" }
+        val detected = LinkedHashMap<String, MutableList<Long>>()
+        for (move in listOf("R", "F")) {
+            val seeds = ArrayList<Long>()
+            for (seed in 1L..10L) {
+                val cfg = template.copy(palette = SyntheticCubeStream.Palette.PASTEL, twistMove = move, seed = seed)
+                val mapper = ContinuousFaceletMapper()
+                var firstTwist: Int? = null
+                for (fr in SyntheticCubeStream.generateSequence(cfg)) {
+                    val snap = mapper.processFrame(fr.frameIndex, fr.detections)
+                    if (fr.frameIndex == twistAt) {
+                        assertFalse(snap.globalAnchored, "Pastel seed $seed ($move) must not be anchored at frame $twistAt")
+                    }
+                    if (snap.twistDetected && firstTwist == null) firstTwist = fr.frameIndex
+                }
+                assertTrue(
+                    firstTwist == null || firstTwist >= twistAt,
+                    "Pastel seed $seed ($move): false twist latched at $firstTwist, before the turn at $twistAt",
+                )
+                if (firstTwist != null) seeds.add(seed)
+            }
+            detected[move] = seeds
+        }
+        assertEquals((1L..10L).toList(), detected.getValue("R"), "Pastel R twist missed before anchoring")
+        assertTrue(detected.getValue("F").size >= 7, "Pastel F twist detected on too few seeds: ${detected.getValue("F")}")
+    }
+
+    @Test
+    fun `pastel real U and R twists after global anchoring are detected`() {
+        // Issue #401: after anchoring the guard is on for every cube, so its prototypes must include the anchored
+        // (pastel) centres or real turns on an off-reference cube would be missed.
+        val template = SyntheticCubeStream.buildScenarios()[1]
+        for (move in listOf("U", "R")) {
+            for (seed in 1L..5L) {
+                val probe = template.copy(seed = seed, nFrames = 160, twistAtFrame = null)
+                val probeMapper = ContinuousFaceletMapper()
+                var anchorFrame: Int? = null
+                for (fr in SyntheticCubeStream.generateSequence(probe)) {
+                    val snap = probeMapper.processFrame(fr.frameIndex, fr.detections)
+                    if (snap.globalAnchored) {
+                        anchorFrame = fr.frameIndex
+                        break
+                    }
+                }
+                val a = requireNotNull(anchorFrame) { "S2 seed $seed must reach global anchoring" }
+                val twistAt = a + 3
+                val cfg = template.copy(seed = seed, nFrames = 160, twistAtFrame = twistAt, twistMove = move)
+                val mapper = ContinuousFaceletMapper()
+                var firstTwist: Int? = null
+                for (fr in SyntheticCubeStream.generateSequence(cfg)) {
+                    val snap = mapper.processFrame(fr.frameIndex, fr.detections)
+                    if (fr.frameIndex == twistAt) {
+                        assertTrue(snap.globalAnchored, "S2 seed $seed ($move) must be anchored at the twist frame $twistAt")
+                    }
+                    if (snap.twistDetected && firstTwist == null) firstTwist = fr.frameIndex
+                }
+                assertTrue(
+                    firstTwist != null && firstTwist >= twistAt,
+                    "S2 seed $seed ($move): twist first latched at $firstTwist, expected >= $twistAt",
+                )
+            }
+        }
     }
 
     @Test
