@@ -390,7 +390,21 @@ internal class CameraXFrameSource
             continuous?.let { engine ->
                 applyTorch(force = false)
                 if (analyzing()) {
+                    // Story 10.34: the analyzer time of the frame and its geometry go to a recording tap as primitives.
+                    val start = System.nanoTime()
                     val result = engine.processFrame(with(FrameReader) { image.asYuvFrame() }, rotation, width, height)
+                    val analyzerNs = System.nanoTime() - start
+                    engine.frameDone(
+                        image.imageInfo.timestamp,
+                        analyzerNs,
+                        rotation,
+                        image.width,
+                        image.height,
+                        crop.left,
+                        crop.top,
+                        crop.right,
+                        crop.bottom,
+                    )
                     deliver(ScanFrame(EMPTY_STATS, rotation, continuous = result))
                 }
                 return

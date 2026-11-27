@@ -39,6 +39,21 @@ abstract class CornerDetectorOptionalModule {
     internal abstract fun cornerDetector(): CornerDetector
 }
 
+/**
+ * Story 10.34 (AD-9 Frames): the debug Quick Scan session recording (its continuous session writer and the Rec mode of
+ * Quick Scan); both are bound only from the debug camera source set (`QuickScanSessionModule`), so every other variant
+ * gets `Optional.empty()` and shows no Rec control. Separate from [CameraModule] like the optional detector modules.
+ */
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class QuickScanSessionOptionalModule {
+    @BindsOptionalOf
+    internal abstract fun writerFactory(): ContinuousSessionWriterFactory
+
+    @BindsOptionalOf
+    internal abstract fun sessionFactory(): QuickScanSessionFactory
+}
+
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class ContinuousScanEngineOptionalModule {

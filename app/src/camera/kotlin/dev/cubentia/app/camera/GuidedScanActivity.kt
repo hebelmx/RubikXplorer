@@ -111,6 +111,9 @@ class GuidedScanActivity : ComponentActivity() {
 
     @Inject internal lateinit var continuousFactory: Optional<ContinuousScanEngineFactory>
 
+    /** Story 10.34: the debug Quick Scan session recording; empty in every non-debuggable variant. */
+    @Inject internal lateinit var sessionFactory: Optional<QuickScanSessionFactory>
+
     @Inject lateinit var featureFlags: FeatureFlags
 
     private var cameraStarted = false
@@ -143,10 +146,14 @@ class GuidedScanActivity : ComponentActivity() {
         scan.calibrationMode = intent.getBooleanExtra(CALIBRATION_MODE, false)
         scan.quickScanMode = intent.getBooleanExtra(EXTRA_QUICK_SCAN, false)
         if (scan.quickScanMode && !scan.calibrationLoaded) {
-            scan.engine = continuousFactory.orElse(null)?.takeIf { featureFlags.isEnabled(FeatureFlag.QUICK_SCAN) }?.create()
+            scan.engineFactory = continuousFactory.orElse(null)?.takeIf { featureFlags.isEnabled(FeatureFlag.QUICK_SCAN) }
+            scan.engine = scan.engineFactory?.create()
             scan.quickStartedAt = ScanDiagnostics.startRun()
             scan.torchOn = false
+            // Story 10.34: one session per Quick Scan screen, kept by the view model across a rotation (debug only).
+            if (scan.engine != null && scan.session == null) scan.session = sessionFactory.orElse(null)?.create(scan)
         }
+        scan.onEngineSwapped = { if (cameraStarted) bindContinuous() }
         scan.caseCorners = intent.getIntExtra(EXTRA_CASE_CAPTURE, 0).takeIf { it in 1..2 }
         val solveScan =
             !scan.calibrationMode &&
@@ -203,8 +210,10 @@ class GuidedScanActivity : ComponentActivity() {
                 // Like Close, never leave while a calibration write is in flight.
                 onEnterColors = {
                     if (phase is GuidedScanPhase.QuickScan) {
-                        scan.exportContinuous { exported ->
-                            scan.editorOutcome = ScanOutcome.FellBackToEditor(scan.continuous.fallback(exported.handoff))
+                        if (scan.session?.onLeaving(QuickScanLeave.ENTER_COLORS) != true) {
+                            scan.exportContinuous { exported ->
+                                scan.editorOutcome = ScanOutcome.FellBackToEditor(scan.continuous.fallback(exported.handoff))
+                            }
                         }
                     } else if (!scan.saving) {
                         finishWith(fallBackToEditor())
@@ -243,9 +252,10 @@ class GuidedScanActivity : ComponentActivity() {
                 onSave = { scan.saveCalibration(updateCalibration, frameSource.torchApplied()) },
                 onUseAnyway = { decide { now -> scan.guidedController()?.onUseAnyway(now).orEmpty() } },
                 onFreezeEnd = { id -> scan.endFreeze(id) },
-                onFaceByFace = scan::switchToFaceByFace,
-                onReset = scan::resetContinuous,
-                onReviewAndCorrect = scan::reviewAndCorrect,
+                // Story 10.34: a recording session stops first (or, during its baseline run, these are disabled).
+                onFaceByFace = { if (scan.session?.onLeaving(QuickScanLeave.FACE_BY_FACE) != true) scan.switchToFaceByFace() },
+                onReset = { if (scan.session?.onReset() != true) scan.resetContinuous() },
+                onReviewAndCorrect = { if (scan.session?.onLeaving(QuickScanLeave.REVIEW_AND_CORRECT) != true) scan.reviewAndCorrect() },
                 // Story 10.32: Quick Scan's torch choice survives a Reset and a rotation; hand-over and background turn it off.
                 // Story 10.21: locked in calibration from the first kept swatch until it is saved or left.
                 onToggleTorch = { if (!GuidedScanFlow.torchLocked(phase)) scan.torchOn = !scan.torchOn },
@@ -327,6 +337,8 @@ class GuidedScanActivity : ComponentActivity() {
                     val deadline = scan.continuous.reviewAtMs
                     LaunchedEffect(deadline, phase::class, scan.confirmDiscard, scan.busy) {
                         if (deadline != null && phase == GuidedScanPhase.Continuous && !scan.confirmDiscard && !scan.busy) {
+                            // Story 10.34: a recording stops and its sheet opens first; the session releases the hand-off.
+                            if (scan.session?.onCompleted() == true) return@LaunchedEffect
                             delay((deadline - SystemClock.elapsedRealtime()).coerceAtLeast(0))
                             scan.completeContinuous()
                         }
@@ -420,6 +432,8 @@ class GuidedScanActivity : ComponentActivity() {
                             discardKind = if (plainGuidedViewfinder(phase)) DiscardKind.GuidedFaces else DiscardKind.Scan,
                             cornerTorch = GuidedScanFlow.torchControl(phase, scan.hasFlash, scan.torchOn),
                             keepEnabled = GuidedScanFlow.keepAllowed(phase, scan.hasFlash, scan.torchOn, scan.torchApplied),
+                            sessionOverlay = scan.session?.let { session -> { session.Overlay(this) } },
+                            quickScanActionsEnabled = scan.session?.locksActions != true,
                         ) {
                             AndroidView(
                                 factory = { context ->
@@ -437,6 +451,7 @@ class GuidedScanActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        scan.onEngineSwapped = null
         frameSource.stop()
         shutterSound.release()
         super.onDestroy()
@@ -449,6 +464,8 @@ class GuidedScanActivity : ComponentActivity() {
 
     /** The torch is off while the app is in the background; a calibration's choice comes back, Quick Scan's stays off. */
     override fun onStop() {
+        // Story 10.34: the background stops a recording or baseline run; the sheet shows on return.
+        if (scan.quickScanMode && !isChangingConfigurations) scan.session?.onBackground()
         // Story 10.32: the background turns the torch off for good; a rotation keeps the Learner's choice.
         if (phase == GuidedScanPhase.Continuous && !isChangingConfigurations) {
             scan.torchOn = false
@@ -507,6 +524,8 @@ class GuidedScanActivity : ComponentActivity() {
      */
     private fun closeOrConfirm() {
         val current = phase
+        // Story 10.34: Close/Back stops a recording (or baseline run) first; the screen is left only if it ends here.
+        if (current == GuidedScanPhase.Continuous && scan.session?.onLeaving(QuickScanLeave.CLOSE) == true) return
         val faces =
             when {
                 plainGuidedViewfinder(current) -> {
@@ -614,10 +633,16 @@ class GuidedScanActivity : ComponentActivity() {
         frameSource.cornerMode(phase is GuidedScanPhase.CornerViewfinder)
         // Story 10.21: the torch may be lit in the calibration phase too.
         frameSource.calibrationMode(phase is GuidedScanPhase.Calibration)
-        frameSource.continuousMode(scan.engine.takeIf { phase == GuidedScanPhase.Continuous }) {
-            phase == GuidedScanPhase.Continuous && !scan.analysisHeld && !scan.busy && !scan.confirmDiscard
-        }
+        bindContinuous()
         frameSource.start(this, analyzerExecutor, ::analyze) { if (cameraPhase()) phase = GuidedScanPhase.Unavailable }
+    }
+
+    /** The continuous engine the camera feeds, and when it analyses; again after a session swaps engines (Story 10.34). */
+    private fun bindContinuous() {
+        frameSource.continuousMode(scan.engine.takeIf { phase == GuidedScanPhase.Continuous }) {
+            phase == GuidedScanPhase.Continuous && !scan.analysisHeld && !scan.busy && !scan.confirmDiscard &&
+                scan.session?.holdsAnalysis != true
+        }
     }
 
     /** Analyzer thread: read the frame into stats, drop it, and run the controller — unless a capture is frozen. */
@@ -629,7 +654,8 @@ class GuidedScanActivity : ComponentActivity() {
             val continuous = frame.continuous ?: return
             // The revision first: a Reset landing after the busy check then drops this frame on main (its revision is older).
             val revision = scan.revision
-            if (scan.analysisHeld || scan.busy) return
+            // Story 10.34: nothing is analysed while a session's sheet, labeller or held hand-off is up.
+            if (scan.analysisHeld || scan.busy || scan.session?.holdsAnalysis == true) return
             // GH #390: the detector cannot run, so the card replaces the live scan and this frame's snapshot is dropped
             // (the shown map stays). The state stays true, so a frame dropped here loses nothing: the card never replaces
             // an open discard question or interrupts an export, and shows on the next analysed frame instead.
@@ -638,12 +664,15 @@ class GuidedScanActivity : ComponentActivity() {
                     if (phase != GuidedScanPhase.Continuous || scan.revision != revision || isFinishing) return@execute
                     if (!scan.confirmDiscard && !scan.busy) {
                         scan.torchOn = false
+                        scan.session?.onDetectorUnavailable()
                         phase = GuidedScanPhase.QuickScanUnavailable
                     }
                 }
                 return
             }
-            scan.analysisHeld = continuous.snapshot.twistDetected || continuous.snapshot is ContinuousScanSnapshot.Complete
+            // Story 10.34: the baseline run times its whole 30 s, so neither a twist nor a completion holds its analysis.
+            scan.analysisHeld = scan.session?.locksActions != true &&
+                (continuous.snapshot.twistDetected || continuous.snapshot is ContinuousScanSnapshot.Complete)
             val flash = frameSource.hasFlashUnit()
             ContextCompat.getMainExecutor(this).execute {
                 if (phase == GuidedScanPhase.Continuous && scan.revision == revision && !isFinishing) {
@@ -869,7 +898,9 @@ class GuidedScanActivity : ComponentActivity() {
  * shown phase, the rationale state before the last permission request and a finished result. Holds no frame, except the
  * preview image of a face just captured for the few hundred milliseconds of its freeze.
  */
-internal class GuidedScanViewModel : ViewModel() {
+internal class GuidedScanViewModel :
+    ViewModel(),
+    QuickScanSessionHost {
     val analyzerExecutor: ExecutorService = Executors.newSingleThreadExecutor()
 
     @Volatile var saved: CalibrationCenters? = null
@@ -890,7 +921,17 @@ internal class GuidedScanViewModel : ViewModel() {
     @Volatile var caseCapture: CaseCaptureController? = null
     var caseResult by mutableStateOf<List<CornerView>?>(null)
 
-    var engine: ContinuousScanEngine? = null
+    @Volatile var engine: ContinuousScanEngine? = null
+
+    /** The factory [engine] came from; the debug session recording's baseline run takes a fresh engine from it. */
+    var engineFactory: ContinuousScanEngineFactory? = null
+
+    /** Story 10.34: the debug Quick Scan session recording of this screen; null in every non-debuggable variant. */
+    var session: QuickScanSession? = null
+
+    /** The activity's camera rebinding after [startBaseline] or [endBaseline] swapped [engine]; null between activities. */
+    var onEngineSwapped: (() -> Unit)? = null
+
     var continuous by mutableStateOf(ContinuousQuickScanFlow())
     val pulses = Channel<ContinuousQuickScanFlow.Pulse>(Channel.UNLIMITED)
 
@@ -1256,7 +1297,98 @@ internal class GuidedScanViewModel : ViewModel() {
         }
     }
 
+    // ---- Story 10.34: QuickScanSessionHost (main thread) ----
+
+    override val liveScanShown: Boolean get() = phase == GuidedScanPhase.Continuous
+
+    override val hostDialogShown: Boolean get() = confirmDiscard
+
+    override val modelIdentity: ContinuousModelIdentity? get() = engineFactory?.modelIdentity
+
+    /** The engine, shown scan and completion hold set aside while a baseline run's fresh engine analyses. */
+    private var keptEngine: ContinuousScanEngine? = null
+    private var keptFlow: ContinuousQuickScanFlow? = null
+
+    @Volatile private var keptHeld = false
+
+    override fun startCapture(
+        tap: ContinuousFrameTap,
+        started: () -> Unit,
+    ): Boolean {
+        val active = engine ?: return false
+        if (busy || phase != GuidedScanPhase.Continuous) return false
+        // As Reset (answer 3): busy first, so no frame is published under the new revision before the engine records.
+        busy = true
+        revision++
+        val token = revision
+        continuous = ContinuousQuickScanFlow()
+        viewModelScope.launch {
+            withContext(analyzerExecutor.asCoroutineDispatcher()) {
+                active.record(tap)
+                analysisHeld = false
+            }
+            started()
+            if (revision == token) busy = false
+        }
+        return true
+    }
+
+    override fun export(consume: (ContinuousScanExport) -> Unit): Boolean {
+        if (engine == null || busy || phase !is GuidedScanPhase.QuickScan) return false
+        exportContinuous(consume)
+        return true
+    }
+
+    override fun resetMap() = resetContinuous()
+
+    override fun startBaseline(
+        tap: ContinuousFrameTap,
+        started: () -> Unit,
+    ): Boolean {
+        val factory = engineFactory ?: return false
+        if (busy || phase != GuidedScanPhase.Continuous || keptFlow != null) return false
+        busy = true
+        revision++
+        val token = revision
+        keptFlow = continuous
+        continuous = ContinuousQuickScanFlow()
+        viewModelScope.launch {
+            withContext(analyzerExecutor.asCoroutineDispatcher()) {
+                keptEngine = engine
+                keptHeld = analysisHeld
+                engine = factory.create().also { it.record(tap) }
+                analysisHeld = false
+            }
+            onEngineSwapped?.invoke()
+            started()
+            if (revision == token) busy = false
+        }
+        return true
+    }
+
+    override fun endBaseline(ended: () -> Unit) {
+        busy = true
+        revision++
+        val token = revision
+        // At once, on main: a Close that ended the run judges the kept map, not the baseline run's.
+        keptFlow?.let { continuous = it }
+        keptFlow = null
+        viewModelScope.launch {
+            withContext(analyzerExecutor.asCoroutineDispatcher()) {
+                keptEngine?.let { engine = it }
+                keptEngine = null
+                analysisHeld = keptHeld
+            }
+            onEngineSwapped?.invoke()
+            ended()
+            if (revision == token) busy = false
+        }
+    }
+
+    override fun releaseHandOff() = completeContinuous()
+
     override fun onCleared() {
+        session?.release()
         analyzerExecutor.shutdown()
     }
 }

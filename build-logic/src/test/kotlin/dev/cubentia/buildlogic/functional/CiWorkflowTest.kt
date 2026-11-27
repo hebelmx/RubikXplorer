@@ -44,12 +44,35 @@ class CiWorkflowTest {
         )
     }
 
+    /** Story 10.34: the fixture-writer guards and the fixture size gate run on every PR. */
+    @Test
+    fun `build job runs the fixture-writer guards and the fixture size gate`() {
+        val gate = steps.single { it.contains("Verify build wires the gates") }
+        listOf(":app:checkReleaseFixtureWriter", ":app:checkBenchmarkFixtureWriter", ":checkFixtureSize").forEach { task ->
+            assertTrue(gate.contains(task), "dry-run gate list lacks $task")
+        }
+        assertTrue(
+            runs.any { it.contains("-Pcubentia.cornerR8=true") && it.contains(":app:checkCornerR8FixtureWriter") },
+            runs.toString(),
+        )
+        assertTrue(
+            runs.any { it.contains("-Pcubentia.release011=true") && it.contains(":app:checkRelease011FixtureWriter") },
+            runs.toString(),
+        )
+    }
+
     /** Each step of the build job, from its `- ` line to the next one. */
     private val steps = buildJob.split(Regex("""(?m)^(?=      - )""")).filter { it.startsWith("      - ") }
 
     @Test
     fun `the new gates can neither be skipped nor ignored`() {
-        listOf(":app:compileDebugAndroidTestKotlin", "check-sh-eol.sh", ":app:assembleCornerR8AndroidTest").forEach { marker ->
+        listOf(
+            ":app:compileDebugAndroidTestKotlin",
+            "check-sh-eol.sh",
+            ":app:assembleCornerR8AndroidTest",
+            ":app:checkCornerR8FixtureWriter",
+            ":app:checkRelease011FixtureWriter",
+        ).forEach { marker ->
             val step = steps.singleOrNull { it.contains(marker) } ?: error("no single build step runs $marker")
             assertTrue(!step.contains("continue-on-error"), step)
             assertTrue(!Regex("""(?m)^\s+if:""").containsMatchIn(step), step)

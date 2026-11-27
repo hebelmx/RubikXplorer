@@ -34,6 +34,7 @@ import dagger.hilt.android.testing.UninstallModules
 import dev.cubentia.app.camera.CameraModule
 import dev.cubentia.app.camera.CameraScanLauncher
 import dev.cubentia.app.camera.ContinuousFrame
+import dev.cubentia.app.camera.ContinuousFrameTap
 import dev.cubentia.app.camera.ContinuousScanEngine
 import dev.cubentia.app.camera.ContinuousScanEngineFactory
 import dev.cubentia.app.camera.GuidedScanActivity
@@ -45,6 +46,8 @@ import dev.cubentia.app.camera.ScanNetFaceCaptured
 import dev.cubentia.app.camera.ShutterSound
 import dev.cubentia.app.camera.YuvFrame
 import dev.cubentia.app.camera.continuous.ContinuousScanEngineModule
+import dev.cubentia.app.camera.session.QuickScanSessionController
+import dev.cubentia.app.camera.session.SessionPhase
 import dev.cubentia.app.camera.testHandoff
 import dev.cubentia.app.camera.testSnapshot
 import dev.cubentia.app.di.FlagsModule
@@ -127,6 +130,12 @@ class ContinuousQuickScanRouteTest {
 
     @Volatile private var engineResets = 0
 
+    /**
+     * When set, the engine's export waits on the analyzer thread until it opens: an export the analyzer finishes before
+     * main suspends on it completes inside the tap, so a test that needs one in flight holds it here.
+     */
+    @Volatile private var exportGate: java.util.concurrent.CountDownLatch? = null
+
     @BindValue internal val engines: ContinuousScanEngineFactory =
         ContinuousScanEngineFactory {
             enginesCreated++
@@ -140,15 +149,49 @@ class ContinuousQuickScanRouteTest {
                     viewHeight: Int,
                 ) = error("camera supplies processed frames")
 
+                /** Story 10.34: the recording (or baseline timing) tap, as the real engine keeps it until the next reset. */
+                private var tap: ContinuousFrameTap? = null
+
                 override fun reset() {
                     assertTrue(Thread.currentThread() !== Looper.getMainLooper().thread)
                     engineResets++
+                    tap = null
                     exported = ContinuousScanExport.Partial(testHandoff(emptyList()))
+                }
+
+                override fun record(tap: ContinuousFrameTap?) {
+                    reset()
+                    this.tap = tap
+                }
+
+                override fun frameDone(
+                    sensorTimestampNs: Long,
+                    analyzerNs: Long,
+                    rotation: Int,
+                    imageWidth: Int,
+                    imageHeight: Int,
+                    cropLeft: Int,
+                    cropTop: Int,
+                    cropRight: Int,
+                    cropBottom: Int,
+                ) {
+                    tap?.frameDone(
+                        sensorTimestampNs,
+                        analyzerNs,
+                        rotation,
+                        imageWidth,
+                        imageHeight,
+                        cropLeft,
+                        cropTop,
+                        cropRight,
+                        cropBottom,
+                    )
                 }
 
                 override fun export(): ContinuousScanExport {
                     assertTrue(Thread.currentThread() !== Looper.getMainLooper().thread)
                     exports++
+                    exportGate?.await()
                     return exported
                 }
             }
@@ -639,10 +682,18 @@ class ContinuousQuickScanRouteTest {
         quickScanActivity { scan, model ->
             showStalled()
             val before = model.continuous
-            // *Review and Correct* starts its export after the analyzer saw the frame and before main handles it.
-            feedUnavailable {
-                model.reviewAndCorrect()
-                assertTrue(model.busy)
+            // *Review and Correct* starts its export after the analyzer saw the frame and before main handles it; the export
+            // is held on the analyzer until main has handled the frame, so it is still in flight then.
+            val gate = java.util.concurrent.CountDownLatch(1)
+            exportGate = gate
+            try {
+                feedUnavailable {
+                    model.reviewAndCorrect()
+                    assertTrue(model.busy)
+                }
+            } finally {
+                gate.countDown()
+                exportGate = null
             }
             settle(model)
             assertTrue(earlyReview(model).early)
@@ -1443,6 +1494,264 @@ class ContinuousQuickScanRouteTest {
         }
     }
 
+    // ---- Story 10.34: the debug Quick Scan session recording, through the real activity and view model ----
+
+    private fun session(model: GuidedScanViewModel) = model.session as QuickScanSessionController
+
+    /** Lets the session's io thread, the analyzer thread and the main looper run until [done]. */
+    private fun awaitSession(
+        model: GuidedScanViewModel,
+        done: () -> Boolean,
+    ) = rule.waitUntil(10_000) {
+        settle(model)
+        done()
+    }
+
+    private fun rec(model: GuidedScanViewModel) {
+        rule.onNodeWithTag("quickScan:rec").assertTextEquals("Rec").performClick()
+        awaitSession(model) { session(model).phase is SessionPhase.Recording }
+    }
+
+    @Test fun recClearsTheMapAndNoFrameIsAnalysedWhileTheSessionSheetIsOpen() {
+        quickScanActivity { _, model ->
+            show(listOf(Face.U, Face.R))
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 2/6")
+            val resets = engineResets
+            rec(model)
+            // Answer 3: Rec clears the map and the engine records from frame 0.
+            assertTrue(engineResets > resets)
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 0/6")
+            rule.onNodeWithTag("quickScan:recIndicator").assertExists()
+            show(listOf(Face.U))
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 1/6")
+            rule.onNodeWithTag("quickScan:rec").assertTextEquals("Stop").performClick()
+            awaitSession(model) { session(model).phase is SessionPhase.Stopped }
+            rule.onNodeWithTag("quickScan:sessionSheet").assertExists()
+            assertTrue(!camera.analyzing())
+            show(listOf(Face.U, Face.R, Face.F))
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 1/6")
+            rule.onNodeWithTag("session:discard").performScrollTo().performClick()
+            rule.onNodeWithTag("session:discard:confirm").performClick()
+            awaitSession(model) { session(model).phase == SessionPhase.Idle }
+            assertTrue(camera.analyzing())
+            show(listOf(Face.U, Face.R, Face.F))
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 3/6")
+        }
+    }
+
+    @Test fun completionWhileRecordingOpensTheSheetAndScanReviewWaitsForSaveAndDismiss() {
+        quickScanActivity { _, model ->
+            rec(model)
+            show(Face.entries, ContinuousScanCue.AllVerified)
+            advanceHold(model)
+            awaitSession(model) { session(model).phase is SessionPhase.Stopped }
+            assertEquals(
+                dev.cubentia.domain.recognition.continuous.session.SessionStopReason.COMPLETE,
+                (session(model).phase as SessionPhase.Stopped).reason,
+            )
+            rule.onNodeWithTag("review:retakeFaces").assertDoesNotExist()
+            rule.onNodeWithTag("session:save").performScrollTo().performClick()
+            awaitSession(model) { session(model).notice != null }
+            advanceHold(model)
+            // Answer 13: the hand-off waits for the notice.
+            rule.onNodeWithTag("review:retakeFaces").assertDoesNotExist()
+            assertEquals(GuidedScanPhase.Continuous, model.phase)
+            rule.onNodeWithTag("session:dismiss").performClick()
+            advanceHold(model)
+            rule.onNodeWithTag("review:retakeFaces").assertExists()
+        }
+    }
+
+    @Test fun closeAndTheBackgroundStopARecordingAndTheSheetComesBack() {
+        quickScanActivity { scan, model ->
+            rec(model)
+            show(listOf(Face.U))
+            scan.get().onBackPressedDispatcher.onBackPressed()
+            settle(model)
+            // Stopped first; the sheet waits behind the screen's own "Discard this scan?".
+            assertTrue(session(model).phase is SessionPhase.Stopped)
+            rule.onNodeWithTag("scan:discard:cancel").assertExists()
+            rule.onNodeWithTag("quickScan:sessionSheet").assertDoesNotExist()
+            rule.onNodeWithTag("scan:discard:cancel").performClick()
+            settle(model)
+            rule.onNodeWithTag("quickScan:sessionSheet").assertExists()
+            rule.onNodeWithTag("session:save").performScrollTo().performClick()
+            awaitSession(model) { session(model).notice != null }
+            rec(model)
+            scan.pause().stop()
+            val stopped = session(model).phase as SessionPhase.Stopped
+            assertEquals(dev.cubentia.domain.recognition.continuous.session.SessionStopReason.OPERATOR, stopped.reason)
+            scan.start().resume()
+            settle(model)
+            rule.onNodeWithTag("quickScan:sessionSheet").assertExists()
+        }
+    }
+
+    @Test fun aBaselineRunFeedsAFreshEngineAndThenRestoresTheEarlierMap() {
+        quickScanActivity { _, model ->
+            rec(model)
+            show(listOf(Face.U, Face.R))
+            rule.onNodeWithTag("quickScan:rec").performClick()
+            awaitSession(model) { session(model).phase is SessionPhase.Stopped }
+            val pending = model.engine
+            val created = enginesCreated
+            rule.onNodeWithText("Run baseline (30 s)").performScrollTo().performClick()
+            awaitSession(model) { session(model).phase is SessionPhase.Baseline }
+            assertEquals(created + 1, enginesCreated)
+            assertTrue(model.engine !== pending)
+            // The camera is rebound to the fresh engine, so the baseline tap sees the real frames.
+            assertTrue(camera.engine === model.engine)
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 0/6")
+            rule.onNodeWithTag("quickScan:reset").assertIsNotEnabled()
+            show(listOf(Face.U))
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 1/6")
+            // The fresh engine's frames are timed by the baseline tap.
+            repeat(5) { i ->
+                model.analyzerExecutor
+                    .submit { checkNotNull(model.engine).frameDone(i * 33_000_000L, 20_000_000L, 90, 640, 480, 0, 0, 640, 480) }
+                    .get()
+            }
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(31))
+            rule.runOnIdle { session(model).tick() }
+            awaitSession(model) { session(model).phase is SessionPhase.Stopped }
+            assertTrue(model.engine === pending)
+            assertTrue(camera.engine === pending)
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 2/6")
+            rule.onNodeWithText("Baseline p50 20.0 ms").assertExists()
+        }
+    }
+
+    /** Rec, two sides, Stop, then Run baseline: the baseline run is live with a fresh engine; the kept engine and map. */
+    private fun startBaselineRun(model: GuidedScanViewModel): Pair<ContinuousScanEngine?, Any> {
+        rec(model)
+        show(listOf(Face.U, Face.R))
+        rule.onNodeWithTag("quickScan:rec").performClick()
+        awaitSession(model) { session(model).phase is SessionPhase.Stopped }
+        val pending = model.engine
+        val kept = model.continuous
+        rule.onNodeWithText("Run baseline (30 s)").performScrollTo().performClick()
+        awaitSession(model) { session(model).phase is SessionPhase.Baseline }
+        return pending to kept
+    }
+
+    @Test fun aTwistOrACompletionDuringTheBaselineRunNeverHoldsItsAnalysis() {
+        quickScanActivity { _, model ->
+            startBaselineRun(model)
+            show(Face.entries, ContinuousScanCue.AllVerified)
+            assertTrue(!model.analysisHeld)
+            assertTrue(camera.analyzing())
+            show(listOf(Face.U, Face.F, Face.R), ContinuousScanCue.LayerTwistDetected)
+            assertTrue(!model.analysisHeld)
+            assertTrue(camera.analyzing())
+            advanceHold(model)
+            assertTrue(session(model).phase is SessionPhase.Baseline)
+            assertEquals(GuidedScanPhase.Continuous, model.phase)
+        }
+    }
+
+    @Test fun aDetectorFailureDuringTheBaselineRunBringsTheKeptEngineAndMapBackBehindTheCard() {
+        quickScanActivity { _, model ->
+            val (pending, kept) = startBaselineRun(model)
+            assertTrue(model.continuous !== kept)
+            show(listOf(Face.U))
+            feedUnavailable()
+            settle(model)
+            waitForUnavailableCard()
+            assertTrue(model.engine === pending)
+            assertTrue(model.continuous === kept)
+            assertEquals(SessionPhase.Idle, session(model).phase)
+        }
+    }
+
+    @Test fun resetWhileRecordingStopsAndTheMapIsClearedOnlyAfterDiscard() {
+        quickScanActivity { _, model ->
+            rec(model)
+            show(listOf(Face.U, Face.R))
+            rule.onNodeWithTag("quickScan:reset").performClick()
+            awaitSession(model) { session(model).phase is SessionPhase.Stopped }
+            assertEquals(
+                dev.cubentia.domain.recognition.continuous.session.SessionStopReason.RESET,
+                (session(model).phase as SessionPhase.Stopped).reason,
+            )
+            rule.onNodeWithTag("quickScan:sessionSheet").assertExists()
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 2/6")
+            rule.onNodeWithTag("session:discard").performScrollTo().performClick()
+            rule.onNodeWithTag("session:discard:confirm").performClick()
+            awaitSession(model) { session(model).phase == SessionPhase.Idle }
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 0/6")
+        }
+    }
+
+    @Test fun scanFaceByFaceWhileRecordingStopsItAndBackReturnsToTheSheet() {
+        quickScanActivity { scan, model ->
+            rec(model)
+            show(listOf(Face.U), anchored = false)
+            rule.onNodeWithTag("quickScan:faceByFace").performClick()
+            settle(model)
+            assertTrue(session(model).phase is SessionPhase.Stopped)
+            rule.onNodeWithTag("scanProgress").assertExists()
+            rule.onNodeWithTag("quickScan:sessionSheet").assertDoesNotExist()
+            scan.get().onBackPressedDispatcher.onBackPressed()
+            settle(model)
+            waitForCamera(continuous = true)
+            rule.onNodeWithTag("quickScan:sessionSheet").assertExists()
+        }
+    }
+
+    @Test fun aRotationKeepsARecordingRunning() {
+        quickScanActivity { scan, model ->
+            rec(model)
+            show(listOf(Face.U))
+            val engine = model.engine
+            scan.recreate()
+            waitForCamera(continuous = true)
+            settle(model)
+            assertTrue(ViewModelProvider(scan.get())[GuidedScanViewModel::class.java] === model)
+            assertTrue(session(model).phase is SessionPhase.Recording)
+            assertTrue(camera.engine === engine)
+            rule.onNodeWithTag("quickScan:recIndicator").assertExists()
+        }
+    }
+
+    @Test fun resetOnASavedCompletedScansNoticeLetsTheLiveScanRunAgain() {
+        quickScanActivity { _, model ->
+            rec(model)
+            show(Face.entries, ContinuousScanCue.AllVerified)
+            advanceHold(model)
+            awaitSession(model) { session(model).phase is SessionPhase.Stopped }
+            rule.onNodeWithTag("session:save").performScrollTo().performClick()
+            awaitSession(model) { session(model).notice != null }
+            rule.onNodeWithTag("quickScan:reset").performClick()
+            settle(model)
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 0/6")
+            assertTrue(camera.analyzing())
+            show(listOf(Face.U))
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 1/6")
+            rule.onNodeWithTag("quickScan:rec").assertTextEquals("Rec")
+        }
+    }
+
+    @Test fun aCancelledDiscardOnASavedCompletedScansNoticeKeepsScanReviewWaiting() {
+        quickScanActivity { scan, model ->
+            rec(model)
+            show(Face.entries, ContinuousScanCue.AllVerified)
+            advanceHold(model)
+            awaitSession(model) { session(model).phase is SessionPhase.Stopped }
+            rule.onNodeWithTag("session:save").performScrollTo().performClick()
+            awaitSession(model) { session(model).notice != null }
+            scan.get().onBackPressedDispatcher.onBackPressed()
+            settle(model)
+            rule.onNodeWithTag("scan:discard:cancel").performClick()
+            advanceHold(model)
+            // Answer 13: Scan Review still waits for the notice.
+            rule.onNodeWithTag("review:retakeFaces").assertDoesNotExist()
+            assertEquals(GuidedScanPhase.Continuous, model.phase)
+            rule.onNodeWithTag("session:dismiss").performClick()
+            advanceHold(model)
+            rule.onNodeWithTag("review:retakeFaces").assertExists()
+        }
+    }
+
     /**
      * Opens Quick Scan from the Solve tab (`solve:quickScan`) and runs [body] on its activity once it is [ready]: by
      * default once the continuous camera runs (the detector-unavailable card, GH #390, never starts it and waits for the
@@ -1543,11 +1852,15 @@ class ContinuousQuickScanRouteTest {
         /** The activity's own rule for whether a continuous frame is analysed now. */
         @Volatile var analyzing: () -> Boolean = { false }
 
+        /** The engine the activity last bound, which the real camera would feed (Story 10.34: swapped by a baseline run). */
+        @Volatile var engine: ContinuousScanEngine? = null
+
         override fun continuousMode(
             engine: ContinuousScanEngine?,
             analyzing: () -> Boolean,
         ) {
             continuous = engine != null
+            this.engine = engine
             this.analyzing = analyzing
         }
 

@@ -21,6 +21,12 @@ tasks.test {
             repo.dir("app/src/main/res").asFileTree.matching { include("values*/strings.xml") },
         ).withPathSensitivity(PathSensitivity.RELATIVE)
         .withPropertyName("textScanSources")
+    // Story 10.34: the golden state-replay test reads the checked-in continuous sessions.
+    inputs
+        .dir(repo.dir("Fixtures/continuous"))
+        .optional()
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+        .withPropertyName("continuousSessions")
 }
 
 // Offline evaluation tooling never enters the shipped main jar or Kover denominator.
@@ -104,6 +110,27 @@ tasks.register<JavaExec>("evaluateQuickScan") {
     mainClass.set("dev.cubentia.domain.recognition.evaluation.quickscan.QuickScanMeasurementKt")
     val report = layout.buildDirectory.file("reports/quick-scan-measurement.md")
     argumentProviders.add { listOf(report.get().asFile.absolutePath) }
+}
+
+// Story 10.34: state replay of recorded continuous Quick Scan sessions (AD-9 Frames). On demand only, never in check.
+// Args: [root] [--session <dir>] [--report <file>] [--refresh-golden]; default root Fixtures/continuous.
+tasks.register<JavaExec>("replayContinuousSession") {
+    group = "verification"
+    description = "Replays recorded continuous Quick Scan sessions through a fresh mapper and reports snapshot/cue diffs."
+    classpath = evaluation.runtimeClasspath
+    mainClass.set("dev.cubentia.domain.recognition.evaluation.continuous.ContinuousSessionReplayMainKt")
+    workingDir = rootDir
+    args("Fixtures/continuous")
+}
+
+// Story 10.34: regenerates the synthetic stand-in sessions under Fixtures/continuous from SyntheticCubeStream. On demand.
+tasks.register<JavaExec>("generateSyntheticSessions") {
+    group = "verification"
+    description = "Writes Fixtures/continuous/synthetic-*-v1 from SyntheticCubeStream (honestly labelled synthetic)."
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass.set("dev.cubentia.domain.recognition.continuous.session.SyntheticSessionGeneratorKt")
+    workingDir = rootDir
+    args("Fixtures/continuous")
 }
 
 tasks.register<JavaExec>("evaluateMatrix") {

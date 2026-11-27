@@ -12,6 +12,8 @@ plugins {
     alias(libs.plugins.kover) apply false
     alias(libs.plugins.detekt) apply false
     alias(libs.plugins.spotless)
+    // Story 10.34: root `base` + `:checkFixtureSize` (continuous session size gate, wired into check/build).
+    alias(libs.plugins.cubentia.fixtures)
 }
 
 spotless {

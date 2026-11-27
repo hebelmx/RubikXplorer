@@ -6,6 +6,7 @@ import com.android.build.api.variant.ApplicationAndroidComponentsExtension
 import com.android.build.api.variant.ScopedArtifacts
 import dev.cubentia.buildlogic.tasks.CheckCameraClasspathTask
 import dev.cubentia.buildlogic.tasks.CheckElfAlignmentTask
+import dev.cubentia.buildlogic.tasks.CheckFixtureWriterTask
 import dev.cubentia.buildlogic.tasks.CheckMergedManifestTask
 import dev.cubentia.buildlogic.tasks.CheckPrivacyFactsTask
 import dev.cubentia.buildlogic.tasks.CheckSdkDenylistTask
@@ -90,7 +91,19 @@ class QualityConventionPlugin : Plugin<Project> {
                             .forScope(ScopedArtifacts.Scope.PROJECT)
                             .use(shadowReaderCheck)
                             .toGet(ScopedArtifact.CLASSES, CheckShadowReaderTask::classJars, CheckShadowReaderTask::classDirectories)
-                        tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME) { dependsOn(shadowReaderCheck) }
+                        // Story 10.34 (AD-9 Frames): the continuous-session fixture writer is debug-only.
+                        val fixtureWriterCheck =
+                            tasks.register<CheckFixtureWriterTask>("check${suffix}FixtureWriter") {
+                                group = LifecycleBasePlugin.VERIFICATION_GROUP
+                                description = "Fails when ${variant.name} carries a debug-only continuous-session fixture-writer class."
+                                variantName.set(variant.name)
+                                report.set(layout.buildDirectory.file("reports/cubentia/${variant.name}/fixture-writer.txt"))
+                            }
+                        variant.artifacts
+                            .forScope(ScopedArtifacts.Scope.PROJECT)
+                            .use(fixtureWriterCheck)
+                            .toGet(ScopedArtifact.CLASSES, CheckFixtureWriterTask::classJars, CheckFixtureWriterTask::classDirectories)
+                        tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME) { dependsOn(shadowReaderCheck, fixtureWriterCheck) }
                     }
                     if (variant.name == "release") {
                         val coordinates =
