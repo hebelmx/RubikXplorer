@@ -184,6 +184,7 @@ class ContinuousStressScenariosTest {
         // Issue #401 (Option A): an off-reference (pastel) cube switches the sticker-colour guard off before anchoring,
         // so real layer turns latch exactly as they did before the guard.
         val template = SyntheticCubeStream.buildScenarios()[6]
+        val twistAt = requireNotNull(template.twistAtFrame) { "S7 must define a twist frame" }
         val detected = LinkedHashMap<String, MutableList<Long>>()
         for (move in listOf("R", "F")) {
             val seeds = ArrayList<Long>()
@@ -193,12 +194,16 @@ class ContinuousStressScenariosTest {
                 var firstTwist: Int? = null
                 for (fr in SyntheticCubeStream.generateSequence(cfg)) {
                     val snap = mapper.processFrame(fr.frameIndex, fr.detections)
-                    if (fr.frameIndex == 55) {
-                        assertFalse(snap.globalAnchored, "Pastel seed $seed ($move) must not be anchored at frame 55")
+                    if (fr.frameIndex == twistAt) {
+                        assertFalse(snap.globalAnchored, "Pastel seed $seed ($move) must not be anchored at frame $twistAt")
                     }
                     if (snap.twistDetected && firstTwist == null) firstTwist = fr.frameIndex
                 }
-                if (firstTwist != null && firstTwist >= 55) seeds.add(seed)
+                assertTrue(
+                    firstTwist == null || firstTwist >= twistAt,
+                    "Pastel seed $seed ($move): false twist latched at $firstTwist, before the turn at $twistAt",
+                )
+                if (firstTwist != null) seeds.add(seed)
             }
             detected[move] = seeds
         }
