@@ -19,7 +19,7 @@ import kotlin.math.min
 import kotlin.math.sqrt
 
 /**
- * Cap on each per-cell observation list in [ContinuousFaceletMapper] (GitHub issue #402). This is a deliberate deviation
+ * Cap on each per-cell observation list in [ContinuousFaceletMapper] (GitHub issue #402; parity id I402). This is a deliberate deviation
  * from `pc_spike/mapper.py`, which appends without bound: unbounded lists make per-frame time and heap grow linearly
  * with scan length on a long or stalled scan. While every list is <= the cap, results are identical to the uncapped
  * mapper; 256 is well above the longest per-cell list measured across the S1-S7 stress, hand-off and golden replay
@@ -33,11 +33,36 @@ import kotlin.math.sqrt
 internal const val MAX_OBS_PER_CELL = 256
 
 /**
- * Pure-JVM port of `pc_spike/mapper.py`: intrinsics-free 2D shared-edge face graph, historical
- * center-color lock, 24-SO(3) regrip merger with symmetry/outlier guards, zero-mean bounded
- * log-RGB AWB drift, shading-invariant CIELAB + WHITE-referenced hue + exact 8-per-color balanced
- * solver, local cubie invariant reopening, mid-scan layer-twist detection, and canonical
- * `Orientation.HOME` handoff export.
+ * Pure-JVM mapper derived from `pc_spike/mapper.py` (not an exact port): intrinsics-free 2D shared-edge face graph,
+ * historical center-color lock, 24-SO(3) regrip merger with symmetry/outlier guards, zero-mean bounded log-RGB AWB drift,
+ * shading-invariant CIELAB + WHITE-referenced hue + exact 8-per-color balanced solver, local cubie invariant reopening,
+ * mid-scan layer-twist detection, and canonical `Orientation.HOME` handoff export.
+ *
+ * Deviations from mapper.py (GitHub #411). Each id is catalogued in `Fixtures/continuous/mapper-parity/expected-differences.json`;
+ * `MapperParityReplayTest` pins the per-frame differences its three synthetic sessions show. On those inputs only E3
+ * produces any (and D1 only together with I401); D2, D3, D4, I401, I402 and most E ids are not exercised there.
+ * D1-D4, I401 and I402 are deliberate; E1-E8 are differences found by #411 and not yet reviewed (part b decides).
+ * - **D1**: a face whose outer line looks twisted adds no observations on that frame, and the frame's AWB step is withheld
+ *   when any face is line-twisted; mapper.py records them until the 5-frame twist streak fires and always applies the step.
+ * - **D2**: the zero-mean log-AWB is bounded by scaling all channels jointly to max |channel| 0.36; mapper.py clips each
+ *   channel to ±0.36.
+ * - **D3**: a merge rescales pending's `rgbAwb` by master's AWB scale and adds pending's log-AWB into master's; mapper.py
+ *   copies `rgb_awb` unchanged and leaves master's log-AWB alone.
+ * - **D4**: the shared-edge contradiction guard compares the AWB-compensated centre Lab; mapper.py the raw centre Lab.
+ * - **I401**: a twist flip counts only when the cell's history and new colour are both sticker colours (#401).
+ * - **I402**: per-cell observation lists are capped at [MAX_OBS_PER_CELL] (#402); mapper.py appends without bound.
+ * - **E1**: once a twist is detected, [processFrame] returns at once (no tracking or sampling) and the detecting frame keeps
+ *   the previous trackers; mapper.py keeps tracking after the twist.
+ * - **E2**: `AllVerified` is checked first (before `BringIntoView` and the pending cues) and needs a valid cube; a 54-sticker
+ *   net that does not validate cues `ResolveConflict`. mapper.py says "All 54 stickers verified!" on 54 committed with no
+ *   conflict, only while a quad is tracked, no fragment is pending and six faces are seen.
+ * - **E3**: the remaining-sides cues count master's confirmed faces; mapper.py counts its observed faces.
+ * - **E4**: an empty frame resets the "previous frame had a lone quad" flag; mapper.py keeps `_prev_unattached`.
+ * - **E5**: a pending fragment with no live tracker is reset on its first unmatched frame; mapper.py waits for its miss streak.
+ * - **E6**: plausible quads must also be finite, convex and clockwise with finite samples; mapper.py checks area and angle only.
+ * - **E7**: every pending-to-master promotion also clears the net, support, conflicts and centre prototypes; mapper.py keeps
+ *   the old net until the next anchored solve.
+ * - **E8**: `ResolveConflict` names the first conflicted slot in URFDLB order; mapper.py sorts by face letter.
  */
 class ContinuousFaceletMapper {
     private data class LabVec(
@@ -309,7 +334,10 @@ class ContinuousFaceletMapper {
         reappearanceMergeCountInternal.clear()
     }
 
-    /** Process one frame of neutral [QuadObservation] detections and return the updated snapshot. */
+    /**
+     * Process one frame of neutral [QuadObservation] detections and return the updated snapshot. Parity E1 (GH #411): after
+     * a twist the frame is not processed at all.
+     */
     fun processFrame(
         frameIndex: Int,
         detections: List<QuadObservation>,
@@ -321,6 +349,7 @@ class ContinuousFaceletMapper {
         }
         val plausible = filterPlausibleQuads(detections)
         if (plausible.isEmpty()) {
+            // Parity E4 (GH #411): mapper.py keeps _prev_unattached across empty frames.
             hasPrevUnattached = false
             emptyStreak++
             if (emptyStreak >= 3) {
@@ -376,6 +405,7 @@ class ContinuousFaceletMapper {
                     if (assigned.isEmpty()) {
                         pendingMissStreak++
                         val maxMiss = if (curPending.confirmedFaces().isNotEmpty()) 3 else 1
+                        // Parity E5 (GH #411): the tracked.isEmpty() reset is not in mapper.py.
                         if (curPending.tracked.isEmpty() || pendingMissStreak >= maxMiss) {
                             val resetFrag = newFragment()
                             pending = resetFrag
@@ -524,6 +554,7 @@ class ContinuousFaceletMapper {
 
     private fun newFragment(): CubeFragment = CubeFragment(nextFragId++, robustRecomputeCounter)
 
+    /** Area and angle filter of mapper.py plus parity E6 (GH #411): finite, convex, clockwise quads with finite samples only. */
     private fun filterPlausibleQuads(detections: List<QuadObservation>): List<QuadObservation> {
         if (detections.isEmpty()) return emptyList()
         val finite =
@@ -675,7 +706,8 @@ class ContinuousFaceletMapper {
                     if (cQ > 0.25 && assignedCenters.any { (aLab, aQ) -> aQ > 0.25 && cLab.dist(aLab) < 11.0 }) {
                         continue
                     }
-                    // Contradiction guard against already-confirmed center in this fragment (AWB-compensated)
+                    // Contradiction guard against already-confirmed center in this fragment (AWB-compensated: parity D4, GH #411;
+                    // mapper.py compares the raw centre Lab)
                     if (fb in confirmed && cQ > 0.25) {
                         val hist = frag.faceRobustLab(fb, 4)
                         if (hist != null) {
@@ -772,8 +804,9 @@ class ContinuousFaceletMapper {
 
         // 2. Nonrigid layer-twist check across ALL visible faces BEFORE mutating AWB or appending observations
         val pendingObs = LinkedHashMap<Face, Triple<List<RgbColor>, List<LabVec>, List<Double>>>(sampled.size)
+        // Parity D1 (GH #411): line-twisted faces skip this frame's observations and withhold its AWB step (see below).
         val lineTwistedFaces = HashSet<Face>()
-        // Issue #401: a layer turn swaps one sticker colour for another, so a flip counts only when both the cell's history
+        // Issue #401 (parity I401): a layer turn swaps one sticker colour for another, so a flip counts only when both the cell's history
         // and its new colour are sticker colours; a typical finger or shadow, arriving or leaving, is neither (a skin tone
         // within the sticker tolerance of WHITE or ORANGE still passes: a known residual limit). Built on first use.
         val stickerPrototypes by lazy(LazyThreadSafetyMode.NONE) { twistStickerPrototypes(frag) }
@@ -848,6 +881,8 @@ class ContinuousFaceletMapper {
             }
         }
 
+        // Parity D1 / E1 (GH #411): mapper.py applies the AWB step, records line-twisted faces and updates the trackers here
+        // whatever the twist state.
         if (!twistDetected) {
             if (lineTwistedFaces.isEmpty()) {
                 nextLogAwb.copyInto(frag.logAwb)
@@ -883,7 +918,7 @@ class ContinuousFaceletMapper {
      * Sticker colours a layer turn can bring onto a face (issue #401), or null when the guard cannot judge: before global
      * anchoring an observed centre off every reference colour (a pastel or off-palette cube) switches the guard off, so real
      * turns are detected exactly as without it. The guard is colour-only, so it cannot reject every finger: a light or brown
-     * skin tone within [STICKER_COLOUR_MAX_DE] of WHITE or ORANGE still counts as a sticker colour.
+     * skin tone within [STICKER_COLOUR_MAX_DE] of WHITE or ORANGE still counts as a sticker colour. Parity id I401 (GH #411).
      */
     private fun twistStickerPrototypes(frag: CubeFragment): List<LabVec>? {
         val ref = ContinuousColorModel.REF_CENTER_LAB.values.map { LabVec.from(it) }
@@ -909,6 +944,11 @@ class ContinuousFaceletMapper {
         val severeMismatches: Int,
     )
 
+    /**
+     * Aligns and merges [pending] into [master] over the 24 SO(3) rotations with symmetry and outlier guards. Parity D3
+     * (GH #411): merged observations' `rgbAwb` are rescaled by master's AWB scale and pending's log-AWB is added into
+     * master's; mapper.py does neither.
+     */
     private fun tryMergePending(frameIndex: Int) {
         val m = master ?: return
         val p = pending ?: return
@@ -1064,6 +1104,7 @@ class ContinuousFaceletMapper {
         reappearanceMergeCountInternal.add(frameIndex)
     }
 
+    /** Parity E7 (GH #411): also clears the net, support, conflicts and prototypes, which mapper.py keeps. */
     private fun promotePendingToMaster(p: CubeFragment) {
         unreadValid = false
         master = p
@@ -1337,6 +1378,10 @@ class ContinuousFaceletMapper {
         return out
     }
 
+    /**
+     * The guidance cue. Parity (GH #411): E2 (AllVerified first, validated), E3 (confirmed-face side count), E8 (URFDLB
+     * conflict order) differ from mapper.py's `_compute_cue`.
+     */
     private fun computeCue(
         anyGlare: Boolean,
         trackedNow: List<TrackedQuadOverlay>,
@@ -1480,6 +1525,7 @@ class ContinuousFaceletMapper {
             prototypes: List<LabVec>?,
         ): Boolean = prototypes == null || prototypes.any { lab.dist(it) < STICKER_COLOUR_MAX_DE }
 
+        /** Zero-mean, then joint scaling to max |channel| 0.36. Parity D2 (GH #411): mapper.py clips each channel instead. */
         fun normalizeLogAwbInPlace(logAwb: DoubleArray) {
             val meanAwb = (logAwb[0] + logAwb[1] + logAwb[2]) / 3.0
             var maxAbsAwb = 0.0

@@ -1,0 +1,176 @@
+{
+  "comparedFields": [
+    "net",
+    "globalAnchored",
+    "twistFrame",
+    "conflictedSlots",
+    "cue",
+    "outcome",
+    "snapshotCount"
+  ],
+  "notCompared": {
+    "kind": "mapper.py has no validated COMPLETE state (the exporter writes SCANNING or TWIST_DETECTED)",
+    "state": "mapper.py has no validated complete state",
+    "trackedQuads": "overlay geometry, not a mapper decision",
+    "committedCount": "derived from net",
+    "mappedFacesCount": "derived count",
+    "invariantViolationCount": "derived from net",
+    "pendingFragmentFaces": "derived count"
+  },
+  "deviations": [
+    {
+      "id": "D1",
+      "deliberate": true,
+      "summary": "A face whose outer line looks twisted (lineTwistedFaces) adds no observations on that frame, and the whole frame's AWB step is withheld (not committed to the fragment) when any face is line-twisted; mapper.py records the face's observations until the 5-frame streak fires and always applies the AWB step.",
+      "note": "No compared difference in these sessions. Reverting D1 alone makes Kotlin miss pyspike-7's frame-83 twist (outcome PARTIAL; cue and twistFrame differ on frames 83-94): the twisted cells' samples then enter history and I401 no longer counts the blended history as a sticker colour. Reverting D1 and I401 together matches mapper.py again, so in this scenario the two deviations cancel out."
+    },
+    {
+      "id": "D2",
+      "deliberate": true,
+      "summary": "normalizeLogAwbInPlace bounds the zero-mean log-AWB by scaling all three channels jointly so the largest |channel| is 0.36 (keeps the chromaticity direction); mapper.py clips each channel to [-0.36, 0.36] independently.",
+      "note": "No compared difference: |log_awb| peaks at 0.315 (pyspike-2, mapper.py), below the 0.36 bound, so neither bound acts. Reverting it changes no compared field."
+    },
+    {
+      "id": "D3",
+      "deliberate": true,
+      "summary": "tryMergePending rescales each merged pending observation's rgbAwb by master's AWB scale and adds pending's logAwb into master's (then renormalises); mapper.py copies rgb_awb unchanged and leaves master's log_awb untouched.",
+      "note": "No compared difference: pyspike-1 merges once (frame 68) with |log_awb| < 0.02 in both fragments, so the rescale moves no sticker. Reverting it changes no compared field."
+    },
+    {
+      "id": "D4",
+      "deliberate": true,
+      "summary": "The shared-edge contradiction guard in attachBySharedEdge compares the candidate centre against the confirmed face's history in AWB-compensated shading-invariant Lab; mapper.py compares the raw (uncompensated) centre Lab.",
+      "note": "No compared difference: reverting it (raw centre Lab in the guard) changes no compared field in these sessions."
+    },
+    {
+      "id": "I401",
+      "deliberate": true,
+      "summary": "Issue #401 twist guard: a cell counts as flipped only when both its history and its new colour lie within dE 14 of a sticker prototype (twistStickerPrototypes / isStickerColour); mapper.py counts any dE > 33 change that is not a glare wash-out.",
+      "note": "No compared difference on its own: reverting it changes no compared field (see D1 for the interaction)."
+    },
+    {
+      "id": "I402",
+      "deliberate": true,
+      "summary": "Issue #402: each per-cell observation list is capped at MAX_OBS_PER_CELL = 256 (lowest quality dropped); mapper.py appends without bound.",
+      "note": "No compared difference at these session lengths: the longest per-cell list is 84 observations (pyspike-7), far below 256, so the cap never acts. Reverting it changes no compared field."
+    },
+    {
+      "id": "E1",
+      "deliberate": false,
+      "summary": "Once a twist is detected, processFrame returns at once (LayerTwistDetected, no tracked quads, no sampling); on the detecting frame tracked/frameCount are not updated. mapper.py keeps tracking, sampling and updating trackers after the twist (only observation recording and the colour solve stop).",
+      "note": "No compared difference: net and cue are frozen after a twist in both mappers. Visible only in the uncompared trackedQuads of pyspike-7 frames 83-94 (frame 83 shows the previous frame's quads, then none). Reverting it changes no compared field."
+    },
+    {
+      "id": "E2",
+      "deliberate": false,
+      "summary": "computeCue returns AllVerified first, whenever 54 stickers are committed with no conflict and the net validates as a cube, even with no tracked quad or with a pending fragment, and a 54-sticker net that does not validate gives ResolveConflict(globalInvalidFace); mapper.py checks AllVerified only after BringIntoView, the pending cues and the 6-face check, on 54 committed with no conflict.",
+      "note": "No compared difference: every session's 54-committed frames also track a quad with no pending fragment. Reverting it changes no compared field."
+    },
+    {
+      "id": "E3",
+      "deliberate": false,
+      "summary": "The TurnRemaining / TiltAwayLightRemaining side count (and the gate before the conflict and sticker cues) uses master's confirmed faces (>= 2 observations, centre quality >= 0.40); mapper.py uses master's observed faces, so it reports fewer remaining sides earlier.",
+      "note": "The only cause of compared differences in these sessions (20 cue frames). Reverting it (observed faces) removes all of them."
+    },
+    {
+      "id": "E4",
+      "deliberate": false,
+      "summary": "An empty frame resets hasPrevUnattached, so an unanchored single quad must reappear on two consecutive non-empty frames to start master; mapper.py keeps _prev_unattached across empty frames.",
+      "note": "No compared difference: reverting it changes no compared field in these sessions."
+    },
+    {
+      "id": "E5",
+      "deliberate": false,
+      "summary": "A pending fragment with no live tracker is reset on the first unmatched frame (the extra curPending.tracked.isEmpty() condition); mapper.py waits for its miss streak (1, or 3 once pending has a confirmed face).",
+      "note": "No compared difference: reverting it changes no compared field in these sessions."
+    },
+    {
+      "id": "E6",
+      "deliberate": false,
+      "summary": "filterPlausibleQuads also drops non-finite, non-convex and non-clockwise (signed area <= 0) quads and observations with non-finite samples; mapper.py filters by area and angle quality only.",
+      "note": "No compared difference: synth_video.py quads are all finite, convex and clockwise. Reverting it changes no compared field."
+    },
+    {
+      "id": "E7",
+      "deliberate": false,
+      "summary": "Every pending-to-master promotion (promotePendingToMaster) also clears the net, slot support, conflicts and centre prototypes; mapper.py keeps the previous net and conflicts until the next anchored colour solve replaces them.",
+      "note": "No compared difference: reverting it changes no compared field in these sessions."
+    },
+    {
+      "id": "E8",
+      "deliberate": false,
+      "summary": "ResolveConflict names the first conflicted slot in URFDLB face order (FaceSlot ordering); mapper.py sorts slots by face letter (B < D < F < L < R < U).",
+      "note": "No compared difference: no conflict cue is shown in these sessions. Reverting it changes no compared field."
+    }
+  ],
+  "differences": [
+    {
+      "session": "pyspike-1-scrambled-stickered-regrip-v1",
+      "field": "cue",
+      "frames": [
+        [
+          0,
+          0
+        ],
+        [
+          17,
+          19
+        ],
+        [
+          77,
+          77
+        ],
+        [
+          96,
+          97
+        ]
+      ],
+      "deviation": "E3",
+      "reason": "mapper.py counts observed faces, Kotlin confirmed faces: fewer remaining sides (frames 0, 17-19, 77) or, once all six are observed but one is unconfirmed, the glare / sticker cue instead of a side count (96-97)."
+    },
+    {
+      "session": "pyspike-2-pastel-stickerless-awb-drift-v1",
+      "field": "cue",
+      "frames": [
+        [
+          0,
+          0
+        ],
+        [
+          16,
+          17
+        ],
+        [
+          54,
+          54
+        ],
+        [
+          77,
+          77
+        ],
+        [
+          105,
+          106
+        ]
+      ],
+      "deviation": "E3",
+      "reason": "mapper.py counts observed faces, Kotlin confirmed faces: fewer remaining sides (frames 0, 16-17, 54, 77) or TiltRemainingStickers(0) while one observed face is still unconfirmed (105-106)."
+    },
+    {
+      "session": "pyspike-7-mid-scan-layer-twist-u-v1",
+      "field": "cue",
+      "frames": [
+        [
+          0,
+          0
+        ],
+        [
+          24,
+          28
+        ]
+      ],
+      "deviation": "E3",
+      "reason": "mapper.py counts observed faces, Kotlin confirmed faces: fewer remaining sides on the first frame and while a newly observed face is not yet confirmed."
+    }
+  ]
+}
