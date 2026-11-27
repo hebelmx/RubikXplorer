@@ -5,7 +5,7 @@ created: '2026-11-27'
 status: 'done'
 baseline_revision: '34892cd530963c51146f77c4c0e813c859981846'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context: []
 warnings: ['oversized']
 deferred: []
@@ -86,6 +86,36 @@ deferred: []
   - `[false]` `[reject]` (intent) K >= longest scenario is only stated, not asserted. The observable requirement (zero-diff replays with no --refresh-golden, unchanged S1-S7/hand-off) is met and verified; the 86 measurement was taken by instrumenting the mapper during planning.
   - `[false]` `[reject]` (intent) KDoc overstates equivalence / test surfaces differ. KDoc row patched above; the test-surface note is descriptive with no bad outcome (scan-level surfaces are covered by the unchanged suites).
 
+### 2026-11-27 — Review pass
+- verdicts: 26 findings — high 0, medium 3, low 11, false 12, maybe-false 0 (carried rows keep the prior verdict and are counted under it; 9 rows are carried)
+- findings:
+  - `[low]` `[patch]` (blind) A full cell freezes on early high-quality observations under lighting/AWB drift. carried — prior row (documented best-K-by-quality trade-off in KDoc); not patched again.
+  - `[low]` `[patch]` (blind) A merge into a full master can drop pending evidence, and the merge test never checks how many pending observations survived. Policy part carried (documented); test part grouped with the merge-test entry below: the test now asserts a master cell holds >= cap - 14 pending-still observations (measured 256).
+  - `[low]` `[patch]` (blind) Merge test can pass on a promotion (reappearanceMergeCount also counts promotePendingToMaster, mapper ~971-973). Added assertions that master keeps its own pre-regrip observations (frame index < master-still end) and received a full pending cell; verified passing.
+  - `[false]` `[reject]` (blind) Cached == uncached is only checked indirectly. `obs` is private and `obsList` returns a read-only List, so `addObs` is the only mutation path and it invalidates both variants; `computeFaceRobustLab` is pure over the list, so the cache cannot go stale.
+  - `[false]` `[reject]` (blind) No assertion that K stays above every scenario's longest list. carried — prior intent row (requirement is zero-diff replays, met).
+  - `[medium]` `[patch]` (blind) First still-scan test still asserts 0 == 0. carried — prior row; covered by the rising-quality test (recomputes 9000 == 9000 > 0); not patched again.
+  - `[low]` `[reject]` (blind) Timing figures compare different harnesses and lack JIT warm-up. carried — prior row (timing is log-only by PO decision).
+  - `[low]` `[reject]` (blind) Spec says companion constant; code uses a file-level internal const; Spec Change Log empty. Fix is to edit this build's spec; the file-level const was the prior pass's patch so the test can reference it, with no named harm.
+  - `[false]` `[reject]` (blind) Spec status fields contradict (in-review vs body "done"). in-review is the status this follow-up review step sets; it returns to done at finalize. Fix would be a spec edit.
+  - `[false]` `[reject]` (blind) Worst case (256-entry min scan + 256 sort per eviction) unbounded by an op-count check. The cost is constant per frame by design and the rising-quality test pins recomputations at 9 per frame per face across blocks; no growth occurs.
+  - `[low]` `[reject]` (blind) Redundant nulling of four parallel cache arrays. carried — prior row (no named harm; refactor not a direct correction).
+  - `[low]` `[reject]` (blind) Test hooks live in production code and the counter increments on the hot path. The spec requires `internal` hooks; a Long increment per recompute is negligible; an annotation would add a dependency for no named harm.
+  - `[low]` `[reject]` (blind) Eviction-order test assumes recording starts at frame 1 and uses qualities below twist gates. The test's first assertion (stored == fed for the first 5) fails loudly if either assumption breaks; loud failure is correct behavior.
+  - `[false]` `[reject]` (edge) NaN qualities always admitted to a full list. carried — prior row: filterPlausibleQuads (ContinuousFaceletMapper.kt:524) drops detections with non-finite cellQualities.
+  - `[false]` `[reject]` (edge) A NaN entry in a full list is never evicted. Same refutation: NaN never reaches addObs (line 524).
+  - `[low]` `[patch]` (edge) Merge test can pass on a promotion. Same entry as the blind merge-test row; patched.
+  - `[medium]` `[patch]` (edge) Still-scan flatness compares 0 with 0. carried — same as the blind carried row.
+  - `[low]` `[patch]` (verification-gap, other) Merge test never confirms pending reached the cap (maxObsListSize is the max over master and pending). Same merge-test entry; the new assertion requires a master cell holding >= cap - 14 pending-still observations.
+  - `[low]` `[patch]` (verification-gap, other) reappearanceMergeCount >= 1 is also satisfied by promotion. Same merge-test entry; patched.
+  - `[false]` `[reject]` (intent) Evidence is JVM/synthetic only and time is only logged. The intent forbids a timing assertion in build and scopes the structural proof to the mapper; no bad outcome at the cited code.
+  - `[medium]` `[patch]` (intent) Under the R2a eviction reading the named still scenario passes trivially. carried — prior row (rising-quality test).
+  - `[false]` `[reject]` (intent) No test counts recomputations per lookup. The cache returns early when valid and only addObs invalidates; rising-quality test shows 9 recomputes per frame for one face despite repeated lookups per frame.
+  - `[false]` `[reject]` (intent) Cached == uncached shown only on export surface. Same refutation as the blind row (single mutation path, pure compute).
+  - `[false]` `[reject]` (intent) K >= 86 only stated. carried — prior row.
+  - `[false]` `[reject]` (intent) Results differ beyond K. That is the intent's approved approximation (bit-identity only for lists <= K) and is documented in KDoc.
+  - `[false]` `[reject]` (intent) Diff touches a spec file possibly under the planning-artifacts ban. The file is under _bmad-output/implementation-artifacts, not planning-artifacts.
+
 ## Design Notes
 
 Eviction keeps the retained list equal to the first K entries of the stable descending-quality order the uncapped list would have (drop the element that sorts last: minimum quality, latest index on ties), so the highest-quality observations and `maxQ` survive. Counts and quality sums saturate at the cap, far above the >=5 / >=2.2 thresholds the mapper checks.
@@ -114,3 +144,18 @@ Status: done
 **Verification:** `./gradlew :core:domain:test` BUILD SUCCESSFUL (ContinuousFaceletMapperTest 18/18, ContinuousStressScenariosTest 7/7, ContinuousHandoffTest 12/12, ContinuousSessionReplayTest 13/13, 0 skipped); `./gradlew spotlessCheck build` BUILD SUCCESSFUL; `git status --short Fixtures/` empty (no golden refresh). Logged: 3-face still scan 0.053 -> 0.033 ms/frame over 10k frames (issue measured 0.73 -> 2.67+ ms before the fix).
 
 **Residual risks:** Past 256 observations per cell the robust value is an approximation of the uncapped one (by design); once full, a cell accepts only strictly better observations, so slow lighting change in a stalled scan is not tracked by lower-quality frames.
+
+### Follow-up review pass (2026-11-27)
+
+**Change:** test-only. `regrip merge of a full pending fragment into a full master keeps per-cell lists bounded` now asserts the reappearance was a real merge (master keeps its own pre-regrip observations) and that a full pending cell was copied into master (>= cap - 14 pending-still observations in one master cell; measured 256).
+
+**Files changed:**
+- `core/domain/src/test/kotlin/dev/cubentia/domain/recognition/continuous/ContinuousFaceletMapperTest.kt` -- merge-vs-promotion and pending-fullness assertions in the regrip merge test.
+
+**Review findings:** 26 rows; patched: 1 low entry (merge test strength; 5 rows); carried: 7 rows from the first pass; deferred: none; rejected: spec-wording/status notes (spec edits), test-hook placement (required by spec, negligible cost), eviction-test brittleness (fails loudly), NaN rows (filtered at line 524), cache-equivalence rows (single mutation path, pure compute), worst-case cost (constant by design), JVM-only/timing evidence (intent forbids timing assertions), beyond-K approximation (approved), planning-artifacts scope (path is implementation-artifacts).
+
+**Follow-up review recommended:** false -- follow-up pass patched no high (patched: high 0, medium 0, low 1).
+
+**Verification:** `./gradlew :core:domain:test` BUILD SUCCESSFUL; `./gradlew spotlessCheck build` BUILD SUCCESSFUL; `git status --short Fixtures/` empty.
+
+**Residual risks:** unchanged from the first pass (beyond-cap approximation; a full cell accepts only strictly better observations).

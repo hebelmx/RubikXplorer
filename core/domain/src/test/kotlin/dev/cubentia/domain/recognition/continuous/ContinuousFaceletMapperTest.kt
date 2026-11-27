@@ -585,6 +585,23 @@ class ContinuousFaceletMapperTest {
         }
         assertTrue(mapper.reappearanceMergeCount >= 1)
         assertTrue(mapper.maxObsListSize <= MAX_OBS_PER_CELL)
+
+        // A merge (not a promotion) keeps master's own pre-regrip observations and copies pending's into it. Frame
+        // indices: master stills are 41 until masterStillEnd, pending stills are pendingStillStart until pendingStillEnd.
+        val masterStillEnd = 41 + stillRepeats
+        val pendingStillStart = masterStillEnd + 5
+        val pendingStillEnd = pendingStillStart + stillRepeats
+        val masterCells = Face.entries.flatMap { f -> (0 until 9).map { ci -> mapper.masterCellObservations(f, ci) } }
+        assertTrue(
+            masterCells.any { cell -> cell.any { it.first < masterStillEnd } },
+            "Master must keep its own pre-regrip observations, so the reappearance was a merge, not a promotion",
+        )
+        val mostPendingInOneCell = masterCells.maxOf { cell -> cell.count { it.first in pendingStillStart until pendingStillEnd } }
+        println("GH-402 merge: most pending observations in one master cell = $mostPendingInOneCell")
+        assertTrue(
+            mostPendingInOneCell >= MAX_OBS_PER_CELL - (79 - 66 + 1),
+            "A full pending cell must have been merged into master (got $mostPendingInOneCell pending observations)",
+        )
     }
 
     private fun stillGreenFace(quality: Double): QuadObservation =
