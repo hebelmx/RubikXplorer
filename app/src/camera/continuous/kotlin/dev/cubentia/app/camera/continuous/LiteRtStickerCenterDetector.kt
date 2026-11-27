@@ -32,8 +32,10 @@ internal interface StickerCenterInferenceSession {
  * LiteRT v2 INT8 sticker-center heatmap detector (`com.google.ai.edge.litert`, AD-9 / Story 10.31).
  *
  * Runs exclusively off the main thread on XNNPACK CPU with 2 threads using pre-allocated direct buffers.
- * A frame that fails input conversion or peak decoding is counted and skipped. Its session stays open for the next frame.
- * Model initialization and inference failures latch [unavailable] for the lifetime of this singleton.
+ * A frame that fails input conversion or peak decoding is counted and skipped, and so is a frame the pipeline could not
+ * sample ([countFailedFrame], GH #397): one count for both. Its session stays open for the next frame.
+ * Model initialization and inference failures latch [unavailable] for the lifetime of this singleton,
+ * and so does [close] (GH #404): a disabled detector must never look like an empty view (GH #390).
  * Never persists, writes to disk, or transmits any camera frame (AD-13).
  */
 @Singleton
@@ -123,11 +125,21 @@ internal class LiteRtStickerCenterDetector
                     )
                 } catch (_: Exception) {
                     inputValid = false
-                    failedFrameCount++
-                    runCatching { ScanDiagnostics.onQuickScanFrameFailed(failedFrameCount) }
+                    recordFailedFrame()
                     StickerCenterDetection.EMPTY
                 }
             }
+        }
+
+        /** GH #397: the pipeline could not sample the frame the last [detect] read; it joins the same failed-frame count. */
+        override fun countFailedFrame() {
+            synchronized(lock) { recordFailedFrame() }
+        }
+
+        /** Caller holds [lock]. Counts one bad frame and reports the total; the report never throws (GH #389). */
+        private fun recordFailedFrame() {
+            failedFrameCount++
+            runCatching { ScanDiagnostics.onQuickScanFrameFailed(failedFrameCount) }
         }
 
         /** Story 10.34: a copy of the last [detect]'s model input, for the debug Quick Scan session recording's frame tap only. */
@@ -234,9 +246,11 @@ internal class LiteRtStickerCenterDetector
             return session
         }
 
+        /** Closes the session once and latches [unavailable] (GH #404), so a closed detector never reads as an empty view. */
         internal fun close() {
             synchronized(lock) {
                 closed = true
+                unavailable = true
                 session?.close()
                 session = null
             }

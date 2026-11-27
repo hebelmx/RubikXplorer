@@ -45,9 +45,9 @@ internal data class StickerCenterDetection(
 internal interface StickerCenterDetector {
     /**
      * Whether the detector cannot run (GH #390): true from the moment the model failed to load, did not match the tensor
-     * contract or an inference failed, and for the rest of the app process (nothing retries). A state of its own, never
-     * an empty detection: a skipped frame, a degenerate crop and a frame with no cube leave it false. Safe to read from
-     * any thread, with or without a frame.
+     * contract, an inference failed or the detector was closed (GH #404), and for the rest of the app process (nothing
+     * retries). A state of its own, never an empty detection: a skipped frame, a degenerate crop and a frame with no
+     * cube leave it false. Safe to read from any thread, with or without a frame.
      */
     val unavailable: Boolean
 
@@ -63,4 +63,11 @@ internal interface StickerCenterDetector {
      * there is none or the detector does not expose it. Same thread as [detect].
      */
     fun copyModelInput(into: ByteArray): Boolean = false
+
+    /**
+     * GH #397: a frame read past [detect] that the pipeline could not sample (a plane short in rows the model input never
+     * read). Counted with the detector's own bad frames, so one failed-frame count covers both. Same thread as [detect];
+     * never throws.
+     */
+    fun countFailedFrame() = Unit
 }

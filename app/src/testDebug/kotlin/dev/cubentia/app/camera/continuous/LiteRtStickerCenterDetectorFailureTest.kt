@@ -3,7 +3,6 @@ package dev.cubentia.app.camera.continuous
 import dev.cubentia.app.camera.StickerCenterDetection
 import dev.cubentia.app.camera.YuvFrame
 import dev.cubentia.app.camera.YuvPlane
-import dev.cubentia.domain.recognition.continuous.ContinuousScanCue
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -14,7 +13,10 @@ import org.junit.jupiter.api.Test
 import java.io.FileNotFoundException
 import java.nio.ByteBuffer
 
-/** Story 10.31 I/O matrix: missing asset, corrupt buffer, LinkageError, tiny crop, and post-close degrade safely to empty. */
+/**
+ * Story 10.31 I/O matrix: missing asset, corrupt buffer, LinkageError, tiny crop, and post-close degrade safely to
+ * empty (post-close reads unavailable, GH #404).
+ */
 class LiteRtStickerCenterDetectorFailureTest {
     private val validFrame = makeBlankYuv(64, 48)
 
@@ -127,7 +129,7 @@ class LiteRtStickerCenterDetectorFailureTest {
         detector.close()
         assertTrue(detector.detect(validFrame, rotationDegrees = 90).peaks.isEmpty())
         assertEquals(3, session.runs)
-        assertFalse(detector.unavailable)
+        assertTrue(detector.unavailable)
         assertEquals(1, session.closes)
         assertEquals(0, detector.failedFrames)
     }
@@ -276,7 +278,7 @@ class LiteRtStickerCenterDetectorFailureTest {
     }
 
     @Test
-    fun `closed detector returns empty safely and feeds cleanly through ContinuousScanPipeline`() {
+    fun `a closed detector reads unavailable and the pipeline skips its frames`() {
         var loads = 0
         val detector =
             LiteRtStickerCenterDetector {
@@ -284,15 +286,38 @@ class LiteRtStickerCenterDetectorFailureTest {
                 throw FileNotFoundException("should not be loaded after close")
             }
         detector.close()
-        assertTrue(detector.detect(validFrame, 0).peaks.isEmpty())
-        assertFalse(detector.unavailable)
+        // GH #404: close latches unavailable, so the Learner gets the #390 fallback, not an empty view.
+        assertTrue(detector.unavailable)
+        assertEquals(StickerCenterDetection.EMPTY, detector.detect(validFrame, 0))
+        assertEquals(StickerCenterDetection.EMPTY, detector.detectRgb(ByteArray(48), 4, 4))
         assertEquals(0, loads)
 
         val pipeline = ContinuousScanPipeline(detector)
         val out = pipeline.processFrame(frameIndex = 0, frame = validFrame, rotationDegrees = 90, viewWidth = 1080, viewHeight = 1920)
+        assertTrue(pipeline.detectorUnavailable)
+        assertEquals(StickerCenterDetection.EMPTY, out.detection)
         assertTrue(out.fittedFaces.isEmpty())
-        assertEquals(ContinuousScanCue.BringIntoView, out.snapshot.cue)
         assertEquals(0, out.snapshot.committedCount)
+        assertEquals(0, loads)
+    }
+
+    @Test
+    fun `closing a healthy detector mid-scan leaves the pipeline's last snapshot untouched`() {
+        val session = CountingStickerCenterSession()
+        val pipeline = ContinuousScanPipeline(session.detector)
+        val first = pipeline.processFrame(frameIndex = 0, frame = validFrame, rotationDegrees = 0)
+        assertFalse(pipeline.detectorUnavailable)
+        assertEquals(1, session.runs)
+
+        session.detector.close()
+        assertTrue(pipeline.detectorUnavailable)
+        val next = pipeline.processFrame(frameIndex = 1, frame = validFrame, rotationDegrees = 0)
+        // The skipped-frame path hands back the same snapshot instance: the mapper never saw frame 1.
+        assertSame(first.snapshot, next.snapshot)
+        assertEquals(StickerCenterDetection.EMPTY, next.detection)
+        assertTrue(next.fittedFaces.isEmpty())
+        assertEquals(1, session.runs)
+        assertEquals(1, session.closes)
     }
 }
 
