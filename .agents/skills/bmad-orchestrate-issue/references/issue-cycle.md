@@ -24,7 +24,7 @@ Make a compact triage table with issue number, title, route, evidence, dependenc
 | `easy-fix` | The defect and expected behavior are clear, bounded, testable, and do not need a device, secret, account, product decision, or planning change. Select for implementation. |
 | `planning-change` | The issue changes scope, requirements, architecture, UX, or story acceptance. Run `bmad-correct-course`; do not code against an unapproved direction. |
 | `human-input` | The issue requires a physical device, external account/secret, product decision, user data, or evidence only a person can provide. Leave open and report the needed input. |
-| `duplicate` | Another issue or merged PR already covers it. Verify the relationship and status; do not create duplicate work. Close only if its resolution is already evidenced. |
+| `duplicate` | Another issue or merged PR already covers it. Verify the relationship and status; do not create duplicate work. Close it (`not planned`) only after the product owner confirms the duplicate. |
 | `unclear` | The expected behavior or reproduction is insufficient to decide. Ask a focused question and leave open. |
 
 Select the strongest evidence-backed `verify-close` or `easy-fix` items first; break ties by oldest `updatedAt`, then lowest issue number. Respect the invocation's issue number or count. Do not count blocked issues against the work limit if an independent candidate remains. Before starting each issue, acquire the ledger lock and check that it is still open, no active ledger run owns it, no completed entry exists unless explicitly resumed, and no active PR or worktree already claims it. Reserve the issue in the ledger before creating a branch or making a GitHub change.
@@ -39,7 +39,7 @@ For `verify-close`:
 2. If the evidence does not establish resolution, reclassify it; do not close it.
 3. If resolved, capture concise reproducible evidence (exact command/test and result, plus commit/PR when relevant), recheck the issue is still open, then close it with a comment stating that evidence. Verify the resulting GitHub state and record the close result in the ledger.
 
-For duplicates, verify the canonical issue remains open or resolved. Recheck the duplicate remains open before closing it. If it has no independent remaining scope, close it with a link and short evidence-based reason. Otherwise keep it open and explain the remaining scope in the ledger.
+For duplicates, verify the canonical issue remains open or resolved. Recheck the duplicate remains open before closing it. If it has no independent remaining scope and the product owner confirms, close it as `not planned` with a link and short evidence-based reason. Otherwise keep it open and explain the remaining scope in the ledger.
 
 ## 4. Build a clear fix
 
@@ -58,12 +58,13 @@ For an `easy-fix`:
 - Before merge, fetch the remote default branch. If the PR branch is behind, merge the default branch into it (no rebase or force-push), rerun local verification and wait for CI again. Abort and stop on conflicts.
 - Immediately before merge, re-fetch and verify the PR repository, base branch, issue reference, current head SHA, review state, and required-check state. If the issue or PR changed unexpectedly, stop and reconcile.
 - Merge only after all required checks are green and any configured human gate is satisfied. Never use `--admin`, `--auto`, or other check bypasses.
+- Closing follows AGENTS.md (Closing GitHub issues): `Closes #<N>` and any manual close only when every expected behavior is proven; with anything owed, use `Refs #<N>` and leave the issue open. Before closing, or right after a merge closes it, tick the proven boxes in the issue body and comment each point with its evidence.
 - Confirm the merge commit. Recheck the issue remains open and the merged diff addresses its current scope before any manual close. If it remains open despite the merged `Closes #N` reference, close it with a concise comment linking the PR and its green checks, then verify its state.
 - Record PR URL, merge SHA, checks, and issue close state in the locked ledger before cleanup. Inspect tracked and untracked files; remove only the clean worktree this run created. If it is dirty or cleanup state is uncertain, preserve it and report its path.
 
 ## 6. Planning, human, and uncertain issues
 
-- `planning-change`: invoke `bmad-correct-course` with the issue as trigger and the project planning context. The proposal must state what story or acceptance change is needed. Leave the issue open until the PO accepts the plan and a follow-up story is tracked; do not implement or merge a planning proposal as if it were the bug fix.
+- `planning-change`: invoke `bmad-correct-course` with the issue as trigger and the project planning context. The proposal must state what story or acceptance change is needed. Leave the issue open until a follow-up story merges and proves it, or the PO decides it is not planned (AGENTS.md, Closing GitHub issues); do not implement or merge a planning proposal as if it were the bug fix.
 - `human-input`: state exactly what evidence or decision is needed and why it blocks correctness. Keep the issue open and record the next action. Continue with unrelated easy wins.
 - `unclear`: ask one short, self-contained question with concrete options where possible. Do not start implementation until the answer resolves the intent gap.
 - If a correct-course proposal concludes no plan change is required, return the issue to triage and decide whether it is now a clear implementation issue.
