@@ -63,4 +63,11 @@ internal interface StickerCenterDetector {
      * there is none or the detector does not expose it. Same thread as [detect].
      */
     fun copyModelInput(into: ByteArray): Boolean = false
+
+    /**
+     * GH #397: a frame read past [detect] that the pipeline could not sample (a plane short in rows the model input never
+     * read). Counted with the detector's own bad frames, so one failed-frame count covers both. Same thread as [detect];
+     * never throws.
+     */
+    fun countFailedFrame() = Unit
 }

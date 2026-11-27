@@ -39,4 +39,19 @@ class LiteRtStickerCenterDetectorBadFrameTest {
         // Fixed words and the count only: no exception rides along.
         assertEquals(List(4) { null }, ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.throwable })
     }
+
+    @Test
+    fun `a frame the pipeline could not sample reaches the same diagnostics count as a bad frame (GH #397)`() {
+        val detector = CountingStickerCenterSession().detector
+        val short = makeBlankYuv(64, 48).apply { y.buffer.limit(1) }
+        ShadowLog.clear()
+
+        fun logged() = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }
+
+        detector.countFailedFrame()
+        assertEquals(listOf("quickScan frameFailed count=1"), logged())
+        assertEquals(StickerCenterDetection.EMPTY, detector.detect(short, 0))
+        assertEquals(listOf("quickScan frameFailed count=1", "quickScan frameFailed count=2"), logged())
+        assertEquals(2, detector.failedFrames)
+    }
 }
