@@ -264,6 +264,12 @@ internal class QuickScanSessionController(
             }
 
             else -> {
+                // A saved completed scan's held hand-off goes with the map Reset clears: the live scan runs again, the
+                // notice stays, and its Dismiss hands nothing off.
+                if (phase == SessionPhase.Idle && handOffHeld) {
+                    handOffHeld = false
+                    sync()
+                }
                 false
             }
         }
@@ -284,8 +290,9 @@ internal class QuickScanSessionController(
                 Unit
             }
         }
-        // Leaving drops a completed scan's held hand-off: the screen goes elsewhere instead.
-        if (handOffHeld && phase == SessionPhase.Idle) handOffHeld = false
+        // Leaving drops a completed scan's held hand-off: the screen goes elsewhere instead. Close/Back keeps it, since its
+        // "Discard this scan?" can be cancelled back to the notice (answer 13); a screen that really closes releases it.
+        if (handOffHeld && phase == SessionPhase.Idle && kind != QuickScanLeave.CLOSE) handOffHeld = false
         sync()
         return false
     }

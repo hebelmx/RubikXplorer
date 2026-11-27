@@ -5,7 +5,7 @@ created: '2026-11-26'
 status: 'done'
 baseline_revision: '79704f22fb32137afd007a308aa11f06cde3a485'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context:
   - '{project-root}/_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-26-retire-recorder.md'
   - '{project-root}/_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-25-continuous-fixture-recorder.md'
@@ -212,6 +212,45 @@ deferred: []
   - `[false]` `[reject]` (intent) Instrumented tests added / golden replay runs under `check` (stricter readings) — the intent lists image replay among the cherry-picks and only forbids wiring the `replayContinuousSession` task into `check`; the golden JVM test is required by the ACs.
   - `[false]` `[reject]` (intent) Shipped files change (neutral ports and null-guarded hooks) — the intent requires optional bindings and neutral ports in shipped code; with the optional empty every hook is skipped.
 
+### 2026-11-26 — Review pass (follow-up)
+- verdicts: 35 findings — high 0, medium 13, low 12, false 10, maybe-false 0
+- findings:
+  - `[false]` `[reject]` (intent) The review diff leaves out the synthetic sessions' `frames.jsonl`, `snapshots.jsonl` and `labels.json` — a staging choice for generated golden data, not a code defect; `:core:domain:replayContinuousSession` replays both sessions with 0 snapshot/cue diffs.
+  - `[false]` `[reject]` (intent) Geometry test sets the crop itself and never exercises `analysisTarget`/the viewport — carried: same claim as the first pass's geometry row; the recording still reads `cropRect` inside the same `CameraXFrameSource.read()`.
+  - `[false]` `[reject]` (intent) No surface exercises the device latency outcome; `docs/evidence/10-34/latency.md` is a template — the intent forbids device work ("the PO runs the Lenovo gate").
+  - `[medium]` `[patch]` (intent) No test runs activity → bound frame source → engine — same root as the verification-gap rebinding row; fixed there (`FakeFrames` now keeps the engine the activity binds).
+  - `[false]` `[reject]` (intent) Shipped classes change (`nanoTime`/`frameDone`, detector fields, VM engine swap, `actionsEnabled`) — carried: same as the first pass's shipped-neutral-code row.
+  - `[false]` `[reject]` (intent) `ContinuousSessionReplayTest` gates `check` — carried: same as the first pass's stricter-readings row.
+  - `[false]` `[reject]` (intent) The no-capture baseline run is beyond the listed controls — PO answers 8 and 14 settle it.
+  - `[false]` `[reject]` (intent) Observations and snapshots are staged by reference, not copied — they are immutable objects the pipeline already allocated; the intent's rule is no per-frame allocation beyond the preallocated pool, and the model input is copied into the slot's buffer.
+  - `[medium]` `[patch]` (verification-gap) The baseline run's camera rebinding (`onEngineSwapped` → `bindContinuous`) is never observed — pre-verified; fixed: `FakeFrames.continuousMode` records the bound engine and the baseline route test asserts the fresh engine after the start and the kept one after the end (deleting the rebinding now fails it).
+  - `[medium]` `[patch]` (verification-gap) The detector-unavailable hook is not tested through the activity — pre-verified; fixed: route test `aDetectorFailureDuringTheBaselineRunBringsTheKeptEngineAndMapBackBehindTheCard` (kept engine and kept map are back behind the card; removing the hook fails it).
+  - `[medium]` `[patch]` (verification-gap) Reset / Scan face by face / Review and Correct hooks untested at the activity — pre-verified; fixed: route tests `resetWhileRecordingStopsAndTheMapIsClearedOnlyAfterDiscard` and `scanFaceByFaceWhileRecordingStopsItAndBackReturnsToTheSheet` (reverting either lambda fails them).
+  - `[medium]` `[patch]` (verification-gap) Nothing checks that a rotation leaves a recording running — pre-verified; fixed: route test `aRotationKeepsARecordingRunning` (dropping `!isChangingConfigurations` fails it).
+  - `[medium]` `[patch]` (verification-gap, other) A twist or completion during the baseline run latches `analysisHeld`, so the rest of the 30 s is not timed — confirmed at `GuidedScanActivity.kt` analyze() (Reset is locked, `onCompleted()` swallows the completion); fixed: no analysis hold while `session.locksActions`; route test `aTwistOrACompletionDuringTheBaselineRunNeverHoldsItsAnalysis`.
+  - `[medium]` `[patch]` (blind) Baseline run stops collecting frames after a twist or completion and still stores a value — same root as the row above; fixed there.
+  - `[medium]` `[patch]` (blind) The route test cannot detect a missing camera rebind — same as the verification-gap rebinding row; fixed there.
+  - `[low]` `[patch]` (blind) `onLeaving(CLOSE)` drops a saved completed scan's held hand-off before "Discard this scan?" is answered; Cancel then opens Scan Review behind the notice — confirmed (`onLeaving` cleared `handOffHeld` for every kind; the completion `LaunchedEffect` re-runs on `confirmDiscard`); fixed: Close/Back keeps the hold (a screen that really closes releases it); controller test and route test `aCancelledDiscardOnASavedCompletedScansNoticeKeepsScanReviewWaiting`.
+  - `[medium]` `[patch]` (blind) Reset on a saved completed scan's notice clears the map but keeps the hand-off held, freezing the live scan with Rec hidden — confirmed (`onReset` returned false without touching `handOffHeld`, `sync()` kept `holdsAnalysis`); fixed: Reset in Idle drops the held hand-off; controller test and route test `resetOnASavedCompletedScansNoticeLetsTheLiveScanRunAgain`.
+  - `[low]` `[reject]` (blind) `Starting` is not handled by `onReset`/`onLeaving`/`onBackground` (a Reset after `startCapture` detaches the tap) — the window is the analyzer hop between `startCapture` and `record(tap)` (about one frame); a Reset before `startCapture` makes it refuse and log; the fix adds a branch; the release/background parts are carried from the first pass.
+  - `[low]` `[reject]` (blind) The session has no foreground notion: an adb `start`/`baseline` while backgrounded, or backgrounding during the baseline start — operator-driven adb on a debug tool, or a one-hop window; the fix needs a new lifecycle member on the host port.
+  - `[low]` `[reject]` (blind) Port drift: `holdsHandOff` unread by the host, ignored Boolean results, `closeOrConfirm`'s early return never taken — no caller diverges (the host reads `onCompleted()`'s result instead); trimming changes the shipped port and its tests.
+  - `[false]` `[reject]` (blind) `export()` can return true and never deliver, leaving Save stuck — during Save the modal sheet holds analysis and covers Reset, adb commands are ignored in `Busy`, and rotation/background change neither `revision` nor `phase`, so nothing can drop the delivery.
+  - `[low]` `[reject]` (blind) The stopped writer stays attached to the engine after Save or Discard — carried: same as the first pass's tap-left-attached row.
+  - `[false]` `[reject]` (blind) `startBaseline`/`endBaseline` have no rollback when `started()` is refused — between `runBaseline` and `started()` only `release()` can move the phase (analysis is held in `Busy`, `onBackground` returns false there), and `release()` runs as the view model is cleared.
+  - `[medium]` `[patch]` (blind) The host's activity-level paths are untested — same root as the verification-gap wiring rows; fixed by the seven new route tests; the Discard and Label branches of a held completion and `release()` stay covered by controller tests.
+  - `[low]` `[reject]` (blind) Rec stays available during the 1 s completion countdown — Rec landing first clears the map (answer 3) and cancels the countdown; the countdown landing first makes the start refuse and log; both outcomes are coherent, and the fix adds host surface.
+  - `[medium]` `[patch]` (edge) Baseline engine's completion or twist latches `analysisHeld` — same root as the verification-gap other row; fixed there.
+  - `[medium]` `[patch]` (edge) Reset in Idle with a held hand-off freezes the live scan — same as the blind Reset row; fixed there.
+  - `[low]` `[reject]` (edge) A deadline appearing while `Stopped`/`Busy`/`Starting` (a completing frame in flight at Stop) is not held — needs the completing frame posted in the same frame as the Stop tap; holding in `Starting` would freeze the new recording, so the fix needs per-phase branches.
+  - `[low]` `[reject]` (edge) Release or background after `startCapture` accepted but before `started()` leaks the capture or records in the background — carried: same as the first pass's two `Starting`-window rows.
+  - `[low]` `[reject]` (edge) Reset in `Starting` after `record(tap)` was queued detaches the tap — same as the blind `Starting` row; rejected for the same reason.
+  - `[low]` `[reject]` (edge) Backgrounded during `Busy("Starting the baseline run…")` starts the run in the background — a one-analyzer-hop window; same reason as the blind foreground row.
+  - `[false]` `[reject]` (edge) `factory.create()` or `record(tap)` throwing in `startBaseline` crashes the scope — `create()` only constructs `PipelineEngine(ContinuousScanPipeline(detector))` and `record` resets it; detector failures latch `detectorUnavailable` and never throw; `onCreate` calls the same `create()` unguarded.
+  - `[medium]` `[patch]` (edge, claim) A stored baseline may come from a few seconds of frames — same root as the baseline latch row; fixed there.
+  - `[low]` `[reject]` (edge, claim) `release()` in `Starting` leaves a `.tmp-*` folder — carried: same as the first pass's `Starting`-window leak row (the per-process sweep removes it).
+  - `[low]` `[reject]` (edge, claim) A backgrounded baseline run may store a value — same as the background-during-baseline-start row.
+
 ## Design Notes
 
 - **Tap seam.** `ContinuousScanEngine` gains `record(tap: ContinuousFrameTap?)`. It defaults to `reset()`. `PipelineEngine` overrides it to set the tap, zero the frame index and reset the pipeline. The factory stays a `fun interface` with `create()`; the PR's `create(tap)` is not taken. It gains a defaulted `modelIdentity`. This keeps the SAM fake in `ContinuousQuickScanRouteTest.kt:130` compiling.
@@ -344,3 +383,30 @@ Key ones: `app/src/camera/kotlin/dev/cubentia/app/camera/QuickScanSessionPort.kt
 - JUnit XML checked: every named test suite ran with 0 skipped and 0 failures.
 
 **Residual risks:** the human device gate (Lenovo TB128XU session, latency with and without capture, one complete and one incomplete example) is still to run; the "no allocation on the analyzer thread" claim is proven by slot counting, not by an allocation profiler; the review diff left out generated golden data (`Fixtures/continuous/*/{frames,snapshots}.jsonl`, `labels.json`).
+
+### Follow-up review pass (2026-11-26)
+
+**Focus:** the Quick Scan screen's debug session wiring in `GuidedScanActivity` / `GuidedScanViewModel`, which the first pass covered only with route tests written in its fix round. Four review layers ran (blind, edge case, verification gap, intent alignment); all ran as Claude subagents because the Codex scope-guard marker was absent.
+
+**Fixes applied (3 medium entries, 1 low entry):**
+- `app/src/camera/kotlin/dev/cubentia/app/camera/GuidedScanActivity.kt` — `analyze()` no longer latches `analysisHeld` on a twist or a completion while the session's baseline run locks the actions, so the run times its whole 30 s (before, a twist or a completed baseline scan stopped the timing and a few-frame p50 could be stored).
+- `app/src/camera/debug/kotlin/dev/cubentia/app/camera/session/QuickScanSessionController.kt` — `onReset()` in Idle drops a saved completed scan's held hand-off (before, Reset cleared the map but the hold froze the live scan and hid Rec until Dismiss); `onLeaving(CLOSE)` keeps the held hand-off, so a cancelled "Discard this scan?" returns to the notice and Scan Review still waits (answer 13).
+- `app/src/testDebug/kotlin/dev/cubentia/app/ContinuousQuickScanRouteTest.kt` — `FakeFrames` now records the engine the activity binds; the baseline test asserts the camera is rebound to the fresh engine and back. New route tests: twist/completion during the baseline run, detector failure during the baseline run, Reset while recording, Scan face by face while recording, rotation during a recording, Reset on a saved completed scan's notice, cancelled Close on that notice.
+- `app/src/testDebug/kotlin/dev/cubentia/app/camera/session/QuickScanSessionControllerTest.kt` — controller tests for the two hand-off fixes.
+
+Each new test was mutation-checked: removing the camera rebinding, the baseline no-hold rule, the `!isChangingConfigurations` guard, the Reset/Scan face by face/detector-unavailable hooks, or either controller fix makes at least one of them fail.
+
+**Deferred:** none. **Rejected:** 22 rows (10 false, 12 low), each with its reason in the follow-up Review Triage Log entry; 6 were carried from the first pass.
+
+**Follow-up review recommendation:** false. This was a follow-up pass and it patched no `high` entry (patched by verdict: medium 3 entries, low 1 entry).
+
+**Verification (after patches, 2026-11-26):**
+- `./gradlew spotlessApply`, then `./gradlew spotlessCheck build` — BUILD SUCCESSFUL (2 m 37 s).
+- `./gradlew -p build-logic test` — BUILD SUCCESSFUL.
+- `./gradlew -Pcubentia.cornerR8=true :app:checkCornerR8FixtureWriter` and `./gradlew -Pcubentia.release011=true :app:checkRelease011FixtureWriter` — BUILD SUCCESSFUL.
+- `./gradlew :core:domain:replayContinuousSession` — both synthetic sessions, 0 snapshot/cue diffs.
+- `./gradlew :app:compileDebugAndroidTestKotlin` — BUILD SUCCESSFUL.
+- `git diff --stat 79704f22fb32137afd007a308aa11f06cde3a485 -- app/src/main core/domain/src/main/resources/content/strings/en.json` — empty.
+- JUnit XML: `ContinuousQuickScanRouteTest` 58 tests, `QuickScanSessionControllerTest` 39 tests, 0 failures and 0 skipped in both.
+
+**Residual risks:** unchanged from the first pass. The Lenovo TB128XU device gate is still to run. The `Starting` and one-analyzer-hop races were rejected as low, and adb commands sent while the app is in the background are not refused. The route tests still feed already-processed frames through a fake engine; real frames through the real pipeline are covered by `QuickScanRecGeometryTest`, not by an activity-level test.

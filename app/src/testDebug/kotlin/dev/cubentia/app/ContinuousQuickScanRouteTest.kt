@@ -1584,6 +1584,8 @@ class ContinuousQuickScanRouteTest {
             awaitSession(model) { session(model).phase is SessionPhase.Baseline }
             assertEquals(created + 1, enginesCreated)
             assertTrue(model.engine !== pending)
+            // The camera is rebound to the fresh engine, so the baseline tap sees the real frames.
+            assertTrue(camera.engine === model.engine)
             rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 0/6")
             rule.onNodeWithTag("quickScan:reset").assertIsNotEnabled()
             show(listOf(Face.U))
@@ -1598,8 +1600,140 @@ class ContinuousQuickScanRouteTest {
             rule.runOnIdle { session(model).tick() }
             awaitSession(model) { session(model).phase is SessionPhase.Stopped }
             assertTrue(model.engine === pending)
+            assertTrue(camera.engine === pending)
             rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 2/6")
             rule.onNodeWithText("Baseline p50 20.0 ms").assertExists()
+        }
+    }
+
+    /** Rec, two sides, Stop, then Run baseline: the baseline run is live with a fresh engine; the kept engine and map. */
+    private fun startBaselineRun(model: GuidedScanViewModel): Pair<ContinuousScanEngine?, Any> {
+        rec(model)
+        show(listOf(Face.U, Face.R))
+        rule.onNodeWithTag("quickScan:rec").performClick()
+        awaitSession(model) { session(model).phase is SessionPhase.Stopped }
+        val pending = model.engine
+        val kept = model.continuous
+        rule.onNodeWithText("Run baseline (30 s)").performScrollTo().performClick()
+        awaitSession(model) { session(model).phase is SessionPhase.Baseline }
+        return pending to kept
+    }
+
+    @Test fun aTwistOrACompletionDuringTheBaselineRunNeverHoldsItsAnalysis() {
+        quickScanActivity { _, model ->
+            startBaselineRun(model)
+            show(Face.entries, ContinuousScanCue.AllVerified)
+            assertTrue(!model.analysisHeld)
+            assertTrue(camera.analyzing())
+            show(listOf(Face.U, Face.F, Face.R), ContinuousScanCue.LayerTwistDetected)
+            assertTrue(!model.analysisHeld)
+            assertTrue(camera.analyzing())
+            advanceHold(model)
+            assertTrue(session(model).phase is SessionPhase.Baseline)
+            assertEquals(GuidedScanPhase.Continuous, model.phase)
+        }
+    }
+
+    @Test fun aDetectorFailureDuringTheBaselineRunBringsTheKeptEngineAndMapBackBehindTheCard() {
+        quickScanActivity { _, model ->
+            val (pending, kept) = startBaselineRun(model)
+            assertTrue(model.continuous !== kept)
+            show(listOf(Face.U))
+            feedUnavailable()
+            settle(model)
+            waitForUnavailableCard()
+            assertTrue(model.engine === pending)
+            assertTrue(model.continuous === kept)
+            assertEquals(SessionPhase.Idle, session(model).phase)
+        }
+    }
+
+    @Test fun resetWhileRecordingStopsAndTheMapIsClearedOnlyAfterDiscard() {
+        quickScanActivity { _, model ->
+            rec(model)
+            show(listOf(Face.U, Face.R))
+            rule.onNodeWithTag("quickScan:reset").performClick()
+            awaitSession(model) { session(model).phase is SessionPhase.Stopped }
+            assertEquals(
+                dev.cubentia.domain.recognition.continuous.session.SessionStopReason.RESET,
+                (session(model).phase as SessionPhase.Stopped).reason,
+            )
+            rule.onNodeWithTag("quickScan:sessionSheet").assertExists()
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 2/6")
+            rule.onNodeWithTag("session:discard").performScrollTo().performClick()
+            rule.onNodeWithTag("session:discard:confirm").performClick()
+            awaitSession(model) { session(model).phase == SessionPhase.Idle }
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 0/6")
+        }
+    }
+
+    @Test fun scanFaceByFaceWhileRecordingStopsItAndBackReturnsToTheSheet() {
+        quickScanActivity { scan, model ->
+            rec(model)
+            show(listOf(Face.U), anchored = false)
+            rule.onNodeWithTag("quickScan:faceByFace").performClick()
+            settle(model)
+            assertTrue(session(model).phase is SessionPhase.Stopped)
+            rule.onNodeWithTag("scanProgress").assertExists()
+            rule.onNodeWithTag("quickScan:sessionSheet").assertDoesNotExist()
+            scan.get().onBackPressedDispatcher.onBackPressed()
+            settle(model)
+            waitForCamera(continuous = true)
+            rule.onNodeWithTag("quickScan:sessionSheet").assertExists()
+        }
+    }
+
+    @Test fun aRotationKeepsARecordingRunning() {
+        quickScanActivity { scan, model ->
+            rec(model)
+            show(listOf(Face.U))
+            val engine = model.engine
+            scan.recreate()
+            waitForCamera(continuous = true)
+            settle(model)
+            assertTrue(ViewModelProvider(scan.get())[GuidedScanViewModel::class.java] === model)
+            assertTrue(session(model).phase is SessionPhase.Recording)
+            assertTrue(camera.engine === engine)
+            rule.onNodeWithTag("quickScan:recIndicator").assertExists()
+        }
+    }
+
+    @Test fun resetOnASavedCompletedScansNoticeLetsTheLiveScanRunAgain() {
+        quickScanActivity { _, model ->
+            rec(model)
+            show(Face.entries, ContinuousScanCue.AllVerified)
+            advanceHold(model)
+            awaitSession(model) { session(model).phase is SessionPhase.Stopped }
+            rule.onNodeWithTag("session:save").performScrollTo().performClick()
+            awaitSession(model) { session(model).notice != null }
+            rule.onNodeWithTag("quickScan:reset").performClick()
+            settle(model)
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 0/6")
+            assertTrue(camera.analyzing())
+            show(listOf(Face.U))
+            rule.onNodeWithTag("quickScan:count").assertTextEquals("Sides mapped: 1/6")
+            rule.onNodeWithTag("quickScan:rec").assertTextEquals("Rec")
+        }
+    }
+
+    @Test fun aCancelledDiscardOnASavedCompletedScansNoticeKeepsScanReviewWaiting() {
+        quickScanActivity { scan, model ->
+            rec(model)
+            show(Face.entries, ContinuousScanCue.AllVerified)
+            advanceHold(model)
+            awaitSession(model) { session(model).phase is SessionPhase.Stopped }
+            rule.onNodeWithTag("session:save").performScrollTo().performClick()
+            awaitSession(model) { session(model).notice != null }
+            scan.get().onBackPressedDispatcher.onBackPressed()
+            settle(model)
+            rule.onNodeWithTag("scan:discard:cancel").performClick()
+            advanceHold(model)
+            // Answer 13: Scan Review still waits for the notice.
+            rule.onNodeWithTag("review:retakeFaces").assertDoesNotExist()
+            assertEquals(GuidedScanPhase.Continuous, model.phase)
+            rule.onNodeWithTag("session:dismiss").performClick()
+            advanceHold(model)
+            rule.onNodeWithTag("review:retakeFaces").assertExists()
         }
     }
 
@@ -1703,11 +1837,15 @@ class ContinuousQuickScanRouteTest {
         /** The activity's own rule for whether a continuous frame is analysed now. */
         @Volatile var analyzing: () -> Boolean = { false }
 
+        /** The engine the activity last bound, which the real camera would feed (Story 10.34: swapped by a baseline run). */
+        @Volatile var engine: ContinuousScanEngine? = null
+
         override fun continuousMode(
             engine: ContinuousScanEngine?,
             analyzing: () -> Boolean,
         ) {
             continuous = engine != null
+            this.engine = engine
             this.analyzing = analyzing
         }
 

@@ -494,6 +494,38 @@ class QuickScanSessionControllerTest {
         assertFalse(controller().onReset())
     }
 
+    @Test
+    fun `Reset on a saved completed scan's notice drops the held hand-off, so the live scan runs again`() {
+        val c = recording()
+        frames(3)
+        host.export = complete
+        c.onCompleted()
+        c.save()
+        assertTrue(c.holdsHandOff)
+        assertFalse(c.onReset(), "the screen clears its map")
+        assertFalse(c.holdsHandOff)
+        assertFalse(c.holdsAnalysis)
+        assertTrue(c.recAvailable)
+        assertNotNull(c.notice)
+        c.dismissNotice()
+        assertFalse("releaseHandOff" in host.calls, "the cleared scan hands nothing off")
+    }
+
+    @Test
+    fun `Close on a saved completed scan's notice keeps the hand-off held, so a cancelled discard returns to the notice`() {
+        val c = recording()
+        frames(3)
+        host.export = complete
+        c.onCompleted()
+        c.save()
+        assertFalse(c.onLeaving(QuickScanLeave.CLOSE))
+        assertTrue(c.holdsHandOff)
+        assertTrue(c.onCompleted(), "the completion hold asks again after the cancelled discard")
+        // A leave that really goes elsewhere drops it.
+        assertFalse(c.onLeaving(QuickScanLeave.FACE_BY_FACE))
+        assertFalse(c.holdsHandOff)
+    }
+
     // ---- Leaving (answer 6, W7) ----
 
     private fun leaving(kind: QuickScanLeave) {

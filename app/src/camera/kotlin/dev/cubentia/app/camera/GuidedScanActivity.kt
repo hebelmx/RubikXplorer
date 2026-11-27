@@ -670,7 +670,9 @@ class GuidedScanActivity : ComponentActivity() {
                 }
                 return
             }
-            scan.analysisHeld = continuous.snapshot.twistDetected || continuous.snapshot is ContinuousScanSnapshot.Complete
+            // Story 10.34: the baseline run times its whole 30 s, so neither a twist nor a completion holds its analysis.
+            scan.analysisHeld = scan.session?.locksActions != true &&
+                (continuous.snapshot.twistDetected || continuous.snapshot is ContinuousScanSnapshot.Complete)
             val flash = frameSource.hasFlashUnit()
             ContextCompat.getMainExecutor(this).execute {
                 if (phase == GuidedScanPhase.Continuous && scan.revision == revision && !isFinishing) {
