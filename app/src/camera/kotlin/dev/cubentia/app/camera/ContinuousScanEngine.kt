@@ -62,10 +62,10 @@ internal interface ContinuousScanEngine {
 /**
  * Neutral per-frame tap of the continuous pipeline (Story 10.34, AD-9 Frames), called on the analyzer thread. For a read
  * frame the pipeline asks [modelInputBuffer] after the mapper, fills the buffer it gets with the detector's model input,
- * then calls [onFrame]; a frame it does not read (an invalid crop, the detector unavailable, a frame it cannot sample,
- * GH #397) leaves the mapper untouched and calls [onSkippedFrame] instead. [frameDone] then ends the frame. Shipped code
- * only invokes it; the only implementations are the debug Quick Scan session recording's, reached through an optional
- * binding. The Solve-tab scan passes none.
+ * then calls [onFrame]; a frame it does not read (an invalid crop, the detector unavailable, a frame the detector could
+ * not read (GH #403), or a frame it cannot sample (GH #397)) leaves the mapper untouched and calls [onSkippedFrame]
+ * instead. [frameDone] then ends the frame. Shipped code only invokes it; the only implementations are the debug Quick
+ * Scan session recording's, reached through an optional binding. The Solve-tab scan passes none.
  */
 internal interface ContinuousFrameTap {
     /**
