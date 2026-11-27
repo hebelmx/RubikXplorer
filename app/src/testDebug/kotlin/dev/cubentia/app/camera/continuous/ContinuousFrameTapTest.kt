@@ -8,6 +8,7 @@ import dev.cubentia.app.camera.YuvPlane
 import dev.cubentia.domain.recognition.continuous.ContinuousScanSnapshot
 import dev.cubentia.domain.recognition.continuous.QuadObservation
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -139,6 +140,18 @@ class ContinuousFrameTapTest {
         untapped.processFrame(frame(), 0, 0, 0)
         untapped.frameDone(1, 1, 0, 64, 48, 0, 0, 64, 48)
         assertEquals(listOf("frame 0"), tap.events)
+    }
+
+    @Test
+    fun `the debug engine reports its per-stage timings over the frames it analysed`() {
+        // GH #406: the module's engine takes the debug build's accumulator (forBuild) and delegates its run line.
+        val engine = ContinuousScanEngineModule.factory(detector(copies = false)).create()
+        engine.analyzerStart()
+        engine.processFrame(frame(), 0, 0, 0)
+        engine.analyzerEnd()
+        val line = engine.timingRunLine()
+        assertNotNull(line)
+        assertTrue(line!!.startsWith("frames=1 "), line)
     }
 
     @Test

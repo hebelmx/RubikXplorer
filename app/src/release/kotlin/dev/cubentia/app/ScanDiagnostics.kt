@@ -16,6 +16,13 @@ import dev.cubentia.domain.tutor.PlacementOutcome
 /** release and benchmark builds: no scan diagnostics are computed or logged. */
 @Suppress("UNUSED_PARAMETER")
 object ScanDiagnostics {
+    /** GH #406: release creates no continuous stage-timing accumulator. */
+    const val QUICK_SCAN_TIMINGS = false
+
+    fun onQuickScanTimingWindow(body: String) = Unit
+
+    fun onQuickScanTimingRun(body: String?) = Unit
+
     fun onQuickScanFrameFailed(failedFrames: Int) = Unit
 
     fun onTorch(

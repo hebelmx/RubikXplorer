@@ -162,6 +162,7 @@ development_status:
   10-34-record-and-replay-a-continuous-quick-scan-session-in-the-dev: done
   10-35-retire-the-quick-scan-only-two-corner-recorder-paths: done
   10-36-record-new-scrambles-on-the-continuous-recorder-analyse-them: backlog
+  10-37-continuous-quick-scan-detection-lattice-fitting-and-tracki: ready-for-dev
   10-22-quick-scan-captures-promptly-once-the-cube-is-in-view: done
   10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads: done
   epic-10-retrospective: optional
@@ -3324,3 +3325,21 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-411-mapper-parity-golden-replay.md"
+  - id: "issue-406-deferred-timing-line-regex-copied"
+    epic: 10
+    action: "The debug timing line format and the evaluateQuickScan parser are linked only by a regex copied into ScanDiagnosticsTimingLineTest, so a format change can pass the test while the parser breaks; share one pattern or feed a real line to the parser (low; deferred from #406, app/src/testDebug/kotlin/dev/cubentia/app/ScanDiagnosticsTimingLineTest.kt)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-406-quick-scan-per-stage-timings.md"
+  - id: "issue-406-deferred-device-timing-readings"
+    epic: 10
+    action: "Device check owed: run a continuous Quick Scan on a debug build on the Lenovo TB128XU and the Galaxy S24 FE, read the periodic and end-of-run quickScan timing lines (adb logcat -s CubentiaScanDiag) and record per-stage p50/p90/max and frame rate in the Story 10.33 matrix; GitHub issue #406 stays open until recorded (low; deferred from #406)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-406-quick-scan-per-stage-timings.md"
+  - id: "issue-406-deferred-fps-reads-low-across-pause"
+    epic: 10
+    action: "The reported analysed frame rate reads low when the timing span includes an analysis pause; account for pauses if Story 10.33 readings look low (low; deferred from #406)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-406-quick-scan-per-stage-timings.md"
