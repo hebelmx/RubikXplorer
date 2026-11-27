@@ -5,7 +5,7 @@ created: '2026-11-27'
 status: 'done'
 baseline_revision: '5fbb6fb2573ad7ed289bef8530b9a82cbfb5bedb'
 review_loop_iteration: 0
-followup_review_recommended: true
+followup_review_recommended: false
 context: []
 warnings: [oversized]
 deferred: []
@@ -98,6 +98,38 @@ deferred: []
   - `[low]` `[reject]` (blind) Thresholds repeated per slot entry — cosmetic length; keeps each entry self-describing like onFrame's fields.
   - `[low]` `[patch]` (blind) assertOnlyUnread counted centre blanks — fixed: cellIndex 4 excluded.
 
+### 2026-11-27 — Review pass (follow-up)
+- verdicts: 28 findings — high 0, medium 0, low 17, false 11, maybe-false 0
+- findings:
+  - `[low]` `[reject]` (intent) The engine-to-logcat path the intent's device expectation lives at is never exercised by a test — carried: same as the first pass's wiring rows (debug-only; formatting and gating pinned by ScanDiagnosticsUnreadLineTest; device session exercises it).
+  - `[low]` `[patch]` (intent) Not-anchored row's protos < 6 case argued at the log gate, not the mapper — carried: first pass added the twist test; `unreadValid` is set only after `protos.size == 6` and every early return leaves it false; not patched again.
+  - `[false]` `[reject]` (intent) NotObserved widened to contradictory strongest readings — the matrix defines NotObserved as "no robust reading", and `faceRobustLab` returning null for contradictory readings is exactly that.
+  - `[false]` `[reject]` (intent) Reopened checked before the colour check could list a coloured slot — the local-invariant loop clears a slot before adding it to `conflicted`, so a conflicted slot is always blank.
+  - `[low]` `[reject]` (intent) Rate-limit/dedupe timing checked only with fixed clock values — named residual risk for the device session; a real-thread timing test needs new scaffolding for a debug-only line.
+  - `[false]` `[reject]` (intent) Read-only guarantee tested in one scenario only — the new solve arms write only the unread arrays (newNet/newSupport untouched by inspection), and S1-S7, hand-off and replay pass unmodified with 0 snapshot/cue diffs (re-run this pass).
+  - `[low]` `[reject]` (intent) Release no-op checked only by compiling — carried: a `= Unit` body cannot invoke the supplier; compiles in the release build.
+  - `[false]` `[reject]` (intent) `frame=<n>` may conflict with AD-13 — the spec's own line format prescribes `frame=<n>`; AD-13 forbids image data, not frame indices.
+  - `[false]` `[reject]` (intent) Spec doc under implementation-artifacts may breach "no planning-artifact edits" — the boundary covers planning artifacts only; build specs live in implementation-artifacts.
+  - `[low]` `[reject]` (blind) NotObserved lumps never-seen and contradictory readings — the intent matrix defines the kind as "no robust reading"; a separate Contradictory kind is new public surface beyond the intent.
+  - `[low]` `[reject]` (blind) Contradiction threshold 18.0 stays a literal and the KDoc repeats it — the diagnostics line never reports that threshold, so the no-duplicated-literals rule does not cover it; hoisting it edits pre-existing robust-Lab code.
+  - `[false]` `[reject]` (blind) Reopened carries no numbers — the intent matrix defines `UnreadSlot.Reopened(slot)` without numbers.
+  - `[low]` `[reject]` (blind) Hitting the 12-pass reopening cap is not reported — the snapshot already carries `invariantViolationCount`; a new flag is surface outside the matrix.
+  - `[low]` `[reject]` (blind) Rounding can print a failing value as its threshold (e.g. m8.0/min8) — only within 0.05 of a threshold, the kind still says the slot failed, and a real fix needs an extra fail-marker branch.
+  - `[false]` `[reject]` (blind) The line fires at six mapped faces, not on a true stall — the intent's Debug log row defines the gate as an anchored snapshot with 6 mapped faces and unread slots.
+  - `[low]` `[reject]` (blind) Unchanged stall logged once; dedupe never cleared on reset/new scan — carried: first pass's heartbeat and dedupe-reset rows.
+  - `[low]` `[reject]` (blind) Spec matrix rows not updated after the first-pass patches — fix is to edit this build's spec.
+  - `[false]` `[reject]` (blind) Spec status fields disagree — `in-review` is this follow-up pass's own state; `review_loop_iteration` counts bad_spec loopbacks, of which there were none.
+  - `[false]` `[reject]` (blind) Bit-identical guarantee tested only in the per-cell branch — same refutation as the intent read-only row: the balanced/per-cell else arms write only unread arrays; replay 0 diffs.
+  - `[false]` `[reject]` (blind) `else -> Unit` silently drops a blank slot recorded READ — carried: a READ slot is written to the net and only the reopening loop blanks it, listing it as Reopened.
+  - `[low]` `[reject]` (blind) Six-face gate written twice; release reads the clock and allocates a lambda — carried for the gate; the release cost is one clock read per anchored six-face frame, negligible.
+  - `[low]` `[reject]` (blind) `rotateSlot` now runs for not-ready cells — a pure index mapping, at most 48 calls per solve; no observable cost against the #402 bound.
+  - `[low]` `[patch]` (gap) NotReady/BelowMargin numbers pinned only by either-or assertions, so a zeroed record still passes — fixed: tests now also assert `count >= 1 && qualitySum > 0` and `bestD > 0 && margin > 0`; UnreadSlotDiagnosticsTest 9/9 pass.
+  - `[low]` `[reject]` (gap) PipelineEngine's call to onQuickScanUnread never runs in a test — carried: first pass's wiring row.
+  - `[low]` `[reject]` (edge) Dedupe body not cleared when unread empties or a new scan starts — carried: first pass's dedupe-reset row; empty-unread with six faces means Complete, which closes the gate.
+  - `[low]` `[reject]` (edge) Rounding onto the threshold hides which check failed — same as the blind rounding row.
+  - `[false]` `[reject]` (edge) Anchored six-face scan with protos < 6 logs nothing — carried: confirmedFaces and centreLabs use the same robust centre with qualitySum >= 0.40, so six mapped faces imply six prototypes.
+  - `[low]` `[reject]` (edge) 1000 ms gate restarts on suppressed repeats, unlike "within 1000 ms of the last logged one" — deliberate first-pass medium patch; a changed body still logs at the next check, at most 1000 ms after the change, and restoring the wording brings back per-frame supplier work.
+
 ## Design Notes
 
 Record into preallocated per-slot primitive arrays (54 entries: kind code, qualitySum, count, bestD, margin/chosenD) filled inside the existing loops so the per-frame cost bound from #402 holds; `unreadSlots()` builds objects only when called (debug only). A slot is `Reopened` when it is in `conflictedSlots` after the solve; otherwise its recorded kind decides. The 6-face gate matches the reported stall ("6/6 sides, 6-8 unread") and keeps early-scan noise out of the log.
@@ -122,13 +154,17 @@ Status: done
 - `app/src/camera/continuous/kotlin/dev/cubentia/app/camera/continuous/ContinuousScanEngineModule.kt` -- calls the hook for anchored six-face frames.
 - `app/src/debug/kotlin/dev/cubentia/app/ScanDiagnostics.kt` -- `onQuickScanUnread` line, gating, rate limit and dedupe.
 - `app/src/release/kotlin/dev/cubentia/app/ScanDiagnostics.kt` -- no-op twin.
-- `core/domain/src/test/kotlin/dev/cubentia/domain/recognition/continuous/UnreadSlotDiagnosticsTest.kt` -- 9 JVM tests over the classification matrix.
+- `core/domain/src/test/kotlin/dev/cubentia/domain/recognition/continuous/UnreadSlotDiagnosticsTest.kt` -- 9 JVM tests over the classification matrix (follow-up: NotReady/BelowMargin also assert non-zero recorded numbers).
 - `app/src/testDebug/kotlin/dev/cubentia/app/ScanDiagnosticsUnreadLineTest.kt` -- 5 Robolectric tests for the log line.
 
 **Review findings:** 21 findings; 5 patched (2 medium, 3 low: gate advance on repeats, NotObserved KDoc, twist test, centre-excluding assertion; one low shared the gate root cause), 0 deferred, 16 rejected with reasons in the Review Triage Log.
 
 **Follow-up review recommendation:** true (patched by verdict: high 0, medium 2, low 3). Two medium patches were applied on this first pass; the named unverified risk is the debug rate-limit/dedupe timing of the `quickScan unread` line on a real analyzer thread, which only unit tests (fixed clock values) have checked.
 
+**Follow-up review pass (2026-11-27):** 28 findings (high 0, medium 0, low 17, false 11). 1 patched (low: the NotReady and BelowMargin tests now assert the recorded numbers are non-zero, so a dropped or zeroed record fails), 0 deferred, 27 rejected with reasons in the Review Triage Log (9 carried from the first pass). Follow-up review recommendation: false (follow-up pass patched no high; patched by verdict: high 0, medium 0, low 1).
+
 **Verification:** `./gradlew spotlessCheck build` BUILD SUCCESSFUL (after patches); `./gradlew :core:domain:replayContinuousSession` 0 snapshot/cue diffs on synthetic-complete-v1 and synthetic-partial-v1; `git status --porcelain Fixtures` empty; S1-S7 stress, hand-off and replay tests pass unmodified.
+
+**Follow-up verification:** `./gradlew :core:domain:test --tests '*UnreadSlotDiagnosticsTest'` 9/9 pass; `./gradlew spotlessCheck build` BUILD SUCCESSFUL; `./gradlew :core:domain:replayContinuousSession` 0 snapshot/cue diffs on both sessions; `git status --porcelain Fixtures` empty.
 
 **Residual risks:** the engine-to-log wiring is not covered by an automated test (debug only); the logcat line still needs a debug-build device session to confirm the #391 stall cause. Synthetic test colours for BelowMargin/AboveDistance were tuned against the current colour model and may need retuning if Story 10.36 changes it.

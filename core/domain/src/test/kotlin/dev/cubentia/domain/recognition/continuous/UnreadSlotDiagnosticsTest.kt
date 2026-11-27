@@ -91,6 +91,8 @@ class UnreadSlotDiagnosticsTest {
             notReady.qualitySum < UnreadSlot.MIN_READY_QUALITY_SUM || notReady.count < UnreadSlot.MIN_READY_COUNT,
             notReady.toString(),
         )
+        // The recorded numbers are the cell's own robust reading, not the arrays' zero defaults.
+        assertTrue(notReady.count >= 1 && notReady.qualitySum > 0.0, notReady.toString())
     }
 
     @Test
@@ -106,6 +108,8 @@ class UnreadSlotDiagnosticsTest {
         assertInstanceOf(UnreadSlot.NotReady::class.java, unread.single { it.slot == FaceSlot(Face.F, 1) })
         val below = assertInstanceOf(UnreadSlot.BelowMargin::class.java, unread.single { it.slot == FaceSlot(Face.F, 3) })
         assertTrue(below.bestD >= UnreadSlot.MAX_PER_CELL_DISTANCE || below.margin < UnreadSlot.MIN_PER_CELL_MARGIN, below.toString())
+        // The recorded numbers are the solve's own distances, not the arrays' zero defaults.
+        assertTrue(below.bestD > 0.0 && below.margin > 0.0, below.toString())
     }
 
     @Test
