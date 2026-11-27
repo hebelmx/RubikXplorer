@@ -3252,3 +3252,15 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-402-bound-mapper-per-frame-cost.md"
+  - id: "issue-405-deferred-engine-log-wiring-untested"
+    epic: 10
+    action: "The engine-to-logcat wiring (PipelineEngine calling ScanDiagnostics.onQuickScanUnread) has no automated test, so the debug device path is checked only by inspection; add a fake-detector engine test or confirm it in the debug device session (low; deferred from #405, ContinuousScanEngineModule.kt:54)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-405-unread-slot-diagnostics.md"
+  - id: "issue-405-deferred-synthetic-colours-retune"
+    epic: 10
+    action: "The synthetic test colours driving the BelowMargin and AboveDistance cases in UnreadSlotDiagnosticsTest were tuned against the current colour model and may need retuning when Story 10.36 changes the thresholds or assignment (low; deferred from #405, UnreadSlotDiagnosticsTest.kt)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-405-unread-slot-diagnostics.md"
