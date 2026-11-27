@@ -14,6 +14,7 @@ import dev.cubentia.domain.recognition.continuous.ContinuousScanSnapshot
 import dev.cubentia.domain.recognition.continuous.FaceLatticeFitter
 import dev.cubentia.domain.recognition.continuous.FittedFace
 import dev.cubentia.domain.recognition.continuous.Point2D
+import dev.cubentia.domain.recognition.continuous.UnreadSlot
 
 /** Per-frame result of the continuous Quick Scan pipeline (detector -> lattice -> sampler -> mapper). */
 internal data class ContinuousPipelineFrame(
@@ -152,4 +153,7 @@ internal class ContinuousScanPipeline(
     fun exportHandoff(): ContinuousScanHandoff = mapper.exportHandoff()
 
     fun export(): ContinuousScanExport = mapper.export()
+
+    /** GH #405 (debug diagnostics): why each unread non-centre slot is unread after the latest mapped frame. */
+    fun unreadSlots(): List<UnreadSlot> = mapper.unreadSlots()
 }

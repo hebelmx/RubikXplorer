@@ -259,6 +259,14 @@ class ContinuousFaceletMapper {
 
     private val robustRecomputeCounter = RobustRecomputeCounter()
 
+    // GH #405: per-canonical-slot record of the latest colour solve, preallocated (kind code, then qualitySum / bestD /
+    // chosenD, margin and count); read only by [unreadSlots].
+    private var unreadValid = false
+    private val unreadKind = ByteArray(Face.entries.size * 9)
+    private val unreadA = DoubleArray(Face.entries.size * 9)
+    private val unreadB = DoubleArray(Face.entries.size * 9)
+    private val unreadCount = IntArray(Face.entries.size * 9)
+
     /** Test hook: largest per-cell observation list across the live master and pending fragments. */
     internal val maxObsListSize: Int
         get() = max(master?.maxObsListSize() ?: 0, pending?.maxObsListSize() ?: 0)
@@ -280,6 +288,7 @@ class ContinuousFaceletMapper {
 
     /** Reset all session state in place. */
     fun reset() {
+        unreadValid = false
         master = null
         pending = null
         nextFragId = 0
@@ -1024,6 +1033,7 @@ class ContinuousFaceletMapper {
     }
 
     private fun promotePendingToMaster(p: CubeFragment) {
+        unreadValid = false
         master = p
         pending = null
         globalRotIdx = null
@@ -1042,6 +1052,8 @@ class ContinuousFaceletMapper {
     )
 
     private fun solveGlobalColorsAndNet() {
+        // GH #405: every early return below leaves the diagnostics empty; they are valid only once the colour solve runs.
+        unreadValid = false
         val m = master ?: return
         if (twistDetected) return
 
@@ -1151,13 +1163,21 @@ class ContinuousFaceletMapper {
             val protoLabs = protoColors.map { protos.getValue(it).toDomainLab() }
             val whiteProto = protos.getValue(Color.WHITE)
             val readyCells = ArrayList<ReadyCell>(48)
+            unreadKind.fill(UNREAD_NOT_OBSERVED)
+            unreadValid = true
 
             for (mf in m.observedFaces) {
                 for (mi in 0 until 9) {
                     if (mi == 4) continue
                     val r = m.faceRobustLab(mf, mi) ?: continue
-                    if (r.qualitySum < 0.55 || r.count < 2) continue
                     val slot = ContinuousCubeGeometry.rotateSlot(mf, mi, rot)
+                    if (r.qualitySum < UnreadSlot.MIN_READY_QUALITY_SUM || r.count < UnreadSlot.MIN_READY_COUNT) {
+                        val si = slotIndex(slot.face, slot.cellIndex)
+                        unreadKind[si] = UNREAD_NOT_READY
+                        unreadA[si] = r.qualitySum
+                        unreadCount[si] = r.count
+                        continue
+                    }
                     val cellLab = r.lab.toDomainLab()
                     val dists =
                         DoubleArray(6) { k ->
@@ -1189,9 +1209,14 @@ class ContinuousFaceletMapper {
                         if (k != chosen && rc.dists[k] < otherD) otherD = rc.dists[k]
                     }
                     val margin = otherD - chosenD
-                    if (chosenD < 55.0) {
+                    val si = slotIndex(rc.face, rc.cellIndex)
+                    if (chosenD < UnreadSlot.MAX_BALANCED_DISTANCE) {
                         newNet.getValue(rc.face)[rc.cellIndex] = protoColors[chosen]
                         newSupport[FaceSlot(rc.face, rc.cellIndex)] = rc.qualitySum * (1.0 + 0.1 * max(0.0, margin))
+                        unreadKind[si] = UNREAD_READ
+                    } else {
+                        unreadKind[si] = UNREAD_ABOVE_DISTANCE
+                        unreadA[si] = chosenD
                     }
                 }
             } else {
@@ -1210,9 +1235,15 @@ class ContinuousFaceletMapper {
                         }
                     }
                     val margin = secondD - bestD
-                    if (bestD < 36.0 && margin >= 8.0) {
+                    val si = slotIndex(rc.face, rc.cellIndex)
+                    if (bestD < UnreadSlot.MAX_PER_CELL_DISTANCE && margin >= UnreadSlot.MIN_PER_CELL_MARGIN) {
                         newNet.getValue(rc.face)[rc.cellIndex] = protoColors[bestIdx]
                         newSupport[FaceSlot(rc.face, rc.cellIndex)] = rc.qualitySum * (1.0 + 0.1 * margin)
+                        unreadKind[si] = UNREAD_READ
+                    } else {
+                        unreadKind[si] = UNREAD_BELOW_MARGIN
+                        unreadA[si] = bestD
+                        unreadB[si] = margin
                     }
                 }
             }
@@ -1240,6 +1271,38 @@ class ContinuousFaceletMapper {
         net = newNet
         slotSupport = newSupport
         conflictedSlots = conflicted
+    }
+
+    /**
+     * GH #405 (debug diagnostics): why each non-centre canonical slot holds no colour after the latest colour solve,
+     * sorted by slot. Empty while the solve has not run with an anchored global rotation and all six centre prototypes
+     * (or a layer twist is detected). A slot reopened by the local-invariant loop is [UnreadSlot.Reopened]; read slots
+     * and centres are never listed. Builds objects only when called; the solve itself fills primitive arrays.
+     */
+    fun unreadSlots(): List<UnreadSlot> {
+        if (!unreadValid || twistDetected || globalRotIdx == null) return emptyList()
+        val out = ArrayList<UnreadSlot>()
+        for (f in Face.entries) {
+            val cells = net.getValue(f)
+            for (ci in 0 until 9) {
+                if (ci == 4) continue
+                val slot = FaceSlot(f, ci)
+                if (slot in conflictedSlots) {
+                    out.add(UnreadSlot.Reopened(slot))
+                    continue
+                }
+                if (cells[ci] != null) continue
+                val si = slotIndex(f, ci)
+                when (unreadKind[si]) {
+                    UNREAD_NOT_OBSERVED -> out.add(UnreadSlot.NotObserved(slot))
+                    UNREAD_NOT_READY -> out.add(UnreadSlot.NotReady(slot, unreadA[si], unreadCount[si]))
+                    UNREAD_BELOW_MARGIN -> out.add(UnreadSlot.BelowMargin(slot, unreadA[si], unreadB[si]))
+                    UNREAD_ABOVE_DISTANCE -> out.add(UnreadSlot.AboveDistance(slot, unreadA[si]))
+                    else -> Unit
+                }
+            }
+        }
+        return out
     }
 
     private fun computeCue(
@@ -1359,6 +1422,17 @@ class ContinuousFaceletMapper {
     }
 
     private companion object {
+        const val UNREAD_NOT_OBSERVED: Byte = 0
+        const val UNREAD_NOT_READY: Byte = 1
+        const val UNREAD_BELOW_MARGIN: Byte = 2
+        const val UNREAD_ABOVE_DISTANCE: Byte = 3
+        const val UNREAD_READ: Byte = 4
+
+        fun slotIndex(
+            face: Face,
+            cellIndex: Int,
+        ): Int = face.ordinal * 9 + cellIndex
+
         val CORNER_ORDER = intArrayOf(0, 2, 8, 6)
         val OUTER_LINES = listOf(setOf(0, 1, 2), setOf(6, 7, 8), setOf(0, 3, 6), setOf(2, 5, 8))
 

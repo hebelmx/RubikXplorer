@@ -18,6 +18,8 @@ import dev.cubentia.domain.recognition.ScanAssembler
 import dev.cubentia.domain.recognition.ScanReview
 import dev.cubentia.domain.recognition.ScanTrace
 import dev.cubentia.domain.recognition.SelfCalibration
+import dev.cubentia.domain.recognition.continuous.ContinuousScanSnapshot
+import dev.cubentia.domain.recognition.continuous.UnreadSlot
 import dev.cubentia.domain.tutor.Certainty
 import dev.cubentia.domain.tutor.PlacementOutcome
 import java.util.Locale
@@ -283,6 +285,87 @@ object ScanDiagnostics {
             )
         Log.d(TAG, (listOf(describe(inspection)) + lattice).joinToString(","))
     }
+
+    private const val UNREAD_INTERVAL_MS = 1000L
+
+    private val unreadLock = Any()
+
+    private var unreadLastMs = Long.MIN_VALUE / 2
+
+    private var unreadLastBody: String? = null
+
+    /** Test hook: forget the last `quickScan unread` line so each test starts ungated. */
+    internal fun resetQuickScanUnread() =
+        synchronized(unreadLock) {
+            unreadLastMs = Long.MIN_VALUE / 2
+            unreadLastBody = null
+        }
+
+    /**
+     * GH #405: while a continuous Quick Scan is stalled with all six sides mapped (an anchored [ContinuousScanSnapshot.Scanning]
+     * with `mappedFacesCount == 6`), logs one `quickScan unread …` line: per-kind counts of the unread non-centre slots
+     * and, per slot, why it is unread with its numbers against the solve's own thresholds ([UnreadSlot] constants). A
+     * line repeating the last logged one (frame aside) is suppressed, and so is any line within [UNREAD_INTERVAL_MS] of
+     * the last logged or suppressed repeat; [unread] is called at most once per [UNREAD_INTERVAL_MS], never for a frame
+     * the gate rejects. Numbers and fixed words only.
+     */
+    fun onQuickScanUnread(
+        nowMs: Long,
+        snapshot: ContinuousScanSnapshot,
+        unread: () -> List<UnreadSlot>,
+    ) {
+        if (snapshot !is ContinuousScanSnapshot.Scanning || !snapshot.globalAnchored || snapshot.mappedFacesCount != 6) return
+        synchronized(unreadLock) {
+            if (nowMs - unreadLastMs < UNREAD_INTERVAL_MS) return
+            val slots = unread()
+            if (slots.isEmpty()) return
+            val body =
+                listOf(
+                    "committed=${snapshot.committedCount}",
+                    "notObserved=${slots.count { it is UnreadSlot.NotObserved }}",
+                    "notReady=${slots.count { it is UnreadSlot.NotReady }}",
+                    "belowMargin=${slots.count { it is UnreadSlot.BelowMargin }}",
+                    "aboveDistance=${slots.count { it is UnreadSlot.AboveDistance }}",
+                    "reopened=${slots.count { it is UnreadSlot.Reopened }}",
+                    "slots=${slots.joinToString(",", transform = ::describeUnread)}",
+                ).joinToString(" ")
+            unreadLastMs = nowMs
+            if (body == unreadLastBody) return
+            unreadLastBody = body
+            Log.d(TAG, listOf("quickScan", "unread", "frame=${snapshot.frameIndex}", body).joinToString(" "))
+        }
+    }
+
+    private fun describeUnread(u: UnreadSlot): String {
+        val why =
+            when (u) {
+                is UnreadSlot.NotObserved -> {
+                    "notObserved"
+                }
+
+                is UnreadSlot.NotReady -> {
+                    "notReady(q${format(u.qualitySum, 2)}/min${threshold(UnreadSlot.MIN_READY_QUALITY_SUM)}," +
+                        "n${u.count}/min${UnreadSlot.MIN_READY_COUNT})"
+                }
+
+                is UnreadSlot.BelowMargin -> {
+                    "belowMargin(d${format(u.bestD)}/max${threshold(UnreadSlot.MAX_PER_CELL_DISTANCE)}," +
+                        "m${format(u.margin)}/min${threshold(UnreadSlot.MIN_PER_CELL_MARGIN)})"
+                }
+
+                is UnreadSlot.AboveDistance -> {
+                    "aboveDistance(d${format(u.chosenD)}/max${threshold(UnreadSlot.MAX_BALANCED_DISTANCE)})"
+                }
+
+                is UnreadSlot.Reopened -> {
+                    "reopened"
+                }
+            }
+        return "${u.slot.face}${u.slot.cellIndex}:$why"
+    }
+
+    /** A threshold as written in the solve: `36` for 36.0, `0.55` for 0.55. */
+    private fun threshold(value: Double): String = if (value == Math.rint(value)) value.toLong().toString() else value.toString()
 
     /**
      * Logs how [samples] assemble at [round] (`first`: the first round, which decides the re-prompt; `final`: what review
