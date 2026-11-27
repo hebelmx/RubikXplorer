@@ -162,6 +162,7 @@ development_status:
   10-34-record-and-replay-a-continuous-quick-scan-session-in-the-dev: done
   10-35-retire-the-quick-scan-only-two-corner-recorder-paths: done
   10-36-record-new-scrambles-on-the-continuous-recorder-analyse-them: backlog
+  10-37-continuous-quick-scan-detection-lattice-fitting-and-tracki: ready-for-dev
   10-22-quick-scan-captures-promptly-once-the-cube-is-in-view: done
   10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads: done
   epic-10-retrospective: optional

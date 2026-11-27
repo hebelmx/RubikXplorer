@@ -1,7 +1,7 @@
 ---
 title: 'Sprint Change Proposal: continuous Quick Scan detection, lattice fitting, and tracking enhancements (Story 10.37)'
 date: 2026-11-27
-status: proposed
+status: approved
 mode: batch
 trigger: PO request on 2026-11-27 following the continuous Quick Scan pipeline audit and adversarial review
 scope: Moderate
@@ -9,7 +9,7 @@ scope: Moderate
 
 # Sprint Change Proposal: continuous Quick Scan detection, lattice fitting, and tracking enhancements (Story 10.37)
 
-**Status: Proposed — awaiting Product Owner approval before applying edits to `epics.md`, `sprint-status.yaml`, and creating the execution-ready story spec.**
+**Approved by the product owner on 27 November 2026. Applied to `epics.md`, `sprint-status.yaml`, and `spec-10-37-continuous-quick-scan-detection-lattice-fitting-and-tracki.md`.**
 
 ---
 
