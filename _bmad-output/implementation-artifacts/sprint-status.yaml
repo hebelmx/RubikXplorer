@@ -3264,6 +3264,42 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-403-skipped-frame-not-cube-lost.md"
+  - id: "issue-401-deferred-skin-tone-near-white-orange"
+    epic: 10
+    action: "The colour-only twist guard still passes light skin within dE 14 of WHITE and brown skin within dE 14 of ORANGE, so such a finger over an edge row can still latch a false twist; follow up with a structural guard where a flipped row's new colours must match a neighbouring face edge (medium; deferred from #401, ContinuousFaceletMapper.kt isStickerColour)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-401-edge-row-finger-false-twist.md"
+  - id: "issue-401-deferred-finger-on-centre-guard-off"
+    epic: 10
+    action: "Before anchoring, a finger resting on a centre long enough for its robust history to learn skin can make that centre look off-reference and switch the twist guard off for a stickered cube; settle with a stream where a large finger covers one centre with qualitySum >= 0.40 before anchoring, counting false twists (medium, unverified; deferred from #401, ContinuousFaceletMapper.kt twistStickerPrototypes)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-401-edge-row-finger-false-twist.md"
+  - id: "issue-401-deferred-unobserved-offref-pre-anchor"
+    epic: 10
+    action: "Before anchoring, Option A switches the twist guard off only from observed centres, so on a partly off-palette cube whose off-reference colour sits on a face not yet observed a real turn bringing that colour in is not counted; settle with a real-cube session on a cube with one off-reference colour (medium; deferred from #401, ContinuousFaceletMapper.kt twistStickerPrototypes)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-401-edge-row-finger-false-twist.md"
+  - id: "issue-401-deferred-std-cube-offref-guard-off"
+    epic: 10
+    action: "Before anchoring, a standard cube whose centre reads off-reference (logo centre, warm light, AWB drift) silently switches the twist guard off and can bring back the #401 false twist; run the 20-seed 90x40 finger probe on S3 and on S1 with awbDrift = true plus a device session, and restrict the switch-off to mostly-off-REF cubes if it latches (medium, unverified; deferred from #401, ContinuousFaceletMapper.kt:889)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-401-edge-row-finger-false-twist.md"
+  - id: "issue-401-deferred-partial-anchor-offref-turn"
+    epic: 10
+    action: "After anchoring on 3-5 centres, a real turn that brings in an off-reference colour from a face not yet observed or anchored is not counted as a flip; settle with a synthetic palette with one off-REF colour anchored on 3-5 centres, then a turn that brings that colour in (medium, unverified; deferred from #401, ContinuousFaceletMapper.kt twistStickerPrototypes)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-401-edge-row-finger-false-twist.md"
+  - id: "issue-401-deferred-partial-anchor-untested"
+    epic: 10
+    action: "No test reaches the partial-anchoring branch of twistStickerPrototypes (anchored on 3-5 centres, guard always on), so regressing it fails no test; add a synthetic palette with one off-REF colour that anchors on 3-5 centres and assert both a finger (no twist) and a real turn (twist) (medium; deferred from #401, ContinuousFaceletMapper.kt:886)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-401-edge-row-finger-false-twist.md"
   - id: "issue-405-deferred-engine-log-wiring-untested"
     epic: 10
     action: "The engine-to-logcat wiring (PipelineEngine calling ScanDiagnostics.onQuickScanUnread) has no automated test, so the debug device path is checked only by inspection; add a fake-detector engine test or confirm it in the debug device session (low; deferred from #405, ContinuousScanEngineModule.kt:54)"

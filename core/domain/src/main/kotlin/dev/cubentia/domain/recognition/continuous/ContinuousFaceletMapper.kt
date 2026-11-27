@@ -773,6 +773,10 @@ class ContinuousFaceletMapper {
         // 2. Nonrigid layer-twist check across ALL visible faces BEFORE mutating AWB or appending observations
         val pendingObs = LinkedHashMap<Face, Triple<List<RgbColor>, List<LabVec>, List<Double>>>(sampled.size)
         val lineTwistedFaces = HashSet<Face>()
+        // Issue #401: a layer turn swaps one sticker colour for another, so a flip counts only when both the cell's history
+        // and its new colour are sticker colours; a typical finger or shadow, arriving or leaving, is neither (a skin tone
+        // within the sticker tolerance of WHITE or ORANGE still passes: a known residual limit). Built on first use.
+        val stickerPrototypes by lazy(LazyThreadSafetyMode.NONE) { twistStickerPrototypes(frag) }
         for ((fname, sf) in sampled) {
             val rgbsAwb =
                 List(9) { ci ->
@@ -810,7 +814,11 @@ class ContinuousFaceletMapper {
                             val deAll = labs[ci].dist(h.lab)
                             if (deAll < 14.0) {
                                 stableCells++
-                            } else if (deAll > 33.0) {
+                            } else if (
+                                deAll > 33.0 &&
+                                isStickerColour(labs[ci], stickerPrototypes) &&
+                                isStickerColour(h.lab, stickerPrototypes)
+                            ) {
                                 val chromaCur = hypot(labs[ci].a, labs[ci].b)
                                 val chromaHist = hypot(h.lab.a, h.lab.b)
                                 val rawBright = faceBrights[ci]
@@ -869,6 +877,27 @@ class ContinuousFaceletMapper {
             frag.frameCount++
         }
         return anyGlare
+    }
+
+    /**
+     * Sticker colours a layer turn can bring onto a face (issue #401), or null when the guard cannot judge: before global
+     * anchoring an observed centre off every reference colour (a pastel or off-palette cube) switches the guard off, so real
+     * turns are detected exactly as without it. The guard is colour-only, so it cannot reject every finger: a light or brown
+     * skin tone within [STICKER_COLOUR_MAX_DE] of WHITE or ORANGE still counts as a sticker colour.
+     */
+    private fun twistStickerPrototypes(frag: CubeFragment): List<LabVec>? {
+        val ref = ContinuousColorModel.REF_CENTER_LAB.values.map { LabVec.from(it) }
+        val anchored = centerPrototypes
+        if (globalRotIdx != null && anchored != null && anchored.size == 6) return anchored.values.toList() + ref
+        val observed = ArrayList<LabVec>(6)
+        for (f in frag.observedFaces) {
+            val r = frag.faceRobustLab(f, 4)
+            if (r != null && r.qualitySum >= 0.40) observed.add(r.lab)
+        }
+        // Anchored on fewer than six centres: the guard stays on after anchoring, whatever the palette.
+        if (globalRotIdx != null && anchored != null) return anchored.values.toList() + observed + ref
+        if (observed.any { !isStickerColour(it, ref) }) return null
+        return observed + ref
     }
 
     private data class MergeRotScore(
@@ -1438,6 +1467,18 @@ class ContinuousFaceletMapper {
 
         val CORNER_ORDER = intArrayOf(0, 2, 8, 6)
         val OUTER_LINES = listOf(setOf(0, 1, 2), setOf(6, 7, 8), setOf(0, 3, 6), setOf(2, 5, 8))
+
+        /**
+         * A cell's history or new colour counts as a sticker colour for the twist check when it lies within this shading-invariant
+         * ΔE of a sticker prototype: the same tolerance the check uses to call a cell stable (issue #401). The skin tone of
+         * the synthetic finger sits about ΔE 18 from the nearest sticker colour; some real skin tones sit closer and still pass.
+         */
+        const val STICKER_COLOUR_MAX_DE = 14.0
+
+        fun isStickerColour(
+            lab: LabVec,
+            prototypes: List<LabVec>?,
+        ): Boolean = prototypes == null || prototypes.any { lab.dist(it) < STICKER_COLOUR_MAX_DE }
 
         fun normalizeLogAwbInPlace(logAwb: DoubleArray) {
             val meanAwb = (logAwb[0] + logAwb[1] + logAwb[2]) / 3.0

@@ -72,6 +72,8 @@ internal object SyntheticCubeStream {
         val glareStrength: Double = 0.0,
         val awbDrift: Boolean = false,
         val fingerOcclusion: Boolean = false,
+        /** Finger ellipse radii (x, y) in screen pixels; the default is the S5 finger (issue #401 drives a larger one). */
+        val fingerRadiiPx: Pair<Double, Double> = 36.0 to 22.0,
         val regripRange: IntRange? = null,
         val regripReturnEuler: Euler? = null,
         val startEuler: Euler = Euler(0.45, -0.55, 0.08),
@@ -508,8 +510,8 @@ internal object SyntheticCubeStream {
                     FingerEllipse(
                         cx = bx,
                         cy = by,
-                        rx = 36.0,
-                        ry = 22.0,
+                        rx = cfg.fingerRadiiPx.first,
+                        ry = cfg.fingerRadiiPx.second,
                         cosA = cos(angleRad),
                         sinA = sin(angleRad),
                         rgb = RgbColor(196.0 * awbR, 150.0 * awbG, 128.0 * awbB),
