@@ -72,3 +72,16 @@ Offline Android tutor that teaches beginners to solve a 3×3 cube on a virtual o
 ## Emulators
 
 - Reference-device AVDs (Galaxy S24 FE on Android 15/16/17, Galaxy Tab S7 FE 5G on Android 14), KVM checks, launch/install commands and how to recreate them: `docs/emulators.md`. Emulators give indicative numbers only; performance and camera acceptance stay on the physical devices.
+
+## Closing GitHub issues
+
+These rules bind every agent, orchestrator, PR and Sprint Change Proposal (SCP). An issue closes in only two ways:
+
+1. **Resolved** (close reason *completed*): the change is merged on `main` and every "Done when" point is proven by a test, `file:line` or device evidence. A story may deliver it; the issue then closes when that story merges and proves it.
+2. **Decided** (close reason *not planned*): the product owner decides it will not be done (won't fix, accepted as is, obsolete, superseded) or that there is nothing to do (does not exist, cannot be reproduced, duplicate). Ask naming each issue number and saying it will close; the closing comment records the decision. Approval of a plan, an SCP or a group that carries exceptions is not that decision.
+
+- **A plan is never a resolution.** An SCP, a new or backlog story, an action item, a deferral, a "parked" label or "work continues in Story X" leaves the issue open; comment the story key on it.
+- **The record goes on the issue before it closes.** Tick each proven "Done when" box in the issue body and post a closing comment that maps every point to its evidence. A PR link, ticked boxes only in the PR, or the issue's "Possible fix" is not that record. If a point was changed or narrowed during the work, say what changed and who decided it.
+- **Owed work keeps it open.** If any "Done when" point is unproven, including a device or human check that was skipped, waived at merge or deferred, the issue stays open unless the product owner explicitly decides to close it without that point (comment which point, and who decided). This covers the points the issue itself asks for: a device or human check that comes only from a story's acceptance criteria or a code review is tracked as an action item and does not keep the issue open.
+- **Planning and partial PRs say `Refs #N`.** Never put `close`, `fix` or `resolve` (any form) directly before an issue number in a PR or commit that does not resolve it: GitHub closes the issue even inside a sentence such as "the build PR closes #N" (this closed #203 early).
+- **Dropping or superseding a story** means listing every issue it carried, open or already closed on the strength of that story, and getting a decision on each: keep open (re-plan) or *not planned*. Reopen an issue that was closed on a plan that is now dropped.
