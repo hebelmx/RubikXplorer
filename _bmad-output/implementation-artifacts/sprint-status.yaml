@@ -3343,3 +3343,27 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-406-quick-scan-per-stage-timings.md"
+  - id: "issue-411-deferred-bites-check-per-switch"
+    epic: 10
+    action: "Which deviation causes each parity difference was decided by hand revert and only notes record it, so a wrong label (for example the D3/D4 overlap in pyspike-d3) would not be caught; add a test-only switch per deviation and assert its labelled entries go stale when switched off (medium; deferred from #411, Fixtures/continuous/mapper-parity/expected-differences.json)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-411-mapper-deviations-revert-or-keep.md"
+  - id: "issue-411-deferred-not-worse-per-deviation"
+    epic: 10
+    action: "The not-worse check compares the whole Kotlin mapper with mapper.py rather than each deviation alone, and the D4 evidence is a tie between two failing runs; score each verdict with only that deviation switched and add a D4 session where one side reaches the true outcome (medium; deferred from #411, Fixtures/continuous/mapper-parity/expected-differences.json)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-411-mapper-deviations-revert-or-keep.md"
+  - id: "issue-411-deferred-real-clip-confirmation"
+    epic: 10
+    action: "The D1-D4, I401 and I402 keep verdicts rest on one synthetic evidence session each and were not re-checked on a real Quick Scan or real clips; confirm during the #413 phone-clip comparison (low; deferred from #411)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-411-mapper-deviations-revert-or-keep.md"
+  - id: "issue-411-deferred-i401-early-twist-variant"
+    epic: 10
+    action: "I401 can hide a real early layer twist in a variant that is not committed (mapper.py misses it too); decide whether it needs its own GitHub issue (low; deferred from #411, ContinuousFaceletMapper.kt)"
+    owner: "PO (hebelmx)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-411-mapper-deviations-revert-or-keep.md"
