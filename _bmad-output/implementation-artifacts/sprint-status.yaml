@@ -3324,3 +3324,21 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-411-mapper-parity-golden-replay.md"
+  - id: "issue-406-deferred-timing-line-regex-copied"
+    epic: 10
+    action: "The debug timing line format and the evaluateQuickScan parser are linked only by a regex copied into ScanDiagnosticsTimingLineTest, so a format change can pass the test while the parser breaks; share one pattern or feed a real line to the parser (low; deferred from #406, app/src/testDebug/kotlin/dev/cubentia/app/ScanDiagnosticsTimingLineTest.kt)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-406-quick-scan-per-stage-timings.md"
+  - id: "issue-406-deferred-device-timing-readings"
+    epic: 10
+    action: "Device check owed: run a continuous Quick Scan on a debug build on the Lenovo TB128XU and the Galaxy S24 FE, read the periodic and end-of-run quickScan timing lines (adb logcat -s CubentiaScanDiag) and record per-stage p50/p90/max and frame rate in the Story 10.33 matrix; GitHub issue #406 stays open until recorded (low; deferred from #406)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-406-quick-scan-per-stage-timings.md"
+  - id: "issue-406-deferred-fps-reads-low-across-pause"
+    epic: 10
+    action: "The reported analysed frame rate reads low when the timing span includes an analysis pause; account for pauses if Story 10.33 readings look low (low; deferred from #406)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-406-quick-scan-per-stage-timings.md"
