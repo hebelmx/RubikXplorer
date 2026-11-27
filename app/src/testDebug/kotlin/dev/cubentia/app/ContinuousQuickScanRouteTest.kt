@@ -188,6 +188,9 @@ class ContinuousQuickScanRouteTest {
                     )
                 }
 
+                /** GH #406: a fixed per-stage timing body, as the debug pipeline engine reports at finish. */
+                override fun timingRunLine(): String = TIMING_BODY
+
                 override fun export(): ContinuousScanExport {
                     assertTrue(Thread.currentThread() !== Looper.getMainLooper().thread)
                     exports++
@@ -224,6 +227,26 @@ class ContinuousQuickScanRouteTest {
             rule.onNodeWithTag("review:retakeFaces").assertExists()
             rule.onNodeWithTag("review:accept").performScrollTo().performClick()
             assertEquals(ScanOutcome.Accepted(CubeState.SOLVED), outcome(scan.get()))
+        }
+    }
+
+    @Test fun finishingLogsTheTimingRunLineOnceImmediatelyBeforeTheRunLine() {
+        quickScanActivity { scan, model ->
+            show(Face.entries, ContinuousScanCue.AllVerified)
+            advanceHold(model)
+            rule.onNodeWithTag("review:accept").performScrollTo().performClick()
+            assertEquals(ScanOutcome.Accepted(CubeState.SOLVED), outcome(scan.get()))
+            // GH #406: the engine's timing run line is logged once, directly before the run line it belongs to.
+            val logged = ShadowLog.getLogsForTag(ScanDiagnostics.TAG).map { it.msg }
+            val timing = logged.filter { it.startsWith("quickScan timing run ") }
+            assertEquals(logged.toString(), 1, timing.size)
+            assertTrue(
+                timing.single(),
+                Regex("quickScan timing run ${Regex.escape(TIMING_BODY)} device=[A-Za-z0-9-]+").matches(timing.single()),
+            )
+            val at = logged.indexOf(timing.single())
+            assertTrue(logged.toString(), logged.getOrNull(at + 1)?.startsWith("quickScan run ") == true)
+            assertEquals(1, quickScanRuns().size)
         }
     }
 
@@ -1831,6 +1854,13 @@ class ContinuousQuickScanRouteTest {
     }
 
     private fun stats(color: Color) = FrameStats(List(9) { CellReading(ScanRouteTest.labs.getValue(color), true) }, 120.0, 0.0, 100.0, 12)
+
+    private companion object {
+        /** GH #406: the fake engine's timing body, in the debug pipeline's field order. */
+        const val TIMING_BODY =
+            "frames=3 read=2 fps=30.0 detectorMs=20.0/21.0/21.0 inferenceMs=18.0/19.0/19.0 fitMs=0.5/0.6/0.6 " +
+                "sampleMs=1.0/1.1/1.1 mapMs=0.3/0.4/0.4 analyzerMs=22.0/24.0/24.0 fitted=2 observations=2"
+    }
 
     private class FakeFrames : ScanFrameSource {
         @Volatile var receiver: ((ScanFrame) -> Unit)? = null

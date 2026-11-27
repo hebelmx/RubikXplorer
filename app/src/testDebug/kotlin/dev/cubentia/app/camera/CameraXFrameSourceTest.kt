@@ -36,6 +36,7 @@ class CameraXFrameSourceTest {
         val activity = Robolectric.buildActivity(ComponentActivity::class.java).setup()
         val executor = Executors.newSingleThreadExecutor()
         val delivered = mutableListOf<ScanFrame>()
+        val calls = mutableListOf<String>()
         val snap = testSnapshot(testHandoff(emptyList()))
         val engine =
             object : ContinuousScanEngine {
@@ -56,21 +57,49 @@ class CameraXFrameSourceTest {
                     assertTrue(frame.width > 0)
                     assertEquals(90, rotationDegrees)
                     assertEquals(360 to 480, viewWidth to viewHeight)
+                    calls += "process"
                     return ContinuousFrame(snap, emptyList())
                 }
 
                 override fun reset() = error("unexpected reset")
 
                 override fun export() = error("unexpected export")
+
+                override fun analyzerStart() {
+                    calls += "start"
+                }
+
+                override fun frameDone(
+                    sensorTimestampNs: Long,
+                    analyzerNs: Long,
+                    rotation: Int,
+                    imageWidth: Int,
+                    imageHeight: Int,
+                    cropLeft: Int,
+                    cropTop: Int,
+                    cropRight: Int,
+                    cropBottom: Int,
+                ) {
+                    calls += "done"
+                }
+
+                override fun analyzerEnd() {
+                    calls += "end"
+                }
             }
         try {
-            source.start(activity.get(), executor, { delivered.add(it) }, {})
+            source.start(activity.get(), executor, {
+                calls += "deliver"
+                delivered.add(it)
+            }, {})
             source.preview(activity.get()).layout(0, 0, 360, 480)
             source.continuousMode(engine) { true }
             executor.submit { source.read(dimFace()) }.get()
             source.continuousMode(engine) { false }
             executor.submit { source.read(dimFace()) }.get()
             assertEquals(snap, delivered.single().continuous?.snapshot)
+            // GH #406: the timed analyzer interval opens before processing and closes after frameDone and delivery.
+            assertEquals(listOf("start", "process", "done", "deliver", "end"), calls)
         } finally {
             source.stop()
             executor.shutdownNow()
