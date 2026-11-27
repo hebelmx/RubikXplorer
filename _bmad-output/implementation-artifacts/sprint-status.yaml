@@ -3210,3 +3210,21 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-34-record-and-replay-a-continuous-quick-scan-session-in-the-dev.md"
+  - id: "issue-404-deferred-close-stale-model-input"
+    epic: 10
+    action: "close() leaves inputValid set, so copyModelInput() still returns the last frame's model input after close; set inputValid = false in close() (low; deferred from #404, LiteRtStickerCenterDetector.kt:239)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-404-litert-detector-close-unavailable.md"
+  - id: "issue-404-deferred-close-session-runcatching"
+    epic: 10
+    action: "close() calls session?.close() without runCatching, unlike latchDisabled(), so a throwing close propagates and leaves the session set; wrap it in runCatching (low; deferred from #404, LiteRtStickerCenterDetector.kt:243)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-404-litert-detector-close-unavailable.md"
+  - id: "issue-404-deferred-close-one-way-singleton"
+    epic: 10
+    action: "close() is one-way for the singleton detector, so a future lifecycle owner that closes it turns Quick Scan off until process restart; decide whether a reopen path is needed before adding any close() caller (low; deferred from #404)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-404-litert-detector-close-unavailable.md"

@@ -33,7 +33,8 @@ internal interface StickerCenterInferenceSession {
  *
  * Runs exclusively off the main thread on XNNPACK CPU with 2 threads using pre-allocated direct buffers.
  * A frame that fails input conversion or peak decoding is counted and skipped. Its session stays open for the next frame.
- * Model initialization and inference failures latch [unavailable] for the lifetime of this singleton.
+ * Model initialization and inference failures latch [unavailable] for the lifetime of this singleton,
+ * and so does [close] (GH #404): a disabled detector must never look like an empty view (GH #390).
  * Never persists, writes to disk, or transmits any camera frame (AD-13).
  */
 @Singleton
@@ -234,9 +235,11 @@ internal class LiteRtStickerCenterDetector
             return session
         }
 
+        /** Closes the session once and latches [unavailable] (GH #404), so a closed detector never reads as an empty view. */
         internal fun close() {
             synchronized(lock) {
                 closed = true
+                unavailable = true
                 session?.close()
                 session = null
             }
