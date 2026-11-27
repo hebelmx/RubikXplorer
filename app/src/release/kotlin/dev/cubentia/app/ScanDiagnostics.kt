@@ -8,6 +8,8 @@ import dev.cubentia.domain.recognition.FaceSample
 import dev.cubentia.domain.recognition.FrameStats
 import dev.cubentia.domain.recognition.PhysicalObservation
 import dev.cubentia.domain.recognition.ScanReview
+import dev.cubentia.domain.recognition.continuous.ContinuousScanSnapshot
+import dev.cubentia.domain.recognition.continuous.UnreadSlot
 import dev.cubentia.domain.tutor.Certainty
 import dev.cubentia.domain.tutor.PlacementOutcome
 
@@ -28,6 +30,13 @@ object ScanDiagnostics {
         latticeDx: Double,
         latticeDy: Double,
         latticeScore: Double,
+    ) = Unit
+
+    /** GH #405: never invokes [unread]. */
+    fun onQuickScanUnread(
+        nowMs: Long,
+        snapshot: ContinuousScanSnapshot,
+        unread: () -> List<UnreadSlot>,
     ) = Unit
 
     fun onAssembly(
