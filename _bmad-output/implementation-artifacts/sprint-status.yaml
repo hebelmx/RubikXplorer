@@ -3312,3 +3312,15 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-405-unread-slot-diagnostics.md"
+  - id: "issue-411-deferred-parity-sessions-miss-d1-d4"
+    epic: 10
+    action: "The three synthetic parity sessions make none of D1-D4, I401 or I402 change a compared field on their own (only E3 does), so reverting any of them still passes MapperParityReplayTest; add scenarios that make each bite (AWB drift past 0.36, merge with large log-AWB, forced conflict, long scan) with the part (b) revert-or-keep evidence (medium; deferred from #411, Fixtures/continuous/mapper-parity/expected-differences.json:28)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-411-mapper-parity-golden-replay.md"
+  - id: "issue-411-deferred-pin-opencv-numpy-versions"
+    epic: 10
+    action: "Byte-identical regeneration of the mapper-parity fixtures depends on unpinned opencv-python-headless/numpy versions and nothing in CI detects stale fixtures; pin --with opencv-python-headless==5.1.0 --with numpy==2.5.5 in the documented uv command (low; deferred from #411, Fixtures/continuous/README.md:57)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-411-mapper-parity-golden-replay.md"
