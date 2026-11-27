@@ -1,0 +1,40 @@
+## before loaded cold (8 busy-loop shell processes)
+Fri Nov 27 15:20:35 CST 2026
+  AC powered: false
+  USB powered: true
+  status: 5
+  level: 100
+  temperature: 277
+Thermal Status: 0
+MemTotal:        3756260 kB
+MemFree:           43784 kB
+MemAvailable:    1140284 kB
+ 15:20:35 up 16 days, 20:02,  0 users,  load average: 1.71, 2.03, 1.51
+Tasks: 755 total,  10 running, 745 sleeping,   0 stopped,   0 zombie
+  Mem:  3756260K total,  3712400K used,    43860K free,     9520K buffers
+ Swap:  2097148K total,  1082664K used,  1014484K free,  1275084K cached
+800%cpu 685%user   0%nice  91%sys   9%idle   0%iow  12%irq   3%sirq   0%host
+  PID USER         PR  NI VIRT  RES  SHR S[%CPU] %MEM     TIME+ ARGS
+19309 shell        20   0  12G 2.9M 2.3M R 87.8   0.0   0:02.71 sh -c while :; do :; done
+19308 shell        20   0  12G 2.9M 2.3M R 84.8   0.0   0:02.53 sh -c while :; do :; done
+19311 shell        20   0  12G 2.9M 2.3M R 78.7   0.0   0:02.61 sh -c while :; do :; done
+19306 shell        20   0  12G 2.8M 2.2M R 78.7   0.0   0:02.73 sh -c while :; do :; done
+19300 shell        20   0  12G 2.9M 2.3M R 78.7   0.0   0:02.81 sh -c while :; do :; done
+19312 shell        20   0  12G 3.0M 2.3M R 75.7   0.0   0:02.60 sh -c while :; do :; done
+19307 shell        20   0  12G 2.9M 2.3M R 75.7   0.0   0:02.71 sh -c while :; do :; done
+19310 shell        20   0  12G 2.9M 2.3M R 63.6   0.0   0:02.70 sh -c while :; do :; done
+ 1907 system       18  -2  21G 110M  58M S 21.2   3.0 522:43.45 system_server
+19404 shell        20   0  12G 4.4M 3.3M R 18.1   0.1   0:00.05 top -b -n 1
+## after loaded cold
+Fri Nov 27 15:25:16 CST 2026
+  AC powered: false
+  USB powered: true
+  status: 5
+  level: 100
+  temperature: 317
+Thermal Status: 0
+MemTotal:        3756260 kB
+MemFree:          129244 kB
+MemAvailable:    1172400 kB
+ 15:25:16 up 16 days, 20:07,  0 users,  load average: 11.36, 7.86, 4.15
+2
