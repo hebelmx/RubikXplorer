@@ -146,7 +146,9 @@ class ContinuousFrameTapTest {
     fun `the debug engine reports its per-stage timings over the frames it analysed`() {
         // GH #406: the module's engine takes the debug build's accumulator (forBuild) and delegates its run line.
         val engine = ContinuousScanEngineModule.factory(detector(copies = false)).create()
+        engine.analyzerStart()
         engine.processFrame(frame(), 0, 0, 0)
+        engine.analyzerEnd()
         val line = engine.timingRunLine()
         assertNotNull(line)
         assertTrue(line!!.startsWith("frames=1 "), line)

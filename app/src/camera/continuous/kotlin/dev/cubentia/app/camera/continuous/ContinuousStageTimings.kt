@@ -34,7 +34,7 @@ internal class ContinuousStageTimings(
     private val run = Span(runCapacity)
 
     /**
-     * One analysed frame: [startNs]/[endNs] bound the whole `processFrame` call (the analyzer stage); the stage
+     * One analysed frame: [startNs]/[endNs] bound the whole analyzer interval (image conversion, `processFrame`, `frameDone` and delivery: the analyzer stage); the stage
      * durations are nanoseconds, -1 when the stage did not run; [fitted] and [observations] count only when the frame
      * reached the mapper ([mapNs] >= 0).
      */

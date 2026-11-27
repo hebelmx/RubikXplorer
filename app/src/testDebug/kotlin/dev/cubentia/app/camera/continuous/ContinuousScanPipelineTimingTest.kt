@@ -68,6 +68,18 @@ class ContinuousScanPipelineTimingTest {
             bottom = HEIGHT,
         )
 
+    /** The analyzer's order: [ContinuousScanPipeline.analyzerStart], processing, [ContinuousScanPipeline.analyzerEnd]. */
+    private fun ContinuousScanPipeline.analyse(
+        frameIndex: Int,
+        frame: YuvFrame,
+        rotationDegrees: Int,
+        viewWidth: Int = 0,
+        viewHeight: Int = 0,
+    ): ContinuousPipelineFrame {
+        analyzerStart()
+        return processFrame(frameIndex, frame, rotationDegrees, viewWidth, viewHeight).also { analyzerEnd() }
+    }
+
     private fun field(
         line: String,
         name: String,
@@ -85,14 +97,14 @@ class ContinuousScanPipelineTimingTest {
             )
         assertNull(pipeline.timingRunLine())
 
-        val first = pipeline.processFrame(0, goodFrame(), rotationDegrees = 0, viewWidth = 480, viewHeight = 480)
+        val first = pipeline.analyse(0, goodFrame(), rotationDegrees = 0, viewWidth = 480, viewHeight = 480)
         assertEquals(1, first.fittedFaces.size)
         assertEquals(8, clock.reads)
-        pipeline.processFrame(1, goodFrame(), rotationDegrees = 0, viewWidth = 480, viewHeight = 480)
+        pipeline.analyse(1, goodFrame(), rotationDegrees = 0, viewWidth = 480, viewHeight = 480)
         assertEquals(12, clock.reads)
         // reset() starts a new scan; the run line covers the pipeline's whole life.
         pipeline.reset()
-        pipeline.processFrame(0, goodFrame(), rotationDegrees = 0, viewWidth = 480, viewHeight = 480)
+        pipeline.analyse(0, goodFrame(), rotationDegrees = 0, viewWidth = 480, viewHeight = 480)
 
         val line = checkNotNull(pipeline.timingRunLine())
         assertEquals("3", field(line, "frames"))
@@ -116,7 +128,7 @@ class ContinuousScanPipelineTimingTest {
         val face = faceFor(FACE_LEFT.toDouble(), FACE_TOP.toDouble(), FACE_SIZE.toDouble())
         val pipeline =
             ContinuousScanPipeline(ScriptedDetector(face, skipFrames = setOf(0)), timings = ContinuousStageTimings(clock, {}))
-        pipeline.processFrame(0, goodFrame(), rotationDegrees = 0)
+        pipeline.analyse(0, goodFrame(), rotationDegrees = 0)
         assertEquals(
             "frames=1 read=0 fps=333.3 detectorMs=- inferenceMs=- fitMs=- sampleMs=- mapMs=- analyzerMs=3.0/3.0/3.0 fitted=0 observations=0",
             pipeline.timingRunLine(),
@@ -130,7 +142,7 @@ class ContinuousScanPipelineTimingTest {
         val pipeline = ContinuousScanPipeline(ScriptedDetector(face, emptySet()), timings = ContinuousStageTimings(clock, {}))
         // GH #397: the Y plane ends inside the face, so the sampler throws and the pipeline skips the frame.
         val short = goodFrame().apply { y.buffer.limit((FACE_TOP + FACE_SIZE / 2) * WIDTH) }
-        val skipped = pipeline.processFrame(0, short, rotationDegrees = 0)
+        val skipped = pipeline.analyse(0, short, rotationDegrees = 0)
         assertTrue(skipped.fittedFaces.isEmpty())
         val line = checkNotNull(pipeline.timingRunLine())
         assertEquals("1", field(line, "frames"))
@@ -148,8 +160,25 @@ class ContinuousScanPipelineTimingTest {
     fun `without timings the pipeline has no run line`() {
         val face = faceFor(FACE_LEFT.toDouble(), FACE_TOP.toDouble(), FACE_SIZE.toDouble())
         val pipeline = ContinuousScanPipeline(ScriptedDetector(face, emptySet()), timings = null)
+        pipeline.analyse(0, goodFrame(), rotationDegrees = 0)
+        assertNull(pipeline.timingRunLine())
+    }
+
+    @Test
+    fun `a frame is recorded only when the analyzer interval closes`() {
+        val clock = StepClock()
+        val face = faceFor(FACE_LEFT.toDouble(), FACE_TOP.toDouble(), FACE_SIZE.toDouble())
+        val pipeline = ContinuousScanPipeline(ScriptedDetector(face, emptySet()), timings = ContinuousStageTimings(clock, {}))
+        pipeline.analyzerStart()
         pipeline.processFrame(0, goodFrame(), rotationDegrees = 0)
         assertNull(pipeline.timingRunLine())
+        // Work after processing (frameDone, delivery) is part of the analyzer stage: 2 more ms.
+        clock.now += 2_000_000L
+        pipeline.analyzerEnd()
+        assertEquals("9.0/9.0/9.0", field(checkNotNull(pipeline.timingRunLine()), "analyzerMs"))
+        // A second end without a start records nothing.
+        pipeline.analyzerEnd()
+        assertEquals("1", field(checkNotNull(pipeline.timingRunLine()), "frames"))
     }
 
     private companion object {

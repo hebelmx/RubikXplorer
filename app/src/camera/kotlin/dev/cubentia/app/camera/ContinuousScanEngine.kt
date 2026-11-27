@@ -41,6 +41,12 @@ internal interface ContinuousScanEngine {
      */
     fun timingRunLine(): String? = null
 
+    /** GH #406 (debug diagnostics): the analyzer starts a frame, before it converts the image; release does nothing. */
+    fun analyzerStart() = Unit
+
+    /** GH #406 (debug diagnostics): the analyzer ends the frame, after [frameDone] and delivery; release does nothing. */
+    fun analyzerEnd() = Unit
+
     /**
      * Story 10.34: a new scan (as [reset]: empty map, frame index 0) whose every frame [tap] sees; null records nothing.
      * Only the debug Quick Scan session recording passes a tap.

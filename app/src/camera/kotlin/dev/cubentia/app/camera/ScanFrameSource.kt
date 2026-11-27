@@ -390,6 +390,8 @@ internal class CameraXFrameSource
             continuous?.let { engine ->
                 applyTorch(force = false)
                 if (analyzing()) {
+                    // GH #406: the timed analyzer interval spans conversion, processing, frameDone and delivery.
+                    engine.analyzerStart()
                     // Story 10.34: the analyzer time of the frame and its geometry go to a recording tap as primitives.
                     val start = System.nanoTime()
                     val result = engine.processFrame(with(FrameReader) { image.asYuvFrame() }, rotation, width, height)
@@ -406,6 +408,7 @@ internal class CameraXFrameSource
                         crop.bottom,
                     )
                     deliver(ScanFrame(EMPTY_STATS, rotation, continuous = result))
+                    engine.analyzerEnd()
                 }
                 return
             }

@@ -46,6 +46,9 @@ internal class ContinuousScanPipeline(
 
     private var lastSnapshot: ContinuousScanSnapshot? = null
 
+    // GH #406: the clock at [analyzerStart], -1 when no analyzer interval is open.
+    private var analyzerStartNs = -1L
+
     // GH #406: this frame's stage durations in ns (-1: the stage did not run), primitives so timing never allocates.
     private val clock: NanoClock? = timings?.clock
     private var detectorNs = -1L
@@ -69,8 +72,7 @@ internal class ContinuousScanPipeline(
         viewWidth: Int = 0,
         viewHeight: Int = 0,
     ): ContinuousPipelineFrame {
-        val t = timings ?: return analyse(frameIndex, frame, rotationDegrees, viewWidth, viewHeight)
-        val start = t.clock.nanoTime()
+        if (timings == null) return analyse(frameIndex, frame, rotationDegrees, viewWidth, viewHeight)
         detectorNs = -1L
         inferenceNs = -1L
         fitNs = -1L
@@ -78,9 +80,26 @@ internal class ContinuousScanPipeline(
         mapNs = -1L
         fittedCount = 0
         observationCount = 0
-        val result = analyse(frameIndex, frame, rotationDegrees, viewWidth, viewHeight)
+        return analyse(frameIndex, frame, rotationDegrees, viewWidth, viewHeight)
+    }
+
+    /**
+     * GH #406: opens the frame's analyzer interval, before the analyzer converts the image; [analyzerEnd] closes it after
+     * the frame is delivered, so the analyzer stage covers conversion, [processFrame], `frameDone` and delivery.
+     * Without timings neither reads the clock.
+     */
+    fun analyzerStart() {
+        val t = timings ?: return
+        analyzerStartNs = t.clock.nanoTime()
+    }
+
+    /** GH #406: closes the interval [analyzerStart] opened and records the frame's stages; without one it does nothing. */
+    fun analyzerEnd() {
+        val t = timings ?: return
+        val start = analyzerStartNs
+        if (start < 0L) return
+        analyzerStartNs = -1L
         t.record(start, t.clock.nanoTime(), detectorNs, inferenceNs, fitNs, sampleNs, mapNs, fittedCount, observationCount)
-        return result
     }
 
     /** GH #406 (debug diagnostics): the body of the `quickScan timing run` line for this pipeline's life; null without timings or frames. */
