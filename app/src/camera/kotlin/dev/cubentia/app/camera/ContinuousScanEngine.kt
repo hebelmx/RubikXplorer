@@ -36,6 +36,12 @@ internal interface ContinuousScanEngine {
     fun export(): ContinuousScanExport
 
     /**
+     * GH #406 (debug diagnostics): the body of the `quickScan timing run` line (per-stage timings over the engine's
+     * life), or null when there are none (release, or no frame analysed).
+     */
+    fun timingRunLine(): String? = null
+
+    /**
      * Story 10.34: a new scan (as [reset]: empty map, frame index 0) whose every frame [tap] sees; null records nothing.
      * Only the debug Quick Scan session recording passes a tap.
      */

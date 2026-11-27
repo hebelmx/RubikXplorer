@@ -55,6 +55,29 @@ object ScanDiagnostics {
 
     private val device = Build.MODEL?.replace(Regex("[^A-Za-z0-9-]"), "-")?.ifEmpty { "-" }
 
+    /** GH #406: debug builds time the continuous Quick Scan's stages (`ContinuousStageTimings`); release creates no accumulator. */
+    const val QUICK_SCAN_TIMINGS = true
+
+    /**
+     * GH #406: one `quickScan timing window …` line per timing window (at most one per 2 s of analysis), logged from the
+     * analyzer thread: per-stage p50/p90/max in ms over the window's frames. Numbers and fixed words only.
+     */
+    fun onQuickScanTimingWindow(body: String) {
+        if (device == null) return
+        Log.d(TAG, listOf("quickScan", "timing", "window", body).joinToString(" "))
+    }
+
+    /**
+     * GH #406: the `quickScan timing run … device=…` line over the whole continuous engine's life, logged immediately
+     * before the `quickScan run` line it belongs to (`evaluateQuickScan` attaches it to that run); a null [body] (no
+     * frame analysed) logs nothing.
+     */
+    fun onQuickScanTimingRun(body: String?) {
+        if (body == null) return
+        val model = device ?: return
+        Log.d(TAG, listOf("quickScan", "timing", "run", body, "device=$model").joinToString(" "))
+    }
+
     private fun run(
         feature: String,
         vararg fields: String,

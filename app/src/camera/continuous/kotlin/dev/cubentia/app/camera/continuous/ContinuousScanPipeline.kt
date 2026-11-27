@@ -35,6 +35,8 @@ internal class ContinuousScanPipeline(
     private val detector: StickerCenterDetector,
     private val sampler: ContinuousFaceSampler = ContinuousFaceSampler(),
     private val mapper: ContinuousFaceletMapper = ContinuousFaceletMapper(),
+    /** GH #406: per-stage timings (debug only); with null no clock is read. */
+    private val timings: ContinuousStageTimings? = ContinuousStageTimings.forBuild(),
 ) {
     /** Story 10.34: the debug Quick Scan session recording's neutral frame tap; null unless a session records. */
     var tap: ContinuousFrameTap? = null
@@ -44,6 +46,22 @@ internal class ContinuousScanPipeline(
 
     private var lastSnapshot: ContinuousScanSnapshot? = null
 
+    // GH #406: this frame's stage durations in ns (-1: the stage did not run), primitives so timing never allocates.
+    private val clock: NanoClock? = timings?.clock
+    private var detectorNs = -1L
+    private var inferenceNs = -1L
+    private var fitNs = -1L
+    private var sampleNs = -1L
+    private var mapNs = -1L
+    private var fittedCount = 0
+    private var observationCount = 0
+
+    /** Reads [clock] only when timings are on; never boxes. */
+    private fun now(): Long {
+        val c = clock
+        return if (c == null) 0L else c.nanoTime()
+    }
+
     fun processFrame(
         frameIndex: Int,
         frame: YuvFrame,
@@ -51,15 +69,45 @@ internal class ContinuousScanPipeline(
         viewWidth: Int = 0,
         viewHeight: Int = 0,
     ): ContinuousPipelineFrame {
+        val t = timings ?: return analyse(frameIndex, frame, rotationDegrees, viewWidth, viewHeight)
+        val start = t.clock.nanoTime()
+        detectorNs = -1L
+        inferenceNs = -1L
+        fitNs = -1L
+        sampleNs = -1L
+        mapNs = -1L
+        fittedCount = 0
+        observationCount = 0
+        val result = analyse(frameIndex, frame, rotationDegrees, viewWidth, viewHeight)
+        t.record(start, t.clock.nanoTime(), detectorNs, inferenceNs, fitNs, sampleNs, mapNs, fittedCount, observationCount)
+        return result
+    }
+
+    /** GH #406 (debug diagnostics): the body of the `quickScan timing run` line for this pipeline's life; null without timings or frames. */
+    fun timingRunLine(): String? = timings?.runLine()
+
+    private fun analyse(
+        frameIndex: Int,
+        frame: YuvFrame,
+        rotationDegrees: Int,
+        viewWidth: Int,
+        viewHeight: Int,
+    ): ContinuousPipelineFrame {
         if (detectorUnavailable || frame.left < 0 || frame.top < 0 || frame.width <= 0 || frame.height <= 0) {
             return skippedFrame(frameIndex)
         }
+        val detectStart = now()
         val detection = detector.detect(frame, rotationDegrees, viewWidth, viewHeight)
+        val detectEnd = now()
         // GH #390: the frame that latched the detector is not an empty view of the cube; the map stays as it was.
         if (detectorUnavailable) return skippedFrame(frameIndex)
         // GH #403: a frame the detector could not read is not "cube lost"; it already counted it, so no second count here.
         if (detection.skipped) return skippedFrame(frameIndex)
+        detectorNs = detectEnd - detectStart
+        inferenceNs = (detection.inferenceMs * NANOS_PER_MS).toLong()
+        val fitStart = now()
         val fittedFaces = FaceLatticeFitter.fit(detection.centers)
+        val sampleStart = now()
         val observations =
             if (fittedFaces.isEmpty()) {
                 emptyList()
@@ -72,7 +120,14 @@ internal class ContinuousScanPipeline(
                     return skippedFrame(frameIndex)
                 }
             }
+        val mapStart = now()
         val snapshot = mapper.processFrame(frameIndex, observations)
+        val mapEnd = now()
+        fitNs = sampleStart - fitStart
+        sampleNs = mapStart - sampleStart
+        mapNs = mapEnd - mapStart
+        fittedCount = fittedFaces.size
+        observationCount = observations.size
         lastSnapshot = snapshot
         tap?.let { t ->
             // One copy, straight into the tap's preallocated buffer; no allocation on the analyzer thread.
@@ -158,4 +213,8 @@ internal class ContinuousScanPipeline(
 
     /** GH #405 (debug diagnostics): why each unread non-centre slot is unread after the latest mapped frame. */
     fun unreadSlots(): List<UnreadSlot> = mapper.unreadSlots()
+
+    private companion object {
+        const val NANOS_PER_MS = 1_000_000.0
+    }
 }

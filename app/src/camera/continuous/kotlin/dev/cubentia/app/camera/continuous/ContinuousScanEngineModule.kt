@@ -84,4 +84,6 @@ private class PipelineEngine(
     }
 
     override fun export() = pipeline.export()
+
+    override fun timingRunLine(): String? = pipeline.timingRunLine()
 }

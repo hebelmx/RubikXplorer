@@ -604,6 +604,8 @@ class GuidedScanActivity : ComponentActivity() {
         } else if (scan.quickScanMode && !scan.quickLogged) {
             // Story 10.32: one run line per Quick Scan, for `evaluateQuickScan` and the device pass (debug only).
             scan.quickLogged = true
+            // GH #406: the engine's per-stage timings, logged just before the run line they belong to.
+            ScanDiagnostics.onQuickScanTimingRun(scan.engine?.timingRunLine())
             ScanDiagnostics.onQuickScanRun(
                 scan.quickStartedAt,
                 scan.guidedFacesAsked,
