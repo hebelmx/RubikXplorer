@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-26-2026 20:48'
+last_updated: '11-26-2026 21:30'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -159,7 +159,7 @@ development_status:
   10-31-wire-litert-v2-int8-sticker-center-detector-split-continuous: done
   10-32-continuous-quick-scan-live-viewfinder-growing-net-guided-fal: done
   10-33-continuous-quick-scan-physical-device-matrix-and-po-beta-cal: backlog
-  10-34-record-and-replay-a-continuous-quick-scan-session-in-the-dev: review
+  10-34-record-and-replay-a-continuous-quick-scan-session-in-the-dev: done
   10-35-retire-the-quick-scan-only-two-corner-recorder-paths: done
   10-36-record-new-scrambles-on-the-continuous-recorder-analyse-them: backlog
   10-22-quick-scan-captures-promptly-once-the-cube-is-in-view: done
@@ -3186,3 +3186,27 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-35-retire-the-quick-scan-only-two-corner-recorder-paths.md"
+  - id: "epic-10-deferred-10.34-lenovo-device-gate"
+    epic: 10
+    action: "Run the Story 10.34 device gate the PO deferred at merge: record a baseline and at least one complete and one incomplete Lenovo TB128XU session from the debug Solve-tab Quick Scan (at least one not defective), fill docs/evidence/10-34/latency.md with p50/p95 with and without capture, and check in curated sessions under Fixtures/continuous/ (high; deferred from 10.34 by PO decision 2026-11-26, after the pipeline fixes)"
+    owner: "PO (BMad)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-34-record-and-replay-a-continuous-quick-scan-session-in-the-dev.md"
+  - id: "epic-10-deferred-10.34-cap-stop-tick-lag"
+    epic: 10
+    action: "A frame-cap or size-cap stop is seen only by the 4 Hz tick, so the live mapper can process up to ~250 ms of frames that are neither captured nor counted and the saved outcome/net can disagree with the recorded snapshots; hold analysis once capture stops and derive the saved outcome from the last written snapshot (medium; deferred from 10.34 gate, QuickScanSessionController.kt:523)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-34-record-and-replay-a-continuous-quick-scan-session-in-the-dev.md"
+  - id: "epic-10-deferred-10.34-session-io-in-domain-main"
+    epic: 10
+    action: "The debug-tooling session codec with java.io.File I/O and exception-based decode failures sits in shipped :core:domain main; keep the pure DTOs and string codec there and move the File readers to the evaluation source set or the debug package (medium; deferred from 10.34 gate, ContinuousSession.kt:24)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-34-record-and-replay-a-continuous-quick-scan-session-in-the-dev.md"
+  - id: "epic-10-deferred-10.34-image-replay-never-run"
+    epic: 10
+    action: "ContinuousImageReplayDeviceTest is skipped by assumption everywhere today (no image session), so its count, 2 px and colour assertions have never been shown to pass; run it with a curated image session during the device gate and record the result in docs/evidence/10-34/ (medium; deferred from 10.34 gate, ContinuousImageReplayDeviceTest.kt:116)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-34-record-and-replay-a-continuous-quick-scan-session-in-the-dev.md"
