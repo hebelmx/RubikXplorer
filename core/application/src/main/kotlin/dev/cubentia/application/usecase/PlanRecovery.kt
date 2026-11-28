@@ -35,7 +35,7 @@ fun interface RecoveryPlannerFunction {
  */
 class PlanRecovery(
     private val planner: RecoveryPlannerFunction = RecoveryPlannerFunction(RecoveryPlanner::plan),
-    private val deadlineMillis: Long = DEADLINE_MILLIS,
+    val deadlineMillis: Long = DEADLINE_MILLIS,
 ) {
     /** The planned Moves, or null when there is no plan: none in the bound, timed out, stopped or failed. */
     suspend operator fun invoke(effect: Effect.PlanRecovery): List<Move>? {

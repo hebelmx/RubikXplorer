@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.cubentia.app.scan.ScanOutcome
+import dev.cubentia.app.solver.MethodSolveWarmUp
+import dev.cubentia.app.solver.SolveDeadline
 import dev.cubentia.app.solver.SolverLoad
 import dev.cubentia.app.solver.SolverSource
 import dev.cubentia.app.ui.editor.editedFrom
@@ -57,12 +59,27 @@ sealed interface SolvePhase {
     ) : SolvePhase
 }
 
+/**
+ * The Solve tab's flow from an accepted cube to a verified solution. [deadline] is the process's one solve deadline
+ * (Story 15.4); once the pruning tables are ready, [warmUp] (when given) starts the process's one method-solve warm-up.
+ */
 @HiltViewModel
 class SolveFlowViewModel
-    @Inject
-    constructor(
+    private constructor(
         private val source: SolverSource,
+        private val warmUp: MethodSolveWarmUp?,
+        private val deadline: SolveDeadline,
     ) : ViewModel() {
+        @Inject
+        constructor(
+            source: SolverSource,
+            deadline: SolveDeadline,
+            warmUp: MethodSolveWarmUp,
+        ) : this(source, warmUp, deadline)
+
+        /** A flow with the release deadline and no warm-up (tests and the shell's default). */
+        constructor(source: SolverSource) : this(source, null, SolveDeadline.RELEASE)
+
         private val mutablePhase = MutableStateFlow<SolvePhase>(SolvePhase.Home)
         val phase = mutablePhase.asStateFlow()
         private val mutablePendingScan = MutableStateFlow<CubeState?>(null)
@@ -291,7 +308,9 @@ class SolveFlowViewModel
                                     currentCoroutineContext().ensureActive()
                                     if (attempt != revision) return@launch
                                     show(SolvePhase.Solving(Preparation.NONE))
-                                    SolveCube(loaded.solver)(Effect.SolveCube(attempt, attempt, state)).outcome
+                                    // The tables are prepared: warm the method solver once, off-main and outside every deadline.
+                                    warmUp?.start()
+                                    SolveCube(loaded.solver, deadline.millis)(Effect.SolveCube(attempt, attempt, state)).outcome
                                 }
                             }
                         } catch (cancelled: CancellationException) {

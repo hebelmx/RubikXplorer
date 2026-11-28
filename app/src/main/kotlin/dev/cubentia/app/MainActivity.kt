@@ -60,6 +60,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var resetCalibration: dev.cubentia.application.usecase.ResetCalibration
 
+    /** The one solve deadline of this process (Story 15.4): 3 s, or 5 s in a debuggable build. */
+    @Inject lateinit var solveDeadline: dev.cubentia.app.solver.SolveDeadline
+
     private val solveFlow: dev.cubentia.app.ui.solve.SolveFlowViewModel by viewModels()
 
     private val placementFlow: dev.cubentia.app.ui.placement.PlacementFlowViewModel by viewModels()
@@ -302,6 +305,7 @@ class MainActivity : ComponentActivity() {
                     placementFlow = placementFlow,
                     recognizeFlow = recognizeFlow,
                     solutionStyles = solutionStyles,
+                    solveDeadline = solveDeadline,
                     onRecognize = onRecognize,
                     onPlacementScan = onPlacementScan,
                     catalog = lessonCatalog,

@@ -5,6 +5,7 @@ import androidx.room3.Room
 import androidx.sqlite.driver.AndroidSQLiteDriver
 import dev.cubentia.app.data.RoomAlgorithmStatusRepository
 import dev.cubentia.app.data.RubikDatabase
+import dev.cubentia.app.solver.SolveDeadline
 import dev.cubentia.application.session.Effect
 import dev.cubentia.application.usecase.MethodSolveOutcome
 import dev.cubentia.application.usecase.SetAlgorithmStatus
@@ -49,7 +50,11 @@ class MethodSolverWiringTest {
     private fun cases(repository: RoomAlgorithmStatusRepository): List<String> =
         runBlocking {
             val completed =
-                SolverModule.methodSolverFactory(repository).create(bundle)(Effect.MethodSolve(1L, 4L, dot, SolveMethod.TWO_LOOK))
+                SolverModule
+                    .methodSolverFactory(
+                        repository,
+                        SolveDeadline.RELEASE,
+                    ).create(bundle)(Effect.MethodSolve(1L, 4L, dot, SolveMethod.TWO_LOOK))
             assertEquals(1L, completed.effectId)
             assertEquals(4L, completed.revision)
             (completed.outcome as MethodSolveOutcome.Solved).segments.mapNotNull { (it.tag as? SegmentTag.OfCase)?.caseId?.value }

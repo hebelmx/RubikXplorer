@@ -245,6 +245,25 @@ class SolveCubeTest {
             assertFalse(completed)
         }
 
+    @Test
+    fun `an injected short deadline times out a blocking solver and leaves a fast one solved`() =
+        runBlocking<Unit> {
+            val started = TimeSource.Monotonic.markNow()
+            val blocked = SolveCube(CubeSolver { awaitCancellation() }, deadlineMillis = 50)
+            assertEquals(50L, blocked.deadlineMillis)
+            assertInstanceOf(SolveCubeOutcome.TimedOut::class.java, blocked(request()).outcome)
+            assertTrue(started.elapsedNow().inWholeMilliseconds < 2_000)
+            val move = FaceTurn(Face.R, Turn.CLOCKWISE)
+            val fast = SolveCube(CubeSolver { SolveResult.Solved(listOf(move.inverse())) }, deadlineMillis = 5_000)
+            assertEquals(SolveCubeOutcome.Solved(listOf(move.inverse())), fast(request(CubeState.SOLVED.apply(move))).outcome)
+        }
+
+    @Test
+    fun `the default deadline is the three second release value`() {
+        assertEquals(3_000L, SolveCube.DEADLINE_MILLIS)
+        assertEquals(SolveCube.DEADLINE_MILLIS, SolveCube(CubeSolver { SolveResult.Failed }).deadlineMillis)
+    }
+
     private fun assertRecoveryExists(key: String) {
         val bundle = checkNotNull(javaClass.getResourceAsStream("/content/strings/en.json")).bufferedReader().use { it.readText() }
         assertTrue(bundle.contains("\"$key\":"))
