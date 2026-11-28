@@ -1,6 +1,7 @@
 package dev.cubentia.app.camera
 
 import dev.cubentia.domain.cube.Face
+import dev.cubentia.domain.recognition.CalibrationCenters
 import dev.cubentia.domain.recognition.continuous.ContinuousScanExport
 import dev.cubentia.domain.recognition.continuous.ContinuousScanSnapshot
 import dev.cubentia.domain.recognition.continuous.Point2D
@@ -71,11 +72,17 @@ internal interface ContinuousScanEngine {
     /** Process-wide detector failure, readable on any thread without starting analysis. */
     val detectorUnavailable: Boolean
 
+    /**
+     * Story 10.37 E9: [savedCalibration] is the Learner's persisted calibration as of this frame (null: none) and [torchLit]
+     * the torch state the camera last reported applied when the frame is processed; both reach the mapper with the frame.
+     */
     fun processFrame(
         frame: YuvFrame,
         rotationDegrees: Int,
         viewWidth: Int,
         viewHeight: Int,
+        savedCalibration: CalibrationCenters? = null,
+        torchLit: Boolean = false,
     ): ContinuousFrame
 
     /** A new scan with an empty map; it ends any recording ([record]). */

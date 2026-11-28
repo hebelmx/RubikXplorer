@@ -51,11 +51,14 @@ import dev.cubentia.app.camera.session.SessionPhase
 import dev.cubentia.app.camera.testHandoff
 import dev.cubentia.app.camera.testSnapshot
 import dev.cubentia.app.di.FlagsModule
+import dev.cubentia.app.scan.RunScanColorsExtra
 import dev.cubentia.app.scan.ScanFlowContract
 import dev.cubentia.app.scan.ScanLauncher
 import dev.cubentia.app.scan.ScanOutcome
 import dev.cubentia.app.ui.solve.SolveFlowViewModel
 import dev.cubentia.app.ui.solve.SolvePhase
+import dev.cubentia.application.port.CalibrationLoad
+import dev.cubentia.application.port.CalibrationRepository
 import dev.cubentia.application.port.FeatureFlag
 import dev.cubentia.application.port.FeatureFlags
 import dev.cubentia.application.port.FlagLevel
@@ -64,6 +67,7 @@ import dev.cubentia.domain.cube.CubeState
 import dev.cubentia.domain.cube.Face
 import dev.cubentia.domain.cube.Notation
 import dev.cubentia.domain.cube.NotationResult
+import dev.cubentia.domain.recognition.CalibrationCenters
 import dev.cubentia.domain.recognition.CellReading
 import dev.cubentia.domain.recognition.FrameStats
 import dev.cubentia.domain.recognition.Lab
@@ -71,7 +75,9 @@ import dev.cubentia.domain.recognition.QuickScanPlan
 import dev.cubentia.domain.recognition.continuous.ContinuousScanCue
 import dev.cubentia.domain.recognition.continuous.ContinuousScanExport
 import dev.cubentia.domain.recognition.continuous.FaceSlot
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -85,6 +91,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowLog
 import java.time.Duration
 import java.util.concurrent.ExecutorService
+import javax.inject.Inject
 
 @HiltAndroidTest
 @UninstallModules(CameraModule::class, ContinuousScanEngineModule::class, FlagsModule::class)
@@ -100,6 +107,8 @@ class ContinuousQuickScanRouteTest {
     private val camera = FakeFrames()
 
     @BindValue internal val frames: ScanFrameSource = camera
+
+    @Inject lateinit var repository: CalibrationRepository
 
     @BindValue val launcher: ScanLauncher =
         object : ScanLauncher by CameraScanLauncher() {
@@ -147,6 +156,8 @@ class ContinuousQuickScanRouteTest {
                     rotationDegrees: Int,
                     viewWidth: Int,
                     viewHeight: Int,
+                    savedCalibration: CalibrationCenters?,
+                    torchLit: Boolean,
                 ) = error("camera supplies processed frames")
 
                 /** Story 10.34: the recording (or baseline timing) tap, as the real engine keeps it until the next reset. */
@@ -564,6 +575,64 @@ class ContinuousQuickScanRouteTest {
             assertUnavailableCard(model)
             assertEquals(0, camera.previews)
             assertEquals(0, camera.starts)
+        } finally {
+            scan.pause().stop().destroy()
+        }
+    }
+
+    @Test fun theCameraReadsTheRepositoryCalibrationAfterLoadAndTheNewOneAfterAMidScreenSave() {
+        // Story 10.37 E9: the supplier the activity registers returns only the persisted calibration, read live.
+        val stored = CalibrationCenters(Color.entries.associateWith { Lab(40.0 + it.ordinal, it.ordinal * 7.0, -it.ordinal * 3.0) })
+        runBlocking { repository.save(stored) }
+        quickScanActivity { _, model ->
+            settle(model)
+            assertEquals(stored, (runBlocking { repository.load() } as CalibrationLoad.Loaded).calibration)
+            assertEquals(stored, camera.savedCalibration())
+            show(listOf(Face.U))
+            settle(model)
+            rule.runOnIdle {
+                model.phase =
+                    GuidedScanPhase.Review(
+                        dev.cubentia.domain.recognition
+                            .ScanReview(List(54) { null }, 0),
+                        offerCalibration = true,
+                    )
+            }
+            rule.onNodeWithTag("review:calibrate:offer").performScrollTo().performClick()
+            rule.onNodeWithTag("review:calibrate:confirm").performClick()
+            settle(model)
+            rule.runOnIdle {
+                val phase = model.phase as GuidedScanPhase.Calibration
+                var session = phase.session
+                while (session.current != null) {
+                    session = session.offer(CellReading(ScanRouteTest.labs.getValue(session.current!!), true)).keep()
+                }
+                model.phase = phase.copy(session = session)
+            }
+            rule.onNodeWithTag("calibration:save").performScrollTo().performClick()
+            rule.waitUntil(10_000) {
+                shadowOf(Looper.getMainLooper()).idle()
+                model.saved != stored && !model.saving
+            }
+            settle(model)
+            val saved = checkNotNull(model.saved)
+            assertEquals(ScanRouteTest.labs, saved.centers)
+            assertEquals(saved, camera.savedCalibration())
+        }
+    }
+
+    @Test fun theCameraReadsNoCalibrationWhenOnlyRunScanColoursArePresent() {
+        // Story 10.37 E9: the run's start-scan colours never reach the continuous mapper.
+        val app = RuntimeEnvironment.getApplication()
+        val colors = CalibrationCenters(ScanRouteTest.labs)
+        val intent = RunScanColorsExtra.put(launcher.quickScanIntent(app), colors)
+        val scan = Robolectric.buildActivity(GuidedScanActivity::class.java, intent).setup()
+        try {
+            val model = ViewModelProvider(scan.get())[GuidedScanViewModel::class.java]
+            waitForCamera(continuous = true)
+            assertEquals(colors, model.runScan)
+            assertNull(model.saved)
+            assertNull(camera.savedCalibration())
         } finally {
             scan.pause().stop().destroy()
         }
@@ -1881,6 +1950,13 @@ class ContinuousQuickScanRouteTest {
 
         /** The activity's own rule for whether a continuous frame is analysed now. */
         @Volatile var analyzing: () -> Boolean = { false }
+
+        /** Story 10.37 E9: the supplier the activity registered, which the real camera reads for every frame. */
+        @Volatile var savedCalibration: () -> CalibrationCenters? = { error("no supplier registered") }
+
+        override fun savedCalibration(calibration: () -> CalibrationCenters?) {
+            savedCalibration = calibration
+        }
 
         /** The engine the activity last bound, which the real camera would feed (Story 10.34: swapped by a baseline run). */
         @Volatile var engine: ContinuousScanEngine? = null

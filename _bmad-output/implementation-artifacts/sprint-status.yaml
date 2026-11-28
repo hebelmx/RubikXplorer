@@ -3422,3 +3422,9 @@ action_items:
     owner: "Dev (Amelia) + PO (BMad)"
     status: open
     ref: "_bmad-output/implementation-artifacts/epic-15-retro-2026-11-27-story-15-4.md"
+  - id: "e9-restore-torch-rule-in-ad-9"
+    epic: 10
+    action: "Restore the saved-calibration torch rule in AD-9 (SCP 2026-11-24 removed it; Story 10.21 states it; Story 10.37 E9 applies it: the calibration's torch tag must equal the torch lit, untagged counting as off), via bmad-correct-course (PO decision 2026-11-27)"
+    owner: "Architect (Winston)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-10-37-e9-saved-calibration-anchor.md"
