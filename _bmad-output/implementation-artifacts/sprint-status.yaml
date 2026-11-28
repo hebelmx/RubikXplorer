@@ -213,7 +213,7 @@ development_status:
   15-1-build-a-beginner-method-solution-from-the-course-s-stages: done
   15-2-last-layer-segments-for-2-look-and-full-oll-pll-preferring-m: done
   15-3-choose-a-solution-style-in-solution-playback: done
-  15-4-warm-the-method-solver-once-and-give-debug-builds-a-5-s-solv: review
+  15-4-warm-the-method-solver-once-and-give-debug-builds-a-5-s-solv: done
   epic-15-retrospective: done
 action_items:
   - id: "epic-2-retro-item-1-create-a-deferred-findings-ledger-or-rou"
@@ -3410,3 +3410,9 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-414-debug-model-input-thumbnail.md"
+  - id: "epic-15-deferred-15.4-appshelltest-recreation-ci-flake"
+    epic: 15
+    action: "AppShellTest 'Stage practice keeps its scramble and attempt across recreation' timed out (ComposeTimeoutException, AppShellTest.kt:715) once in CI on PR #445 and passed on rerun; it never failed on main before, so check whether the 15.4 method-solve warm-up's CPU load on the runner causes it and stub the warm-up in AppShell tests if so (medium; deferred from 15.4 CI)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-15-4-warm-the-method-solver-once-and-give-debug-builds-a-5-s-solv.md"
