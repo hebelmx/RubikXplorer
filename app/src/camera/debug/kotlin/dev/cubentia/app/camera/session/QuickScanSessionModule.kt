@@ -35,7 +35,7 @@ abstract class QuickScanSessionModule {
     internal abstract fun sessionFactory(impl: DebugQuickScanSessionFactory): QuickScanSessionFactory
 }
 
-/** One controller per Quick Scan screen, with its own io thread and its adb receiver registered while the screen lives. */
+/** One controller per Quick Scan screen, with its own io thread and its adb receivers registered while the screen lives. */
 @Singleton
 internal class DebugQuickScanSessionFactory
     @Inject
@@ -46,6 +46,7 @@ internal class DebugQuickScanSessionFactory
         override fun create(host: QuickScanSessionHost): QuickScanSession {
             val io = Executors.newSingleThreadExecutor { Thread(it, "cubentia-session-io") }
             var receiver: BroadcastReceiver? = null
+            var debugViewReceiver: BroadcastReceiver? = null
             val controller =
                 QuickScanSessionController(
                     host = host,
@@ -58,11 +59,14 @@ internal class DebugQuickScanSessionFactory
                     log = { line -> runCatching { Log.i(QuickScanSessionController.TAG, line) } },
                     onRelease = {
                         receiver?.let { runCatching { context.unregisterReceiver(it) } }
+                        debugViewReceiver?.let { runCatching { context.unregisterReceiver(it) } }
                         // Queued work (a pending discard) still runs; nothing new is accepted.
                         io.shutdown()
                     },
                 )
             receiver = QuickScanSessionReceiver.register(context, controller::command)
+            // GH #409: the debug overlay's adb switch lives as long as the screen too.
+            debugViewReceiver = QuickScanDebugViewReceiver.register(context)
             return controller
         }
     }

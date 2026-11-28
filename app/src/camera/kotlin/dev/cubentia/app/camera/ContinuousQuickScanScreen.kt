@@ -31,6 +31,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -54,6 +55,12 @@ import dev.cubentia.domain.appearance.StickerAppearance
 import dev.cubentia.domain.recognition.continuous.FaceSlot
 import kotlinx.coroutines.channels.ReceiveChannel
 import dev.cubentia.domain.text.Text as ContentText
+
+/** GH #409: the debug overlay's detector peaks (filled dots sized by score); distinct from the outline highlight. */
+internal val DEBUG_PEAK_COLOR = Color(0xFF00E5FF)
+
+/** GH #409: the debug overlay's lattice cells (inlier filled, no peak a ring). */
+internal val DEBUG_LATTICE_COLOR = Color(0xFFFFEA00)
 
 /** Below this height (the compact window height class, AD-17) the two-pane panel pairs *Review and Correct* with *Enter colors instead*. */
 private val SHORT_PANEL_HEIGHT = WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND.dp
@@ -88,6 +95,38 @@ internal fun ContinuousQuickScanScreen(
                     path.close()
                     drawPath(path, highlight, style = Stroke(2.dp.toPx()))
                 }
+                state.debugOverlay?.let { debug ->
+                    // GH #409 (debug only): the fitted lattices, then the detector peaks over them.
+                    val cell = 4.dp.toPx()
+                    debug.lattices.forEach { lattice ->
+                        lattice.centers.forEachIndexed { i, c ->
+                            val at = Offset(c.x.toFloat() * size.width, c.y.toFloat() * size.height)
+                            if (lattice.inliers.getOrElse(i) { false }) {
+                                drawCircle(DEBUG_LATTICE_COLOR, cell, at)
+                            } else {
+                                drawCircle(DEBUG_LATTICE_COLOR, cell, at, style = Stroke(1.5.dp.toPx()))
+                            }
+                        }
+                    }
+                    debug.peaks.forEach { peak ->
+                        val radius = (1.5f + 2.5f * peak.score.coerceIn(0f, 1f)).dp.toPx()
+                        drawCircle(DEBUG_PEAK_COLOR, radius, Offset(peak.viewX.toFloat() * size.width, peak.viewY.toFloat() * size.height))
+                    }
+                }
+            }
+            state.debugOverlay?.let { debug ->
+                // Numbers and fixed words only (AD-13); above the session recording's Rec control in the same corner.
+                Text(
+                    debug.counts,
+                    Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(start = 4.dp, bottom = 56.dp)
+                        .background(Color.Black.copy(alpha = 0.6f))
+                        .padding(horizontal = 4.dp)
+                        .testTag("quickScan:debugCounts"),
+                    color = Color.White,
+                    style = MaterialTheme.typography.labelSmall,
+                )
             }
             OutlinedButton(
                 actions.onClose,

@@ -3368,3 +3368,27 @@ action_items:
     owner: "PO (hebelmx)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-411-mapper-deviations-revert-or-keep.md"
+  - id: "issue-409-deferred-device-alignment-screenshot"
+    epic: 10
+    action: "Device check owed: on a debug build with the overlay toggle on, take a device screenshot showing the peaks and lattice centres on the stickers at all four display rotations and in the two-pane layout (or the stacked layout after #415); #409 stays open until done (low; deferred from #409)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-409-debug-peaks-lattice-overlay.md"
+  - id: "issue-409-deferred-use-in-10-33-matrix"
+    epic: 10
+    action: "Device use owed: use the debug overlay in the Story 10.33 device matrix to sort each failed face into detector miss, fitter reject or mapper drop; #409 stays open until done (low; deferred from #409)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-409-debug-peaks-lattice-overlay.md"
+  - id: "issue-409-deferred-inlier-flags-nearest-cell"
+    epic: 10
+    action: "The debug overlay inlier flags are an approximation (nearest lattice cell), so a dot can mark the wrong cell as inlier; have the fitter report inlier cells if device sorting needs it (low; deferred from #409)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-409-debug-peaks-lattice-overlay.md"
+  - id: "issue-409-deferred-overlay-types-in-release"
+    epic: 10
+    action: "The debug overlay data types still compile into release, inactive behind a const gate; move them to a debug source set if release size or review requires it (low; deferred from #409)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-409-debug-peaks-lattice-overlay.md"

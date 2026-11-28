@@ -322,9 +322,18 @@ class ContinuousFaceletMapper {
     /** Consecutive frames with no plausible quad so far (read-only, GH #403 tests). */
     val emptyFrameStreak: Int get() = emptyStreak
 
+    private var plausibleCount = 0
+
+    /**
+     * GH #409 (debug overlay): how many of the last [processFrame]'s detections passed the plausibility filter; 0 on a
+     * frame after a twist (not processed) and after [reset].
+     */
+    val lastPlausibleQuadCount: Int get() = plausibleCount
+
     /** Reset all session state in place. */
     fun reset() {
         unreadValid = false
+        plausibleCount = 0
         master = null
         pending = null
         nextFragId = 0
@@ -351,11 +360,13 @@ class ContinuousFaceletMapper {
         detections: List<QuadObservation>,
     ): ContinuousScanSnapshot {
         if (twistDetected) {
+            plausibleCount = 0
             val cue = ContinuousScanCue.LayerTwistDetected
             lastCue = cue
             return buildSnapshot(frameIndex, emptyList(), cue)
         }
         val plausible = filterPlausibleQuads(detections)
+        plausibleCount = plausible.size
         if (plausible.isEmpty()) {
             // Parity E4 (GH #411): mapper.py keeps _prev_unattached across empty frames.
             hasPrevUnattached = false
