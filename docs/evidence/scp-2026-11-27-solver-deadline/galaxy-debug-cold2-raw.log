@@ -1,0 +1,601 @@
+1795823826.743  6619  6619 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823826.743  6619  6619 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=0,cases=3,warmup=0
+1795823826.744  6619  6619 I MethodSolveBenchmark: build,debuggable=true
+1795823826.752  6619  6619 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823828.304  6619  6730 I MethodSolveBenchmark: prepared,nanos=1523220728
+1795823830.967  6619  6730 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=0,nanos=2663129686,outcome=Solved,moves=121
+1795823831.204  6619  6730 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=1,nanos=236827448,outcome=Solved,moves=99
+1795823831.366  6619  6730 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=2,nanos=161878125,outcome=Solved,moves=76
+1795823831.367  6619  6730 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=2663129686;236827448;161878125
+1795823831.372  6619  6730 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823831.372  6619  6730 I MethodSolveBenchmark: done         1795823832.594  6921  6921 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823832.594  6921  6921 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=0,cases=3,warmup=0
+1795823832.594  6921  6921 I MethodSolveBenchmark: build,debuggable=true
+1795823832.597  6921  6921 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823833.936  6921  6952 I MethodSolveBenchmark: prepared,nanos=1313542552
+1795823835.708  6921  6952 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=0,nanos=1772759895,outcome=Solved,moves=85
+1795823835.891  6921  6952 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=1,nanos=182199844,outcome=Solved,moves=81
+1795823836.026  6921  6952 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=2,nanos=135721875,outcome=Solved,moves=61
+1795823836.027  6921  6952 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=1772759895;182199844;135721875
+1795823836.029  6921  6952 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823836.029  6921  6952 I MethodSolveBenchmark: done         1795823837.235  7022  7022 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823837.235  7022  7022 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=0,cases=3,warmup=0
+1795823837.235  7022  7022 I MethodSolveBenchmark: build,debuggable=true
+1795823837.239  7022  7022 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823838.562  7022  7047 I MethodSolveBenchmark: prepared,nanos=1303949427
+1795823840.437  7022  7047 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=0,nanos=1875508384,outcome=Solved,moves=68
+1795823840.752  7022  7047 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=1,nanos=314484062,outcome=Solved,moves=67
+1795823841.119  7022  7047 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=2,nanos=366546406,outcome=Solved,moves=61
+1795823841.119  7022  7047 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=1875508384;314484062;366546406
+1795823841.124  7022  7047 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823841.124  7022  7047 I MethodSolveBenchmark: done         1795823843.010  7103  7103 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823843.010  7103  7103 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=10,cases=3,warmup=0
+1795823843.010  7103  7103 I MethodSolveBenchmark: build,debuggable=true
+1795823843.014  7103  7103 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823844.332  7103  7122 I MethodSolveBenchmark: prepared,nanos=1301195000
+1795823846.330  7103  7122 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=10,nanos=1998424322,outcome=Solved,moves=124
+1795823846.650  7103  7122 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=11,nanos=320008125,outcome=Solved,moves=107
+1795823846.793  7103  7122 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=12,nanos=142895104,outcome=Solved,moves=78
+1795823846.794  7103  7122 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=1998424322;320008125;142895104
+1795823846.800  7103  7122 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823846.800  7103  7122 I MethodSolveBenchmark: done         1795823848.864  7180  7180 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823848.865  7180  7180 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=10,cases=3,warmup=0
+1795823848.865  7180  7180 I MethodSolveBenchmark: build,debuggable=true
+1795823848.868  7180  7180 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823850.193  7180  7201 I MethodSolveBenchmark: prepared,nanos=1307950260
+1795823852.001  7180  7201 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=10,nanos=1807905988,outcome=Solved,moves=70
+1795823852.181  7180  7201 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=11,nanos=179653906,outcome=Solved,moves=90
+1795823852.300  7180  7201 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=12,nanos=119162656,outcome=Solved,moves=81
+1795823852.300  7180  7201 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=1807905988;179653906;119162656
+1795823852.303  7180  7201 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823852.303  7180  7201 I MethodSolveBenchmark: done         1795823853.324  7258  7258 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823853.324  7258  7258 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=10,cases=3,warmup=0
+1795823853.324  7258  7258 I MethodSolveBenchmark: build,debuggable=true
+1795823853.327  7258  7258 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823854.649  7258  7279 I MethodSolveBenchmark: prepared,nanos=1305021718
+1795823856.546  7258  7279 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=10,nanos=1896541145,outcome=Solved,moves=68
+1795823856.840  7258  7279 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=11,nanos=294193333,outcome=Solved,moves=72
+1795823857.171  7258  7279 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=12,nanos=331189114,outcome=Solved,moves=71
+1795823857.172  7258  7279 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=1896541145;294193333;331189114
+1795823857.177  7258  7279 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823857.177  7258  7279 I MethodSolveBenchmark: done         1795823858.974  7334  7334 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823858.974  7334  7334 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=20,cases=3,warmup=0
+1795823858.974  7334  7334 I MethodSolveBenchmark: build,debuggable=true
+1795823858.978  7334  7334 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823860.302  7334  7354 I MethodSolveBenchmark: prepared,nanos=1307627291
+1795823862.487  7334  7354 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=20,nanos=2184831145,outcome=Solved,moves=113
+1795823862.844  7334  7354 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=21,nanos=356833438,outcome=Solved,moves=133
+1795823862.976  7334  7354 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=22,nanos=131670833,outcome=Solved,moves=85
+1795823862.977  7334  7354 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=2184831145;356833438;131670833
+1795823862.981  7334  7354 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823862.981  7334  7354 I MethodSolveBenchmark: done         1795823864.713  7412  7412 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823864.713  7412  7412 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=20,cases=3,warmup=0
+1795823864.713  7412  7412 I MethodSolveBenchmark: build,debuggable=true
+1795823864.716  7412  7412 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823866.022  7412  7433 I MethodSolveBenchmark: prepared,nanos=1288401822
+1795823867.904  7412  7433 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=20,nanos=1881762343,outcome=Solved,moves=90
+1795823868.082  7412  7433 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=21,nanos=177396823,outcome=Solved,moves=95
+1795823868.205  7412  7433 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=22,nanos=123323281,outcome=Solved,moves=86
+1795823868.206  7412  7433 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=1881762343;177396823;123323281
+1795823868.209  7412  7433 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823868.209  7412  7433 I MethodSolveBenchmark: done         1795823869.208  7483  7483 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823869.208  7483  7483 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=20,cases=3,warmup=0
+1795823869.208  7483  7483 I MethodSolveBenchmark: build,debuggable=true
+1795823869.212  7483  7483 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823870.530  7483  7506 I MethodSolveBenchmark: prepared,nanos=1297544219
+1795823872.512  7483  7506 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=20,nanos=1981274999,outcome=Solved,moves=75
+1795823872.837  7483  7506 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=21,nanos=324656458,outcome=Solved,moves=75
+1795823873.163  7483  7506 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=22,nanos=326339844,outcome=Solved,moves=72
+1795823873.164  7483  7506 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=1981274999;324656458;326339844
+1795823873.168  7483  7506 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823873.168  7483  7506 I MethodSolveBenchmark: done         1795823875.008  7565  7565 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823875.008  7565  7565 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=30,cases=3,warmup=0
+1795823875.008  7565  7565 I MethodSolveBenchmark: build,debuggable=true
+1795823875.011  7565  7565 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823876.342  7565  7589 I MethodSolveBenchmark: prepared,nanos=1313891250
+1795823878.365  7565  7589 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=30,nanos=2022745207,outcome=Solved,moves=127
+1795823878.657  7565  7589 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=31,nanos=292106875,outcome=Solved,moves=87
+1795823879.262  7565  7589 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=32,nanos=604305677,outcome=Solved,moves=128
+1795823879.263  7565  7589 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=2022745207;292106875;604305677
+1795823879.268  7565  7589 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823879.268  7565  7589 I MethodSolveBenchmark: done         1795823880.619  7648  7648 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823880.619  7648  7648 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=30,cases=3,warmup=0
+1795823880.619  7648  7648 I MethodSolveBenchmark: build,debuggable=true
+1795823880.622  7648  7648 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823882.076  7648  7671 I MethodSolveBenchmark: prepared,nanos=1423734219
+1795823884.337  7648  7671 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=30,nanos=2260930780,outcome=Solved,moves=80
+1795823884.688  7648  7671 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=31,nanos=350649740,outcome=Solved,moves=85
+1795823885.136  7648  7671 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=32,nanos=447596406,outcome=Solved,moves=78
+1795823885.136  7648  7671 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=2260930780;350649740;447596406
+1795823885.143  7648  7671 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823885.143  7648  7671 I MethodSolveBenchmark: done         1795823886.395  7731  7731 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823886.395  7731  7731 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=30,cases=3,warmup=0
+1795823886.395  7731  7731 I MethodSolveBenchmark: build,debuggable=true
+1795823886.399  7731  7731 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823887.640  7731  7754 I MethodSolveBenchmark: prepared,nanos=1182033333
+1795823889.471  7731  7754 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=30,nanos=1830652239,outcome=Solved,moves=66
+1795823889.832  7731  7754 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=31,nanos=360451250,outcome=Solved,moves=62
+1795823890.398  7731  7754 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=32,nanos=566645521,outcome=Solved,moves=73
+1795823890.400  7731  7754 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=1830652239;360451250;566645521
+1795823890.404  7731  7754 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823890.405  7731  7754 I MethodSolveBenchmark: done         1795823891.329  7802  7802 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823891.329  7802  7802 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=40,cases=3,warmup=0
+1795823891.329  7802  7802 I MethodSolveBenchmark: build,debuggable=true
+1795823891.333  7802  7802 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823892.670  7802  7826 I MethodSolveBenchmark: prepared,nanos=1311697812
+1795823894.603  7802  7826 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=40,nanos=1932126926,outcome=Solved,moves=119
+1795823895.021  7802  7826 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=41,nanos=418238646,outcome=Solved,moves=103
+1795823895.418  7802  7826 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=42,nanos=396999895,outcome=Solved,moves=129
+1795823895.419  7802  7826 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=1932126926;418238646;396999895
+1795823895.422  7802  7826 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823895.422  7802  7826 I MethodSolveBenchmark: done         1795823897.149  7909  7909 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823897.149  7909  7909 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=40,cases=3,warmup=0
+1795823897.149  7909  7909 I MethodSolveBenchmark: build,debuggable=true
+1795823897.152  7909  7909 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823898.479  7909  7933 I MethodSolveBenchmark: prepared,nanos=1308681875
+1795823900.102  7909  7933 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=40,nanos=1622264999,outcome=Solved,moves=87
+1795823900.393  7909  7933 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=41,nanos=291227552,outcome=Solved,moves=55
+1795823900.539  7909  7933 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=42,nanos=146299739,outcome=Solved,moves=68
+1795823900.540  7909  7933 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=1622264999;291227552;146299739
+1795823900.542  7909  7933 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823900.542  7909  7933 I MethodSolveBenchmark: done         1795823901.605  8001  8001 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823901.605  8001  8001 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=40,cases=3,warmup=0
+1795823901.605  8001  8001 I MethodSolveBenchmark: build,debuggable=true
+1795823901.607  8001  8001 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823902.922  8001  8022 I MethodSolveBenchmark: prepared,nanos=1297111510
+1795823904.661  8001  8022 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=40,nanos=1738979947,outcome=Solved,moves=65
+1795823905.090  8001  8022 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=41,nanos=428805573,outcome=Solved,moves=65
+1795823905.437  8001  8022 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=42,nanos=346447760,outcome=Solved,moves=60
+1795823905.438  8001  8022 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=1738979947;428805573;346447760
+1795823905.444  8001  8022 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823905.444  8001  8022 I MethodSolveBenchmark: done         1795823907.421  8115  8115 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823907.421  8115  8115 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=50,cases=3,warmup=0
+1795823907.421  8115  8115 I MethodSolveBenchmark: build,debuggable=true
+1795823907.425  8115  8115 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823908.760  8115  8136 I MethodSolveBenchmark: prepared,nanos=1315976302
+1795823910.674  8115  8136 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=50,nanos=1914421458,outcome=Solved,moves=113
+1795823911.267  8115  8136 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=51,nanos=592243281,outcome=Solved,moves=113
+1795823911.555  8115  8136 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=52,nanos=287845312,outcome=Solved,moves=110
+1795823911.555  8115  8136 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=1914421458;592243281;287845312
+1795823911.560  8115  8136 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823911.561  8115  8136 I MethodSolveBenchmark: done         1795823913.040  8195  8195 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823913.040  8195  8195 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=50,cases=3,warmup=0
+1795823913.040  8195  8195 I MethodSolveBenchmark: build,debuggable=true
+1795823913.043  8195  8195 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823914.359  8195  8215 I MethodSolveBenchmark: prepared,nanos=1299104792
+1795823915.994  8195  8215 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=50,nanos=1634034999,outcome=Solved,moves=81
+1795823916.383  8195  8215 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=51,nanos=388803386,outcome=Solved,moves=79
+1795823916.483  8195  8215 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=52,nanos=99933125,outcome=Solved,moves=77
+1795823916.483  8195  8215 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=1634034999;388803386;99933125
+1795823916.486  8195  8215 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823916.486  8195  8215 I MethodSolveBenchmark: done         1795823917.440  8267  8267 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823917.440  8267  8267 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=50,cases=3,warmup=0
+1795823917.440  8267  8267 I MethodSolveBenchmark: build,debuggable=true
+1795823917.443  8267  8267 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823918.778  8267  8287 I MethodSolveBenchmark: prepared,nanos=1317734739
+1795823920.530  8267  8287 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=50,nanos=1751146614,outcome=Solved,moves=59
+1795823921.080  8267  8287 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=51,nanos=550310573,outcome=Solved,moves=67
+1795823921.391  8267  8287 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=52,nanos=310753594,outcome=Solved,moves=72
+1795823921.392  8267  8287 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=1751146614;550310573;310753594
+1795823921.397  8267  8287 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823921.397  8267  8287 I MethodSolveBenchmark: done         1795823923.125  8344  8344 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823923.125  8344  8344 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=60,cases=3,warmup=0
+1795823923.125  8344  8344 I MethodSolveBenchmark: build,debuggable=true
+1795823923.129  8344  8344 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823924.452  8344  8364 I MethodSolveBenchmark: prepared,nanos=1303696145
+1795823926.778  8344  8364 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=60,nanos=2325552656,outcome=Solved,moves=118
+1795823927.346  8344  8364 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=61,nanos=568185833,outcome=Solved,moves=100
+1795823927.634  8344  8364 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=62,nanos=287533229,outcome=Solved,moves=128
+1795823927.634  8344  8364 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=2325552656;568185833;287533229
+1795823927.637  8344  8364 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823927.637  8344  8364 I MethodSolveBenchmark: done         1795823928.689  8418  8418 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823928.690  8418  8418 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=60,cases=3,warmup=0
+1795823928.690  8418  8418 I MethodSolveBenchmark: build,debuggable=true
+1795823928.693  8418  8418 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823930.015  8418  8440 I MethodSolveBenchmark: prepared,nanos=1304518385
+1795823932.096  8418  8440 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=60,nanos=2080839114,outcome=Solved,moves=88
+1795823932.475  8418  8440 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=61,nanos=379581666,outcome=Solved,moves=82
+1795823932.610  8418  8440 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=62,nanos=134186042,outcome=Solved,moves=94
+1795823932.611  8418  8440 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=2080839114;379581666;134186042
+1795823932.615  8418  8440 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823932.615  8418  8440 I MethodSolveBenchmark: done         1795823934.352  8502  8502 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823934.352  8502  8502 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=60,cases=3,warmup=0
+1795823934.352  8502  8502 I MethodSolveBenchmark: build,debuggable=true
+1795823934.355  8502  8502 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823935.665  8502  8521 I MethodSolveBenchmark: prepared,nanos=1291994114
+1795823937.833  8502  8521 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=60,nanos=2167946093,outcome=Solved,moves=71
+1795823938.424  8502  8521 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=61,nanos=590445364,outcome=Solved,moves=70
+1795823938.723  8502  8521 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=62,nanos=298983542,outcome=Solved,moves=84
+1795823938.724  8502  8521 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=2167946093;590445364;298983542
+1795823938.729  8502  8521 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823938.729  8502  8521 I MethodSolveBenchmark: done         1795823939.836  8582  8582 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823939.837  8582  8582 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=70,cases=3,warmup=0
+1795823939.837  8582  8582 I MethodSolveBenchmark: build,debuggable=true
+1795823939.839  8582  8582 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823941.157  8582  8601 I MethodSolveBenchmark: prepared,nanos=1293615520
+1795823943.359  8582  8601 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=70,nanos=2202519323,outcome=Solved,moves=108
+1795823943.639  8582  8601 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=71,nanos=279290625,outcome=Solved,moves=115
+1795823943.806  8582  8601 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=72,nanos=167010573,outcome=Solved,moves=101
+1795823943.806  8582  8601 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=2202519323;279290625;167010573
+1795823943.810  8582  8601 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823943.810  8582  8601 I MethodSolveBenchmark: done         1795823945.623  8655  8655 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823945.623  8655  8655 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=70,cases=3,warmup=0
+1795823945.623  8655  8655 I MethodSolveBenchmark: build,debuggable=true
+1795823945.626  8655  8655 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823946.940  8655  8675 I MethodSolveBenchmark: prepared,nanos=1296463541
+1795823948.749  8655  8675 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=70,nanos=1809023229,outcome=Solved,moves=88
+1795823948.905  8655  8675 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=71,nanos=156017396,outcome=Solved,moves=82
+1795823949.052  8655  8675 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=72,nanos=146367656,outcome=Solved,moves=90
+1795823949.052  8655  8675 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=1809023229;156017396;146367656
+1795823949.054  8655  8675 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823949.054  8655  8675 I MethodSolveBenchmark: done         1795823950.022  8724  8724 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823950.022  8724  8724 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=70,cases=3,warmup=0
+1795823950.022  8724  8724 I MethodSolveBenchmark: build,debuggable=true
+1795823950.025  8724  8724 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=94,thermalStatus=0,powerSave=true
+1795823951.315  8724  8745 I MethodSolveBenchmark: prepared,nanos=1271144999
+1795823953.259  8724  8745 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=70,nanos=1944102968,outcome=Solved,moves=69
+1795823953.533  8724  8745 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=71,nanos=273665156,outcome=Solved,moves=65
+1795823953.878  8724  8745 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=72,nanos=345465729,outcome=Solved,moves=68
+1795823953.879  8724  8745 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=1944102968;273665156;345465729
+1795823953.882  8724  8745 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795823953.882  8724  8745 I MethodSolveBenchmark: done         1795823955.725  8826  8826 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823955.725  8826  8826 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=80,cases=3,warmup=0
+1795823955.725  8826  8826 I MethodSolveBenchmark: build,debuggable=true
+1795823955.728  8826  8826 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795823957.031  8826  8845 I MethodSolveBenchmark: prepared,nanos=1286140312
+1795823959.111  8826  8845 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=80,nanos=2079304687,outcome=Solved,moves=109
+1795823959.827  8826  8845 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=81,nanos=716417083,outcome=Solved,moves=139
+1795823960.007  8826  8845 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=82,nanos=179936146,outcome=Solved,moves=120
+1795823960.008  8826  8845 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=2079304687;716417083;179936146
+1795823960.013  8826  8845 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795823960.013  8826  8845 I MethodSolveBenchmark: done         1795823961.388  8919  8919 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823961.388  8919  8919 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=80,cases=3,warmup=0
+1795823961.388  8919  8919 I MethodSolveBenchmark: build,debuggable=true
+1795823961.391  8919  8919 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795823962.712  8919  8939 I MethodSolveBenchmark: prepared,nanos=1302812708
+1795823964.523  8919  8939 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=80,nanos=1810571145,outcome=Solved,moves=68
+1795823964.913  8919  8939 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=81,nanos=389908907,outcome=Solved,moves=92
+1795823965.045  8919  8939 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=82,nanos=132294479,outcome=Solved,moves=87
+1795823965.046  8919  8939 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=1810571145;389908907;132294479
+1795823965.049  8919  8939 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795823965.049  8919  8939 I MethodSolveBenchmark: done         1795823967.030  8995  8995 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823967.030  8995  8995 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=80,cases=3,warmup=0
+1795823967.030  8995  8995 I MethodSolveBenchmark: build,debuggable=true
+1795823967.035  8995  8995 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795823968.361  8995  9015 I MethodSolveBenchmark: prepared,nanos=1308785989
+1795823970.300  8995  9015 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=80,nanos=1938214218,outcome=Solved,moves=65
+1795823970.924  8995  9015 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=81,nanos=624791927,outcome=Solved,moves=66
+1795823971.210  8995  9015 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=82,nanos=285850312,outcome=Solved,moves=70
+1795823971.211  8995  9015 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=1938214218;624791927;285850312
+1795823971.216  8995  9015 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795823971.216  8995  9015 I MethodSolveBenchmark: done         1795823972.668  9072  9072 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823972.668  9072  9072 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=90,cases=3,warmup=0
+1795823972.668  9072  9072 I MethodSolveBenchmark: build,debuggable=true
+1795823972.671  9072  9072 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795823973.992  9072  9093 I MethodSolveBenchmark: prepared,nanos=1303815156
+1795823976.425  9072  9093 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=90,nanos=2432575311,outcome=Solved,moves=139
+1795823976.678  9072  9093 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=91,nanos=253064844,outcome=Solved,moves=126
+1795823976.945  9072  9093 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=92,nanos=266206198,outcome=Solved,moves=97
+1795823976.946  9072  9093 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=2432575311;253064844;266206198
+1795823976.950  9072  9093 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795823976.950  9072  9093 I MethodSolveBenchmark: done         1795823978.270  9148  9148 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823978.270  9148  9148 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=90,cases=3,warmup=0
+1795823978.270  9148  9148 I MethodSolveBenchmark: build,debuggable=true
+1795823978.274  9148  9148 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795823979.555  9148  9169 I MethodSolveBenchmark: prepared,nanos=1263793281
+1795823981.656  9148  9169 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=90,nanos=2100491041,outcome=Solved,moves=93
+1795823981.740  9148  9169 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=91,nanos=83927083,outcome=Solved,moves=74
+1795823981.835  9148  9169 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=92,nanos=95113646,outcome=Solved,moves=83
+1795823981.836  9148  9169 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=2100491041;83927083;95113646
+1795823981.840  9148  9169 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795823981.840  9148  9169 I MethodSolveBenchmark: done         1795823982.664  9220  9220 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823982.664  9220  9220 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=90,cases=3,warmup=0
+1795823982.664  9220  9220 I MethodSolveBenchmark: build,debuggable=true
+1795823982.667  9220  9220 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795823984.012  9220  9239 I MethodSolveBenchmark: prepared,nanos=1310783281
+1795823986.308  9220  9239 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=90,nanos=2295662551,outcome=Solved,moves=75
+1795823986.610  9220  9239 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=91,nanos=302247865,outcome=Solved,moves=70
+1795823986.886  9220  9239 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=92,nanos=275231458,outcome=Solved,moves=61
+1795823986.886  9220  9239 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=2295662551;302247865;275231458
+1795823986.891  9220  9239 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795823986.891  9220  9239 I MethodSolveBenchmark: done         1795823988.251  9297  9297 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823988.251  9297  9297 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=100,cases=3,warmup=0
+1795823988.251  9297  9297 I MethodSolveBenchmark: build,debuggable=true
+1795823988.254  9297  9297 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795823989.566  9297  9316 I MethodSolveBenchmark: prepared,nanos=1294246406
+1795823991.193  9297  9316 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=100,nanos=1626789479,outcome=Solved,moves=66
+1795823991.609  9297  9316 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=101,nanos=415524062,outcome=Solved,moves=87
+1795823991.885  9297  9316 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=102,nanos=276243229,outcome=Solved,moves=119
+1795823991.887  9297  9316 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=1626789479;415524062;276243229
+1795823991.893  9297  9316 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795823991.893  9297  9316 I MethodSolveBenchmark: done         1795823992.688  9367  9367 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823992.688  9367  9367 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=100,cases=3,warmup=0
+1795823992.688  9367  9367 I MethodSolveBenchmark: build,debuggable=true
+1795823992.691  9367  9367 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795823994.014  9367  9387 I MethodSolveBenchmark: prepared,nanos=1302989375
+1795823995.644  9367  9387 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=100,nanos=1629659635,outcome=Solved,moves=78
+1795823995.997  9367  9387 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=101,nanos=352199583,outcome=Solved,moves=87
+1795823996.115  9367  9387 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=102,nanos=117967656,outcome=Solved,moves=95
+1795823996.115  9367  9387 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=1629659635;352199583;117967656
+1795823996.118  9367  9387 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795823996.118  9367  9387 I MethodSolveBenchmark: done         1795823997.031  9438  9438 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795823997.031  9438  9438 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=100,cases=3,warmup=0
+1795823997.031  9438  9438 I MethodSolveBenchmark: build,debuggable=true
+1795823997.034  9438  9438 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795823998.364  9438  9458 I MethodSolveBenchmark: prepared,nanos=1309222135
+1795824000.125  9438  9458 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=100,nanos=1760884843,outcome=Solved,moves=55
+1795824000.633  9438  9458 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=101,nanos=507513438,outcome=Solved,moves=79
+1795824000.955  9438  9458 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=102,nanos=321735782,outcome=Solved,moves=76
+1795824000.955  9438  9458 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=1760884843;507513438;321735782
+1795824000.959  9438  9458 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824000.959  9438  9458 I MethodSolveBenchmark: done         1795824002.661  9548  9548 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795824002.661  9548  9548 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=110,cases=3,warmup=0
+1795824002.661  9548  9548 I MethodSolveBenchmark: build,debuggable=true
+1795824002.664  9548  9548 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824004.022  9548  9574 I MethodSolveBenchmark: prepared,nanos=1340079062
+1795824006.395  9548  9574 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=110,nanos=2373441249,outcome=Solved,moves=135
+1795824006.729  9548  9574 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=111,nanos=333798645,outcome=Solved,moves=115
+1795824006.996  9548  9574 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=112,nanos=266561614,outcome=Solved,moves=124
+1795824006.997  9548  9574 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=2373441249;333798645;266561614
+1795824007.002  9548  9574 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824007.002  9548  9574 I MethodSolveBenchmark: done         1795824008.272  9752  9752 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795824008.272  9752  9752 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=110,cases=3,warmup=0
+1795824008.272  9752  9752 I MethodSolveBenchmark: build,debuggable=true
+1795824008.276  9752  9752 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824009.646  9752  9772 I MethodSolveBenchmark: prepared,nanos=1352322083
+1795824011.566  9752  9772 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=110,nanos=1920225468,outcome=Solved,moves=84
+1795824011.681  9752  9772 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=111,nanos=114464271,outcome=Solved,moves=80
+1795824011.852  9752  9772 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=112,nanos=171005104,outcome=Solved,moves=85
+1795824011.852  9752  9772 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=1920225468;114464271;171005104
+1795824011.856  9752  9772 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824011.856  9752  9772 I MethodSolveBenchmark: done         1795824012.840  9967  9967 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795824012.840  9967  9967 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=110,cases=3,warmup=0
+1795824012.840  9967  9967 I MethodSolveBenchmark: build,debuggable=true
+1795824012.845  9967  9967 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824014.305  9967  9988 I MethodSolveBenchmark: prepared,nanos=1416174218
+1795824016.301  9967  9988 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=110,nanos=1996174165,outcome=Solved,moves=70
+1795824016.655  9967  9988 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=111,nanos=354078073,outcome=Solved,moves=69
+1795824017.025  9967  9988 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=112,nanos=370111094,outcome=Solved,moves=71
+1795824017.026  9967  9988 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=1996174165;354078073;370111094
+1795824017.031  9967  9988 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824017.031  9967  9988 I MethodSolveBenchmark: done         1795824018.772 10165 10165 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795824018.773 10165 10165 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=120,cases=3,warmup=0
+1795824018.773 10165 10165 I MethodSolveBenchmark: build,debuggable=true
+1795824018.776 10165 10165 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824020.169 10165 10185 I MethodSolveBenchmark: prepared,nanos=1375423854
+1795824022.456 10165 10185 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=120,nanos=2286508488,outcome=Solved,moves=125
+1795824022.763 10165 10185 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=121,nanos=306938125,outcome=Solved,moves=117
+1795824022.824 10165 10185 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=122,nanos=61278229,outcome=Solved,moves=69
+1795824022.825 10165 10185 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=2286508488;306938125;61278229
+1795824022.831 10165 10185 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824022.831 10165 10185 I MethodSolveBenchmark: done         1795824024.837 10404 10404 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795824024.837 10404 10404 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=120,cases=3,warmup=0
+1795824024.837 10404 10404 I MethodSolveBenchmark: build,debuggable=true
+1795824024.841 10404 10404 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824026.262 10404 10424 I MethodSolveBenchmark: prepared,nanos=1386690937
+1795824028.127 10404 10424 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=120,nanos=1864563802,outcome=Solved,moves=90
+1795824028.292 10404 10424 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=121,nanos=164529740,outcome=Solved,moves=97
+1795824028.388 10404 10424 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=122,nanos=95810104,outcome=Solved,moves=54
+1795824028.388 10404 10424 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=1864563802;164529740;95810104
+1795824028.394 10404 10424 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824028.394 10404 10424 I MethodSolveBenchmark: done         1795824029.287 10646 10646 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795824029.287 10646 10646 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=120,cases=3,warmup=0
+1795824029.287 10646 10646 I MethodSolveBenchmark: build,debuggable=true
+1795824029.291 10646 10646 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824030.695 10646 10671 I MethodSolveBenchmark: prepared,nanos=1382224374
+1795824032.706 10646 10671 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=120,nanos=2011031197,outcome=Solved,moves=75
+1795824033.084 10646 10671 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=121,nanos=377316822,outcome=Solved,moves=78
+1795824033.359 10646 10671 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=122,nanos=275175208,outcome=Solved,moves=54
+1795824033.360 10646 10671 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=2011031197;377316822;275175208
+1795824033.365 10646 10671 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824033.365 10646 10671 I MethodSolveBenchmark: done         1795824035.025 10883 10883 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795824035.025 10883 10883 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=130,cases=3,warmup=0
+1795824035.025 10883 10883 I MethodSolveBenchmark: build,debuggable=true
+1795824035.028 10883 10883 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824036.447 10883 10904 I MethodSolveBenchmark: prepared,nanos=1386140677
+1795824038.473 10883 10904 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=130,nanos=2025124010,outcome=Solved,moves=101
+1795824038.658 10883 10904 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=131,nanos=185007761,outcome=Solved,moves=66
+1795824039.527 10883 10904 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=132,nanos=869428958,outcome=Solved,moves=112
+1795824039.528 10883 10904 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=2025124010;185007761;869428958
+1795824039.536 10883 10904 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824039.536 10883 10904 I MethodSolveBenchmark: done         1795824040.602 11075 11075 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795824040.602 11075 11075 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=130,cases=3,warmup=0
+1795824040.602 11075 11075 I MethodSolveBenchmark: build,debuggable=true
+1795824040.606 11075 11075 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824041.955 11075 11097 I MethodSolveBenchmark: prepared,nanos=1327580416
+1795824043.798 11075 11097 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=130,nanos=1842595677,outcome=Solved,moves=90
+1795824043.956 11075 11097 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=131,nanos=157325000,outcome=Solved,moves=95
+1795824044.608 11075 11097 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=132,nanos=652010625,outcome=Solved,moves=85
+1795824044.608 11075 11097 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=1842595677;157325000;652010625
+1795824044.612 11075 11097 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824044.612 11075 11097 I MethodSolveBenchmark: done         1795824046.246 11295 11295 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795824046.246 11295 11295 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=130,cases=3,warmup=0
+1795824046.246 11295 11295 I MethodSolveBenchmark: build,debuggable=true
+1795824046.249 11295 11295 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824047.697 11295 11321 I MethodSolveBenchmark: prepared,nanos=1412864218
+1795824049.681 11295 11321 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=130,nanos=1983511197,outcome=Solved,moves=73
+1795824050.054 11295 11321 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=131,nanos=373215886,outcome=Solved,moves=79
+1795824050.924 11295 11321 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=132,nanos=869666562,outcome=Solved,moves=76
+1795824050.925 11295 11321 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=1983511197;373215886;869666562
+1795824050.929 11295 11321 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824050.929 11295 11321 I MethodSolveBenchmark: done         1795824052.014 11536 11536 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795824052.014 11536 11536 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=140,cases=3,warmup=0
+1795824052.014 11536 11536 I MethodSolveBenchmark: build,debuggable=true
+1795824052.017 11536 11536 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824053.411 11536 11559 I MethodSolveBenchmark: prepared,nanos=1375745937
+1795824055.695 11536 11559 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=140,nanos=2284254947,outcome=Solved,moves=126
+1795824056.003 11536 11559 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=141,nanos=307770052,outcome=Solved,moves=118
+1795824056.106 11536 11559 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=142,nanos=103452083,outcome=Solved,moves=82
+1795824056.107 11536 11559 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=2284254947;307770052;103452083
+1795824056.112 11536 11559 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824056.112 11536 11559 I MethodSolveBenchmark: done         1795824057.783 11753 11753 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795824057.783 11753 11753 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=140,cases=3,warmup=0
+1795824057.783 11753 11753 I MethodSolveBenchmark: build,debuggable=true
+1795824057.787 11753 11753 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824059.199 11753 11775 I MethodSolveBenchmark: prepared,nanos=1372415676
+1795824061.051 11753 11775 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=140,nanos=1852198020,outcome=Solved,moves=90
+1795824061.172 11753 11775 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=141,nanos=120194895,outcome=Solved,moves=80
+1795824061.280 11753 11775 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=142,nanos=108320000,outcome=Solved,moves=62
+1795824061.280 11753 11775 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=1852198020;120194895;108320000
+1795824061.283 11753 11775 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824061.283 11753 11775 I MethodSolveBenchmark: done         1795824062.214 11955 11955 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795824062.214 11955 11955 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=140,cases=3,warmup=0
+1795824062.214 11955 11955 I MethodSolveBenchmark: build,debuggable=true
+1795824062.218 11955 11955 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824063.593 11955 11975 I MethodSolveBenchmark: prepared,nanos=1358195052
+1795824065.635 11955 11975 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=140,nanos=2041157655,outcome=Solved,moves=76
+1795824065.950 11955 11975 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=141,nanos=315284843,outcome=Solved,moves=73
+1795824066.268 11955 11975 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=142,nanos=318026563,outcome=Solved,moves=57
+1795824066.269 11955 11975 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=2041157655;315284843;318026563
+1795824066.273 11955 11975 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824066.273 11955 11975 I MethodSolveBenchmark: done         1795824067.898 12164 12164 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795824067.898 12164 12164 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=150,cases=3,warmup=0
+1795824067.899 12164 12164 I MethodSolveBenchmark: build,debuggable=true
+1795824067.902 12164 12164 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824069.356 12164 12184 I MethodSolveBenchmark: prepared,nanos=1408977656
+1795824071.835 12164 12184 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=150,nanos=2478765155,outcome=Solved,moves=93
+1795824072.104 12164 12184 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=151,nanos=268940469,outcome=Solved,moves=83
+1795824072.354 12164 12184 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=152,nanos=249452552,outcome=Solved,moves=125
+1795824072.354 12164 12184 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=2478765155;268940469;249452552
+1795824072.358 12164 12184 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824072.358 12164 12184 I MethodSolveBenchmark: done         1795824073.617 12356 12356 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795824073.617 12356 12356 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=150,cases=3,warmup=0
+1795824073.617 12356 12356 I MethodSolveBenchmark: build,debuggable=true
+1795824073.620 12356 12356 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824074.991 12356 12375 I MethodSolveBenchmark: prepared,nanos=1353455624
+1795824077.144 12356 12375 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=150,nanos=2152431614,outcome=Solved,moves=88
+1795824077.297 12356 12375 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=151,nanos=152403959,outcome=Solved,moves=85
+1795824077.456 12356 12375 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=152,nanos=158863854,outcome=Solved,moves=90
+1795824077.456 12356 12375 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=2152431614;152403959;158863854
+1795824077.461 12356 12375 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824077.461 12356 12375 I MethodSolveBenchmark: done         1795824079.436 12567 12567 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795824079.436 12567 12567 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=150,cases=3,warmup=0
+1795824079.436 12567 12567 I MethodSolveBenchmark: build,debuggable=true
+1795824079.439 12567 12567 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824080.868 12567 12588 I MethodSolveBenchmark: prepared,nanos=1390818177
+1795824083.149 12567 12588 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=150,nanos=2280202655,outcome=Solved,moves=71
+1795824083.468 12567 12588 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=151,nanos=319306406,outcome=Solved,moves=64
+1795824083.774 12567 12588 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=152,nanos=305974948,outcome=Solved,moves=71
+1795824083.775 12567 12588 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=2280202655;319306406;305974948
+1795824083.780 12567 12588 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824083.780 12567 12588 I MethodSolveBenchmark: done         1795824085.080 12762 12762 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795824085.081 12762 12762 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=160,cases=3,warmup=0
+1795824085.081 12762 12762 I MethodSolveBenchmark: build,debuggable=true
+1795824085.084 12762 12762 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824086.454 12762 12781 I MethodSolveBenchmark: prepared,nanos=1351893906
+1795824088.871 12762 12781 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=160,nanos=2417573333,outcome=Solved,moves=104
+1795824089.565 12762 12781 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=161,nanos=693522708,outcome=Solved,moves=134
+1795824090.133 12762 12781 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=162,nanos=567946406,outcome=Solved,moves=118
+1795824090.134 12762 12781 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=2417573333;693522708;567946406
+1795824090.140 12762 12781 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824090.140 12762 12781 I MethodSolveBenchmark: done         1795824091.931 12989 12989 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795824091.931 12989 12989 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=160,cases=3,warmup=0
+1795824091.932 12989 12989 I MethodSolveBenchmark: build,debuggable=true
+1795824091.935 12989 12989 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824093.332 12989 13009 I MethodSolveBenchmark: prepared,nanos=1365999687
+1795824095.389 12989 13009 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=160,nanos=2056296666,outcome=Solved,moves=94
+1795824095.767 12989 13009 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=161,nanos=377703541,outcome=Solved,moves=93
+1795824096.144 12989 13009 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=162,nanos=376540625,outcome=Solved,moves=73
+1795824096.144 12989 13009 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=2056296666;377703541;376540625
+1795824096.150 12989 13009 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824096.150 12989 13009 I MethodSolveBenchmark: done         1795824097.469 13190 13190 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795824097.469 13190 13190 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=160,cases=3,warmup=0
+1795824097.469 13190 13190 I MethodSolveBenchmark: build,debuggable=true
+1795824097.473 13190 13190 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824098.853 13190 13210 I MethodSolveBenchmark: prepared,nanos=1362883385
+1795824101.107 13190 13210 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=160,nanos=2254467708,outcome=Solved,moves=74
+1795824101.714 13190 13210 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=161,nanos=606801718,outcome=Solved,moves=79
+1795824102.274 13190 13210 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=162,nanos=559046042,outcome=Solved,moves=64
+1795824102.275 13190 13210 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=2254467708;606801718;559046042
+1795824102.281 13190 13210 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824102.281 13190 13210 I MethodSolveBenchmark: done         1795824103.245 13422 13422 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795824103.245 13422 13422 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=170,cases=3,warmup=0
+1795824103.245 13422 13422 I MethodSolveBenchmark: build,debuggable=true
+1795824103.249 13422 13422 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824104.654 13422 13456 I MethodSolveBenchmark: prepared,nanos=1383351458
+1795824106.822 13422 13456 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=170,nanos=2167089426,outcome=Solved,moves=134
+1795824107.192 13422 13456 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=171,nanos=370139896,outcome=Solved,moves=131
+1795824107.304 13422 13456 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=172,nanos=111291927,outcome=Solved,moves=89
+1795824107.304 13422 13456 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=2167089426;370139896;111291927
+1795824107.309 13422 13456 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824107.309 13422 13456 I MethodSolveBenchmark: done         1795824109.076 13684 13684 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795824109.077 13684 13684 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=170,cases=3,warmup=0
+1795824109.077 13684 13684 I MethodSolveBenchmark: build,debuggable=true
+1795824109.079 13684 13684 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824110.443 13684 13707 I MethodSolveBenchmark: prepared,nanos=1345403594
+1795824112.354 13684 13707 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=170,nanos=1910908072,outcome=Solved,moves=88
+1795824112.499 13684 13707 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=171,nanos=144943907,outcome=Solved,moves=85
+1795824112.617 13684 13707 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=172,nanos=117363541,outcome=Solved,moves=83
+1795824112.618 13684 13707 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=1910908072;144943907;117363541
+1795824112.622 13684 13707 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824112.622 13684 13707 I MethodSolveBenchmark: done         1795824113.632 13964 13964 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795824113.632 13964 13964 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=170,cases=3,warmup=0
+1795824113.632 13964 13964 I MethodSolveBenchmark: build,debuggable=true
+1795824113.635 13964 13964 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824115.066 13964 13984 I MethodSolveBenchmark: prepared,nanos=1393728228
+1795824117.029 13964 13984 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=170,nanos=1962839895,outcome=Solved,moves=72
+1795824117.390 13964 13984 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=171,nanos=360666666,outcome=Solved,moves=69
+1795824117.699 13964 13984 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=172,nanos=309445677,outcome=Solved,moves=64
+1795824117.700 13964 13984 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=1962839895;360666666;309445677
+1795824117.708 13964 13984 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824117.708 13964 13984 I MethodSolveBenchmark: done         1795824119.294 14164 14164 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795824119.294 14164 14164 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=180,cases=3,warmup=0
+1795824119.294 14164 14164 I MethodSolveBenchmark: build,debuggable=true
+1795824119.297 14164 14164 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824120.671 14164 14184 I MethodSolveBenchmark: prepared,nanos=1354408906
+1795824122.717 14164 14184 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=180,nanos=2045678176,outcome=Solved,moves=113
+1795824123.318 14164 14184 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=181,nanos=600784115,outcome=Solved,moves=107
+1795824123.688 14164 14184 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=182,nanos=370559375,outcome=Solved,moves=134
+1795824123.689 14164 14184 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=2045678176;600784115;370559375
+1795824123.692 14164 14184 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824123.692 14164 14184 I MethodSolveBenchmark: done         1795824124.915 14389 14389 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795824124.915 14389 14389 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=180,cases=3,warmup=0
+1795824124.915 14389 14389 I MethodSolveBenchmark: build,debuggable=true
+1795824124.919 14389 14389 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824126.357 14389 14411 I MethodSolveBenchmark: prepared,nanos=1388120156
+1795824127.946 14389 14411 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=180,nanos=1589090728,outcome=Solved,moves=79
+1795824128.294 14389 14411 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=181,nanos=347306146,outcome=Solved,moves=72
+1795824128.491 14389 14411 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=182,nanos=196898593,outcome=Solved,moves=90
+1795824128.493 14389 14411 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=1589090728;347306146;196898593
+1795824128.497 14389 14411 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824128.497 14389 14411 I MethodSolveBenchmark: done         1795824129.434 14583 14583 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795824129.434 14583 14583 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=180,cases=3,warmup=0
+1795824129.434 14583 14583 I MethodSolveBenchmark: build,debuggable=true
+1795824129.438 14583 14583 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=93,thermalStatus=0,powerSave=true
+1795824131.240 14583 14605 I MethodSolveBenchmark: prepared,nanos=1782140780
+1795824133.698 14583 14605 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=180,nanos=2457895207,outcome=Solved,moves=67
+1795824134.390 14583 14605 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=181,nanos=692023958,outcome=Solved,moves=60
+1795824134.788 14583 14605 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=182,nanos=397719167,outcome=Solved,moves=72
+1795824134.789 14583 14605 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=2457895207;692023958;397719167
+1795824134.793 14583 14605 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=92,thermalStatus=0,powerSave=true
+1795824134.794 14583 14605 I MethodSolveBenchmark: done         1795824136.158 14803 14803 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795824136.159 14803 14803 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=190,cases=3,warmup=0
+1795824136.159 14803 14803 I MethodSolveBenchmark: build,debuggable=true
+1795824136.162 14803 14803 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=92,thermalStatus=0,powerSave=true
+1795824137.562 14803 14828 I MethodSolveBenchmark: prepared,nanos=1368332031
+1795824139.552 14803 14828 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=190,nanos=1989681770,outcome=Solved,moves=118
+1795824140.063 14803 14828 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=191,nanos=511029635,outcome=Solved,moves=127
+1795824140.312 14803 14828 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=192,nanos=249201875,outcome=Solved,moves=142
+1795824140.313 14803 14828 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=1989681770;511029635;249201875
+1795824140.317 14803 14828 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=92,thermalStatus=0,powerSave=true
+1795824140.317 14803 14828 I MethodSolveBenchmark: done         1795824141.849 15033 15033 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795824141.849 15033 15033 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=190,cases=3,warmup=0
+1795824141.849 15033 15033 I MethodSolveBenchmark: build,debuggable=true
+1795824141.851 15033 15033 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=92,thermalStatus=0,powerSave=true
+1795824143.216 15033 15052 I MethodSolveBenchmark: prepared,nanos=1347361718
+1795824144.946 15033 15052 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=190,nanos=1729879426,outcome=Solved,moves=73
+1795824145.266 15033 15052 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=191,nanos=319842343,outcome=Solved,moves=84
+1795824145.385 15033 15052 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=192,nanos=119380781,outcome=Solved,moves=93
+1795824145.386 15033 15052 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=1729879426;319842343;119380781
+1795824145.389 15033 15052 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=92,thermalStatus=0,powerSave=true
+1795824145.389 15033 15052 I MethodSolveBenchmark: done         1795824146.240 15236 15236 I MethodSolveBenchmark: identity,fingerprint=samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys,model=SM-T738U,cpus=8
+1795824146.241 15236 15236 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=190,cases=3,warmup=0
+1795824146.241 15236 15236 I MethodSolveBenchmark: build,debuggable=true
+1795824146.244 15236 15236 I MethodSolveBenchmark: conditions,start,plugged=0,batteryPercent=92,thermalStatus=0,powerSave=true
+1795824147.693 15236 15266 I MethodSolveBenchmark: prepared,nanos=1406455520
+1795824149.534 15236 15266 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=190,nanos=1841291458,outcome=Solved,moves=66
+1795824150.080 15236 15266 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=191,nanos=545622239,outcome=Solved,moves=66
+1795824150.406 15236 15266 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=192,nanos=325719427,outcome=Solved,moves=74
+1795824150.406 15236 15266 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=1841291458;545622239;325719427
+1795824150.411 15236 15266 I MethodSolveBenchmark: conditions,end,plugged=0,batteryPercent=92,thermalStatus=0,powerSave=true
+1795824150.411 15236 15266 I MethodSolveBenchmark: done

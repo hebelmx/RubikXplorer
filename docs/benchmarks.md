@@ -783,6 +783,83 @@ A sixth run, used to set up the method and not counted, gave 3.82 s from accessi
 
 Raw: [runs and JSON](evidence/story-3-9/) (`run1.mp4`–`run5.mp4`, `accept-to-solution-lenovo-tb128xu.json`, `conditions-lenovo-tb128xu.txt`).
 
+## Method-solve deadline: `MethodSolveBenchmarkActivity` (SCP 2026-11-27 solver-deadline-tier)
+
+The harness times the solve use cases exactly as the app calls them, on a background thread, with content
+and pruning tables prepared before the timer starts. It measures whether a solve fits the use-case deadline
+(AD-8: 3 s in release and benchmark builds, 5 s in debuggable builds). Source:
+`app/src/corpusRunner/kotlin/dev/cubentia/app/solver/MethodSolveBenchmarkActivity.kt`, declared in the
+`debug` and `benchmark` manifests only (never in `release`). The full protocol, raw logs and every sample
+are in [`evidence/scp-2026-11-27-solver-deadline/`](evidence/scp-2026-11-27-solver-deadline/README.md).
+
+### How to run it
+
+```sh
+export JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64 ANDROID_HOME=$HOME/Android/Sdk
+./gradlew --no-daemon :app:assembleBenchmark     # release-equivalent (R8, not debuggable)
+./gradlew --no-daemon :app:assembleDebug         # debuggable, for the debug set
+adb -s <serial> install -r app/build/outputs/apk/benchmark/app-benchmark.apk
+
+# one cold sample: a new process, then 3 timed solves (the 1st is JIT-cold)
+adb -s <serial> shell am force-stop com.exxerpro.cubentia
+adb -s <serial> logcat -c
+adb -s <serial> shell am start -W -n com.exxerpro.cubentia/dev.cubentia.app.solver.MethodSolveBenchmarkActivity \
+  --es kind TWO_LOOK --es mode cold --ei index 0 --ei count 3
+# one warm corpus: 20 untimed solves, then 200 timed ones
+adb -s <serial> shell am start -W -n com.exxerpro.cubentia/dev.cubentia.app.solver.MethodSolveBenchmarkActivity \
+  --es kind TWO_LOOK --es mode warm --ei index 100000 --ei cases 200 --ei warmup 20
+# read the results; each run ends with a "done" line
+adb -s <serial> logcat -d -v epoch -s MethodSolveBenchmark:*
+```
+
+- `kind`: `BEGINNER`, `TWO_LOOK`, `FULL_OLL_PLL` (`SolveByMethod`), `SOLVE_CUBE` or `PLAN_RECOVERY`.
+- Inputs are random legal cubes from seed 20261127 and `index`. For the cold protocol, run 25 processes
+  per kind with `index` 0, 10, 20, …, interleaving the kinds; for the debug set, 20 per method.
+- `SolveByMethod` and `PlanRecovery` run without a deadline, so a slow solve shows its real time;
+  count the solves over 3 s (and over 5 s for debug) yourself. `SolveCube` keeps its own 3 s deadline.
+- Each run logs `identity` (fingerprint, model, CPUs), `build,debuggable=`, `conditions,start/end`
+  (plugged, battery, thermal status, power save), `prepared,nanos=`, one `solve,...` line per solve and a
+  `summary,...,nanos=a;b;c` line with every time (logcat can drop a line; the summary carries all of them).
+- Record the battery, thermal status, power save, memory and `/proc/loadavg` before and after each set;
+  a busy device changes the first solve by several times (Galaxy set 1 below).
+
+### Results, 2026-11-27 (ms; p95 nearest-rank)
+
+Revision `5a459c34` (Lenovo) and `49044baf` (Galaxy; the solver and use cases unchanged). Benchmark builds
+installed with dexopt `verify` (no AOT or profile, the worst case for a first solve).
+
+| Device, build, sample | n | Median | p95 | Max | > 3 s |
+| --- | --- | --- | --- | --- | --- |
+| Lenovo TB128XU, benchmark, BEGINNER cold 1st | 25 | 1136 | 1263 | 1313 | 0 |
+| Lenovo TB128XU, benchmark, TWO_LOOK cold 1st | 25 | 1070 | 1188 | 1208 | 0 |
+| Lenovo TB128XU, benchmark, FULL_OLL_PLL cold 1st | 25 | 1116 | 1251 | 1252 | 0 |
+| Lenovo TB128XU, benchmark, method 2nd solve (worst method) | 25 | 102 | 307 | 364 | 0 |
+| Lenovo TB128XU, benchmark, method warm (3 × 200, worst max) | 600 | 27–56 | 137–159 | 263 | 0 |
+| Lenovo TB128XU, benchmark, all 8 cores saturated, BEGINNER cold 1st | 20 | 1219 | 1774 | 3004 | 1 |
+| Lenovo TB128XU, **debug**, BEGINNER cold 1st | 20 | 3974 | 4381 | 4505 | 20 |
+| Lenovo TB128XU, **debug**, TWO_LOOK cold 1st | 20 | 3520 | 4048 | 4088 | 20 |
+| Lenovo TB128XU, **debug**, FULL_OLL_PLL cold 1st | 20 | 3744 | 4245 | 4298 | 20 |
+| Galaxy Tab S7 FE, benchmark, BEGINNER cold 1st | 25 | 512 | 575 | 603 | 0 |
+| Galaxy Tab S7 FE, benchmark, TWO_LOOK cold 1st | 25 | 470 | 539 | 545 | 0 |
+| Galaxy Tab S7 FE, benchmark, FULL_OLL_PLL cold 1st | 25 | 500 | 561 | 562 | 0 |
+| Galaxy Tab S7 FE, benchmark, busy tablet (set 1), BEGINNER cold 1st | 25 | 2744 | 3364 | 3374 | 8 |
+| Galaxy Tab S7 FE, benchmark, busy tablet (set 1), TWO_LOOK cold 1st | 25 | 2768 | 3171 | 3271 | 7 |
+| Galaxy Tab S7 FE, benchmark, busy tablet (set 1), FULL_OLL_PLL cold 1st | 25 | 2876 | 3381 | 3485 | 7 |
+| Galaxy Tab S7 FE, **debug**, BEGINNER cold 1st | 20 | 2120 | 2422 | 2658 | 0 |
+| Galaxy Tab S7 FE, **debug**, TWO_LOOK cold 1st | 20 | 1819 | 2114 | 2157 | 0 |
+| Galaxy Tab S7 FE, **debug**, FULL_OLL_PLL cold 1st | 20 | 1949 | 2188 | 2207 | 0 |
+
+SolveCube and PlanRecovery stayed far under 3 s on both devices (Lenovo max 456 / 977 ms, Galaxy quiet max
+494 / 585 ms). Conditions: Lenovo USB powered, 100 %, thermal 0, power save
+off; Galaxy on battery (99 → 96 %), **power save on**, thermal 0, about 2 GB swap in use.
+
+**Reading.** On a quiet device every release-equivalent solve fits 3 s with wide margin. The over-3 s
+cases are JIT-cold first method solves: always on the Lenovo debug build, and on a busy Galaxy in release
+(22 of 75). The 2nd solve in the same process was under 0.9 s everywhere (debug under 1.04 s). Decision
+(PO, 2026-11-27): the release deadline stays 3 s, debuggable builds get 5 s, and Story 15.4 runs one
+throwaway method-solve warm-up after preparation, outside the deadline. Story 15.4 re-runs this harness on
+the Lenovo (and the Galaxy benchmark build) and adds its rows here.
+
 ## Out of scope
 
 - The product owner waived the Story 1.11 2D net reference-device baselines for v1.0. Device
