@@ -209,7 +209,7 @@ development_status:
   14-3-practice-every-lesson-step-on-my-real-cube-with-a-quick-chec: done
   epic-14-retrospective: done
 
-  epic-15: in-progress
+  epic-15: done
   15-1-build-a-beginner-method-solution-from-the-course-s-stages: done
   15-2-last-layer-segments-for-2-look-and-full-oll-pll-preferring-m: done
   15-3-choose-a-solution-style-in-solution-playback: done
@@ -3416,3 +3416,9 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-15-4-warm-the-method-solver-once-and-give-debug-builds-a-5-s-solv.md"
+  - id: "epic-15-retro-15-4-measure-release-warm-up-overlap"
+    epic: 15
+    action: "Measure the release-build warm-up overlap: add a harness option that times the first method solve while the production warm-up still runs (no join), cold on the Lenovo TB128XU and a busy Galaxy Tab S7 FE benchmark build, all three styles; record the over-3 s counts in docs/benchmarks.md and take any timeout to the PO (batch with epic-15-retro-item-208)"
+    owner: "Dev (Amelia) + PO (BMad)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/epic-15-retro-2026-11-27-story-15-4.md"
