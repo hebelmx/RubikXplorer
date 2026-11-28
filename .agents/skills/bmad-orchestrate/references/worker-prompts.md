@@ -2,12 +2,19 @@
 
 Substitute every `{placeholder}` before sending. Each worker starts with no context: send only what is written here, and never paste diffs or your own narrative. Every worker must end its final message with the fenced JSON block its section defines.
 
-Dispatch (`run.worker`):
+## Dispatch
 
-- **subagent:** dispatch a fresh coding agent using the current host’s native API (for example Codex `spawn_agent`, Claude Code Task/Agent, or OpenCode subagents). Use an empty conversation context where supported and pass the prompt below. Wait for completion before continuing.
-- **headless:** use an available coding-agent CLI from `{project-root}`. Check its help for the supported noninteractive invocation and pass the prompt as data. Wait for completion and parse the JSON block from its output. Preserve the host’s permissions; do not enable bypass modes.
+Start a fresh headless CLI process from `{project-root}` for every dispatch. Choose `model` from `cfg.models.<provider>.worker` for build, fix, follow-up, retry, retrospective and post-merge workers. Use `cfg.models.<provider>.gate` only for the single isolated acceptance review in Phase D of each cycle, including a new Phase D after fixes. Use the preflight-validated values and pass the chosen model as an argument on every launch.
 
-Use any compatible coding agent; a provider change alone needs no approval. Confirm it can read the repository, follow `bmad-build-auto`, and dispatch that skill’s required independent subagents. If neither native nor headless dispatch supports those capabilities, stop and report the missing capability.
+| Provider | Headless invocation |
+| --- | --- |
+| Codex | `codex exec --model "$model" -c model_reasoning_effort=medium --ephemeral -` with the prompt on standard input. Add `--sandbox read-only` for the gate. |
+| Claude Code | `claude --print --model "$model" --effort medium --no-session-persistence` with the prompt on standard input. Add `--permission-mode plan` for the gate. |
+| Antigravity | `agy --model "$model" --output-format json --print "$prompt"` with the full prompt as one argument. Add `--mode plan` for the gate. |
+
+Wait for the process and parse the worker's fenced JSON result. For Antigravity, capture stdout and stderr separately. Require a zero exit code, one JSON object on stdout with `status == "SUCCESS"`, and a nonempty string `response`. Parse the fenced worker result from `response`. Preserve stderr and the outer envelope as diagnostics. Pass prompts as input or quoted arguments and preserve existing permissions. Use a compatible provider whose CLI can read the repository and, for build workers, run `bmad-build-auto` and launch its independent subagents. If the configured model fails to launch or the CLI reports a model substitution, stop and report it.
+
+Keep the chosen model session-scoped. Every retry carries its role's explicit model flag. A model override through `/model`, edits to global settings, and native orchestrator dispatch are prohibited during a sprint.
 
 ## Build worker
 
@@ -20,7 +27,7 @@ Load and follow the installed `bmad-build-auto` skill using your host’s skill 
 
 {followup_mode_line}
 
-Follow bmad-build-auto completely, including its subagents. It commits locally; that is expected. End every commit message with these lines:
+Follow bmad-build-auto completely, including its subagents. Keep each nested subagent on {worker_model}: set the native dispatch model or its explicit same-session inheritance option where supported. If the host cannot explicitly pin that selection, report the capability gap and stop. It commits locally; that is expected. End every commit message with these lines:
 {attribution_lines}
 
 Rules: obey {project-root}/AGENTS.md. Never edit planning artifacts under {planning_artifacts}, never edit _bmad/ or .agents/skills/, never push.
