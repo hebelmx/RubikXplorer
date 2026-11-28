@@ -38,6 +38,8 @@ internal data class ContinuousQuickScanFlow(
     val outlines: Map<OutlineKey, TrackedOutline> = emptyMap(),
     val announcement: CountAnnouncement? = null,
     val reviewAtMs: Long? = null,
+    /** GH #409: the latest frame's debug overlay; null unless the debug view is on (never in release). */
+    val debugOverlay: ContinuousDebugOverlay? = null,
 ) {
     val count: Int get() =
         when {
@@ -102,6 +104,7 @@ internal data class ContinuousQuickScanFlow(
             copy(
                 snapshot = snap,
                 outlines = tracked,
+                debugOverlay = frame.debug,
                 reviewAtMs = if (snap is ContinuousScanSnapshot.Complete) reviewAtMs ?: (nowMs + 1000L) else null,
             )
         return if (next.count > count) next.copy(announcement = CountAnnouncement(next.count, (announcement?.serial ?: 0) + 1)) else next

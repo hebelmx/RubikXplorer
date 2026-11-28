@@ -59,6 +59,12 @@ object ScanDiagnostics {
     const val QUICK_SCAN_TIMINGS = true
 
     /**
+     * GH #409: debug builds may draw the continuous Quick Scan's detector peaks and fitted lattices over the preview
+     * (`QuickScanDebugView`, off until an adb broadcast turns it on); release builds no overlay.
+     */
+    const val QUICK_SCAN_DEBUG_VIEW = true
+
+    /**
      * GH #406: one `quickScan timing window …` line per timing window (at most one per 2 s of analysis), logged from the
      * analyzer thread: per-stage p50/p90/max in ms over the window's frames. Numbers and fixed words only.
      */

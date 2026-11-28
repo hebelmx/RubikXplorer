@@ -19,6 +19,9 @@ object ScanDiagnostics {
     /** GH #406: release creates no continuous stage-timing accumulator. */
     const val QUICK_SCAN_TIMINGS = false
 
+    /** GH #409: release builds no peaks-and-lattice debug overlay, whatever the runtime toggle says. */
+    const val QUICK_SCAN_DEBUG_VIEW = false
+
     fun onQuickScanTimingWindow(body: String) = Unit
 
     fun onQuickScanTimingRun(body: String?) = Unit

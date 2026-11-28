@@ -358,6 +358,92 @@ class ContinuousQuickScanScreenTest {
         assertEquals(Color.Black.toArgb(), at(0.5, 0.5))
     }
 
+    /**
+     * GH #409, two panes at 600 dp in portrait: the debug overlay's peak dots and lattice cells land inside the preview at
+     * their view fractions (an inlier cell filled, a cell with no peak a ring), with the counts line in the camera area.
+     */
+    @Test
+    @Config(qualifiers = "w600dp-h960dp-port")
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun theDebugOverlayDrawsPeaksAndLatticeCellsOnThePreviewInTheTwoPaneLayout() {
+        val cells = List(9) { i -> Point2D(0.3 + (i % 3) * 0.1, 0.55 + (i / 3) * 0.1) }
+        val debug =
+            ContinuousDebugOverlay(
+                peaks = listOf(DebugPeak(0.25, 0.2, 1f), DebugPeak(0.75, 0.3, 0.2f)),
+                lattices = listOf(DebugLattice(cells, List(9) { it != 8 })),
+                counts = "peaks=2 fitted=1 sampled=1 kept=1 tracked=0",
+            )
+        rule.setContent {
+            CubentiaTheme {
+                GuidedScanScreen(
+                    GuidedScanPhase.Continuous,
+                    strings,
+                    GuidedScanActions(),
+                    continuous = ContinuousQuickScanFlow(debugOverlay = debug),
+                ) {
+                    Box(Modifier.fillMaxSize().background(Color.Black).testTag("preview"))
+                }
+            }
+        }
+        val preview = rule.onNodeWithTag("preview").fetchSemanticsNode().boundsInRoot
+        assertEquals(preview, rule.onNodeWithTag("scanViewfinder").fetchSemanticsNode().boundsInRoot)
+        rule
+            .onNode(
+                androidx.compose.ui.test
+                    .hasTestTag("quickScan:debugCounts") and
+                    androidx.compose.ui.test
+                        .hasAnyAncestor(
+                            androidx.compose.ui.test
+                                .hasTestTag("scanViewfinder"),
+                        ),
+            ).assertIsDisplayed()
+            .assertTextEquals("peaks=2 fitted=1 sampled=1 kept=1 tracked=0")
+        val pixels = rule.onNodeWithTag("scanViewfinder").captureToImage().toPixelMap()
+
+        fun at(
+            x: Double,
+            y: Double,
+        ) = pixels[(x * preview.width).toInt(), (y * preview.height).toInt()].toArgb()
+        for (peak in debug.peaks) {
+            assertEquals(
+                "peak at ${peak.viewX}, ${peak.viewY}",
+                DEBUG_PEAK_COLOR.toArgb(),
+                at(peak.viewX, peak.viewY),
+            )
+        }
+        cells.take(8).forEach { c -> assertEquals("inlier cell at ${c.x}, ${c.y}", DEBUG_LATTICE_COLOR.toArgb(), at(c.x, c.y)) }
+        // The cell no peak matched is a ring: hollow at its centre, drawn on its edge.
+        val ring = cells[8]
+        assertEquals(Color.Black.toArgb(), at(ring.x, ring.y))
+        val radius = with(rule.density) { 4.dp.toPx() }
+        assertTrue(
+            "ring edge drawn",
+            Color.Black.toArgb() != pixels[(ring.x * preview.width + radius).toInt(), (ring.y * preview.height).toInt()].toArgb(),
+        )
+        // Away from every mark the preview is untouched.
+        assertEquals(Color.Black.toArgb(), at(0.5, 0.45))
+    }
+
+    /** GH #409: with no overlay (toggle off, and always in release) nothing of it is drawn and it has no node. */
+    @Test
+    @Config(qualifiers = "w600dp-h960dp-port")
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun withoutADebugOverlayNoCountsNodeOrMarkIsDrawn() {
+        rule.setContent {
+            CubentiaTheme {
+                GuidedScanScreen(GuidedScanPhase.Continuous, strings, GuidedScanActions(), continuous = ContinuousQuickScanFlow()) {
+                    Box(Modifier.fillMaxSize().background(Color.Black).testTag("preview"))
+                }
+            }
+        }
+        rule.onNodeWithTag("quickScan:debugCounts").assertDoesNotExist()
+        val pixels = rule.onNodeWithTag("scanViewfinder").captureToImage().toPixelMap()
+        val preview = rule.onNodeWithTag("preview").fetchSemanticsNode().boundsInRoot
+        for ((x, y) in listOf(0.25 to 0.2, 0.75 to 0.3, 0.4 to 0.65, 0.5 to 0.75)) {
+            assertEquals(Color.Black.toArgb(), pixels[(x * preview.width).toInt(), (y * preview.height).toInt()].toArgb())
+        }
+    }
+
     @Test fun confirmAndRejectFallBackToALongPressBelowApi30() {
         val pulses = ContinuousQuickScanFlow.Pulse.entries
         assertEquals(

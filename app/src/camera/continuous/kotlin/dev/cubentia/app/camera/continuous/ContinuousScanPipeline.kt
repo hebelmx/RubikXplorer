@@ -1,7 +1,11 @@
 package dev.cubentia.app.camera.continuous
 
+import dev.cubentia.app.camera.ContinuousDebugOverlay
 import dev.cubentia.app.camera.ContinuousFrameTap
 import dev.cubentia.app.camera.ContinuousOverlayQuad
+import dev.cubentia.app.camera.DebugLattice
+import dev.cubentia.app.camera.DebugPeak
+import dev.cubentia.app.camera.QuickScanDebugView
 import dev.cubentia.app.camera.StickerCenterDetection
 import dev.cubentia.app.camera.StickerCenterDetector
 import dev.cubentia.app.camera.YuvFrame
@@ -15,6 +19,7 @@ import dev.cubentia.domain.recognition.continuous.FaceLatticeFitter
 import dev.cubentia.domain.recognition.continuous.FittedFace
 import dev.cubentia.domain.recognition.continuous.Point2D
 import dev.cubentia.domain.recognition.continuous.UnreadSlot
+import java.util.Locale
 
 /** Per-frame result of the continuous Quick Scan pipeline (detector -> lattice -> sampler -> mapper). */
 internal data class ContinuousPipelineFrame(
@@ -22,6 +27,8 @@ internal data class ContinuousPipelineFrame(
     val detection: StickerCenterDetection,
     val fittedFaces: List<FittedFace>,
     val viewOverlays: List<ContinuousOverlayQuad>,
+    /** GH #409: the debug overlay; null unless the pipeline's debug view is on. */
+    val debug: ContinuousDebugOverlay? = null,
 )
 
 /**
@@ -37,6 +44,8 @@ internal class ContinuousScanPipeline(
     private val mapper: ContinuousFaceletMapper = ContinuousFaceletMapper(),
     /** GH #406: per-stage timings (debug only); with null no clock is read. */
     private val timings: ContinuousStageTimings? = ContinuousStageTimings.forBuild(),
+    /** GH #409: whether to build the debug overlay of each frame; false in release by the const gate. */
+    private val debugView: () -> Boolean = QuickScanDebugView::enabled,
 ) {
     /** Story 10.34: the debug Quick Scan session recording's neutral frame tap; null unless a session records. */
     var tap: ContinuousFrameTap? = null
@@ -177,13 +186,87 @@ internal class ContinuousScanPipeline(
                         },
                 )
             }
+        val debug =
+            if (debugView()) {
+                debugOverlay(frame, rotationDegrees, viewWidth, viewHeight, detection, fittedFaces, observations.size, snapshot)
+            } else {
+                null
+            }
         return ContinuousPipelineFrame(
             snapshot = snapshot,
             detection = detection,
             fittedFaces = fittedFaces,
             viewOverlays = overlays,
+            debug = debug,
         )
     }
+
+    /**
+     * GH #409: every peak with its score, each fitted face's nine cells mapped upright → view as the outlines are, and the
+     * counts line. A cell is an inlier when an inlier peak of the fit lies nearest it ([FittedFace] keeps no cell index).
+     */
+    private fun debugOverlay(
+        frame: YuvFrame,
+        rotationDegrees: Int,
+        viewWidth: Int,
+        viewHeight: Int,
+        detection: StickerCenterDetection,
+        fittedFaces: List<FittedFace>,
+        sampled: Int,
+        snapshot: ContinuousScanSnapshot,
+    ): ContinuousDebugOverlay {
+        val peaks = detection.peaks.map { DebugPeak(it.viewX, it.viewY, it.score) }
+        val lattices =
+            fittedFaces.map { face ->
+                val inliers = BooleanArray(face.gridCenters.size)
+                for (index in face.inlierIndices) {
+                    val peak = detection.peaks.getOrNull(index) ?: continue
+                    val nearest =
+                        face.gridCenters.indices.minByOrNull { i ->
+                            val dx = face.gridCenters[i].x - peak.x
+                            val dy = face.gridCenters[i].y - peak.y
+                            dx * dx + dy * dy
+                        } ?: continue
+                    inliers[nearest] = true
+                }
+                DebugLattice(
+                    centers =
+                        face.gridCenters.map { c ->
+                            val (vx, vy) =
+                                StickerCenterModelTransform.uprightToViewFraction(
+                                    ux = c.x,
+                                    uy = c.y,
+                                    viewWidth = viewWidth,
+                                    viewHeight = viewHeight,
+                                    cropLeft = frame.left,
+                                    cropTop = frame.top,
+                                    cropRight = frame.right,
+                                    cropBottom = frame.bottom,
+                                    rotationDegrees = rotationDegrees,
+                                )
+                            Point2D(vx, vy)
+                        },
+                    inliers = inliers.toList(),
+                )
+            }
+        val counts =
+            buildList {
+                add("peaks=${detection.peaks.size}")
+                add("fitted=${fittedFaces.size}")
+                add("sampled=$sampled")
+                add("kept=${mapper.lastPlausibleQuadCount}")
+                add("tracked=${snapshot.trackedQuads.size}")
+                if (timings != null) {
+                    add("detectMs=${ms(detectorNs)}")
+                    add("fitMs=${ms(fitNs)}")
+                    add("sampleMs=${ms(sampleNs)}")
+                    add("mapMs=${ms(mapNs)}")
+                }
+            }.joinToString(" ")
+        return ContinuousDebugOverlay(peaks, lattices, counts)
+    }
+
+    private fun ms(ns: Long): String = if (ns < 0L) "-" else String.format(Locale.ROOT, "%.1f", ns / NANOS_PER_MS)
 
     /**
      * A frame that is not read (an invalid crop, the detector unavailable, a frame the detector could not read, GH #403,
@@ -210,6 +293,7 @@ internal class ContinuousScanPipeline(
             detection = StickerCenterDetection.EMPTY,
             fittedFaces = emptyList(),
             viewOverlays = emptyList(),
+            debug = if (debugView()) ContinuousDebugOverlay.SKIPPED else null,
         )
     }
 

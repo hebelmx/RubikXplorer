@@ -16,7 +16,40 @@ internal data class ContinuousOverlayQuad(
 internal data class ContinuousFrame(
     val snapshot: ContinuousScanSnapshot,
     val viewOverlays: List<ContinuousOverlayQuad>,
+    /** GH #409: the debug overlay of this frame; null unless [QuickScanDebugView.enabled] (never in release). */
+    val debug: ContinuousDebugOverlay? = null,
 )
+
+/** GH #409: one detector peak in normalized `[0..1]` `PreviewView` coordinates, with its detector [score]. */
+internal data class DebugPeak(
+    val viewX: Double,
+    val viewY: Double,
+    val score: Float,
+)
+
+/**
+ * GH #409: one fitted face's nine projected lattice cells (row-major) in `PreviewView` fractions; [inliers]`[i]` is true
+ * when an inlier peak of the fit lies nearest cell i, false for a projected cell no peak matched.
+ */
+internal data class DebugLattice(
+    val centers: List<Point2D>,
+    val inliers: List<Boolean>,
+)
+
+/**
+ * GH #409 (debug only): what one frame's detector and lattice fitter saw: every peak, each fitted face's lattice, and a
+ * [counts] line of numbers and fixed words (`peaks= fitted= sampled= kept= tracked=`, plus stage timings when timed).
+ */
+internal data class ContinuousDebugOverlay(
+    val peaks: List<DebugPeak>,
+    val lattices: List<DebugLattice>,
+    val counts: String,
+) {
+    companion object {
+        /** A frame the pipeline did not read (detector skipped or unavailable, bad crop, sampler failure). */
+        val SKIPPED = ContinuousDebugOverlay(emptyList(), emptyList(), "skipped")
+    }
+}
 
 /** Session-scoped mapper. Frame processing, reset and export belong to the scan's single analyzer executor. */
 internal interface ContinuousScanEngine {
