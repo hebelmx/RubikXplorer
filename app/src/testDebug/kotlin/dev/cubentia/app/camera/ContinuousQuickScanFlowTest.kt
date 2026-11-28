@@ -171,6 +171,25 @@ class ContinuousQuickScanFlowTest {
         assertTrue(complete.outlines.isEmpty())
     }
 
+    /** GH #409: each frame's debug overlay is carried as it came, and a frame without one clears it. */
+    @Test fun theFramesDebugOverlayIsCarriedAndClearedWithIt() {
+        val snap = testSnapshot(testHandoff(emptyList()))
+        val debug =
+            ContinuousDebugOverlay(
+                listOf(DebugPeak(0.3, 0.4, 0.9f)),
+                listOf(DebugLattice(List(9) { Point2D(0.5, 0.5) }, List(9) { it != 8 })),
+                "peaks=1 fitted=1 sampled=1 kept=1 tracked=1",
+            )
+        val shown = ContinuousQuickScanFlow().next(ContinuousFrame(snap, emptyList(), debug), 0)
+        assertEquals(debug, shown.debugOverlay)
+        assertEquals(
+            ContinuousDebugOverlay.SKIPPED,
+            shown.next(ContinuousFrame(snap, emptyList(), ContinuousDebugOverlay.SKIPPED), 0).debugOverlay,
+        )
+        assertNull(shown.next(ContinuousFrame(snap, emptyList()), 0).debugOverlay)
+        assertNull(ContinuousQuickScanFlow().next(ContinuousFrame(snap, emptyList()), 0).debugOverlay)
+    }
+
     @Test fun conflictAndTwistKeepTheMapAndPulseOnlyOnTransition() {
         val blank = FaceSlot(Face.F, 3)
         val handoff = testHandoff(Face.entries, blank = blank)
