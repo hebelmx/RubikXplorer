@@ -32,6 +32,7 @@ import dev.cubentia.solver.PruningTableLoadResult
 import dev.cubentia.solver.PruningTableProvider
 import dev.cubentia.solver.TwoPhaseCubeSolver
 import dev.cubentia.solver.benchmark.randomLegalState
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
 import java.io.File
 import kotlin.concurrent.thread
@@ -44,6 +45,10 @@ import kotlin.random.Random
  * stopping at 3 s, and [SolveCube] with its own fixed 3 s deadline. Content and pruning tables are
  * prepared before the first timed solve, outside every timing, as in the app. Never starts with the
  * app; compiled into `debug` and `benchmark` only, never `release`.
+ *
+ * For the method kinds, the production [MethodSolveWarmUp] (Story 15.4) then runs once to completion, as the app runs it
+ * after preparing the solver, and logs `warmed-up,nanos=`; it comes before the untimed [warmup] repeats and the first
+ * timed solve. Pass `--ez warmUp false` to skip it and reproduce the "before" rows of `docs/benchmarks.md`.
  *
  * - cold: a new process (force-stop first) whose first [count] solves are timed, the first being JIT-cold;
  * - warm: [warmup] untimed solves, then [cases] timed ones in the same process.
@@ -65,13 +70,14 @@ class MethodSolveBenchmarkActivity : Activity() {
         val count = intent.getIntExtra("count", if (mode == "cold") 3 else 100)
         val cases = intent.getIntExtra("cases", count)
         val warmup = intent.getIntExtra("warmup", if (mode == "cold") 0 else 20)
+        val warmUp = intent.getBooleanExtra("warmUp", true)
         Log.i(TAG, "identity,fingerprint=${Build.FINGERPRINT},model=${Build.MODEL},cpus=${Runtime.getRuntime().availableProcessors()}")
         Log.i(TAG, "args,kind=$kind,mode=$mode,seed=$seed,index=$index,cases=$cases,warmup=$warmup")
         Log.i(TAG, "build,debuggable=${applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0}")
         Log.i(TAG, conditions("start"))
         thread(name = "method-solve-benchmark") {
             try {
-                runBlocking { run(kind, mode, seed, index, cases, warmup) }
+                runBlocking { run(kind, mode, seed, index, cases, warmup, warmUp) }
                 Log.i(TAG, conditions("end"))
                 Log.i(TAG, "done")
             } catch (failure: Exception) {
@@ -88,6 +94,7 @@ class MethodSolveBenchmarkActivity : Activity() {
         index: Int,
         cases: Int,
         warmup: Int,
+        warmUp: Boolean,
     ) {
         val prepareStart = System.nanoTime()
         val bundle = (ContentLoader.load(ContentSource.SHIPPED) as ContentLoadResult.Loaded).bundle
@@ -134,6 +141,18 @@ class MethodSolveBenchmarkActivity : Activity() {
                 }
             }
         Log.i(TAG, "prepared,nanos=${System.nanoTime() - prepareStart}")
+        if (warmUp && kind != SOLVE_CUBE && kind != PLAN_RECOVERY) {
+            // The production warm-up (Story 15.4), run to completion before any timed solve.
+            val warmStart = System.nanoTime()
+            coroutineScope {
+                MethodSolveWarmUp(
+                    bundle = { bundle },
+                    scope = this,
+                    log = { message, failure -> Log.i(TAG, "warm-up-note,$message", failure) },
+                ).start()?.join()
+            }
+            Log.i(TAG, "warmed-up,nanos=${System.nanoTime() - warmStart}")
+        }
         // Warmup cases come from a disjoint index range so they never repeat a timed case.
         repeat(warmup) { timed(WARMUP_OFFSET + it) }
         val all = mutableListOf<Long>()

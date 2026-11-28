@@ -36,13 +36,17 @@ sealed interface SolveCubeOutcome {
     ) : SolveCubeOutcome
 }
 
-/** Runs the cubies-only adapter on Default, with an independent three-second deadline. */
+/**
+ * Runs the cubies-only adapter on Default, with an independent [deadlineMillis] deadline (AD-8: [DEADLINE_MILLIS] in
+ * release and benchmark builds; `:app` passes 5 s in debuggable builds, chosen once per process).
+ */
 class SolveCube(
     private val solver: CubeSolver,
+    val deadlineMillis: Long = DEADLINE_MILLIS,
 ) {
     suspend operator fun invoke(effect: Effect.SolveCube): SolveCubeCompleted {
         val outcome =
-            withTimeoutOrNull(DEADLINE_MILLIS) {
+            withTimeoutOrNull(deadlineMillis) {
                 withContext(Dispatchers.Default) {
                     try {
                         when (val result = solver.solve(effect.state.cubies)) {
@@ -84,7 +88,8 @@ class SolveCube(
         return SolveCubeCompleted(effect.effectId, effect.revision, outcome)
     }
 
-    private companion object {
-        const val DEADLINE_MILLIS = 3_000L
+    companion object {
+        /** The release and benchmark deadline, the same three seconds as the Solver's search cap. */
+        const val DEADLINE_MILLIS: Long = 3_000L
     }
 }

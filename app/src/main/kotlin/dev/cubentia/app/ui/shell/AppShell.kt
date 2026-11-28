@@ -49,6 +49,7 @@ import dev.cubentia.app.random.KotlinRandomSource
 import dev.cubentia.app.scan.QuickCheckCapture
 import dev.cubentia.app.session.SessionHost
 import dev.cubentia.app.solver.MethodSolutionCache
+import dev.cubentia.app.solver.SolveDeadline
 import dev.cubentia.app.solver.SolverLoad
 import dev.cubentia.app.solver.SolverSource
 import dev.cubentia.app.ui.freecube.FreeCubeScreen
@@ -87,6 +88,7 @@ import dev.cubentia.application.session.SessionEvent
 import dev.cubentia.application.session.SessionKind
 import dev.cubentia.application.session.SessionState
 import dev.cubentia.application.usecase.EntryLevel
+import dev.cubentia.application.usecase.PlanRecovery
 import dev.cubentia.application.usecase.RecognizeCase
 import dev.cubentia.application.usecase.SolveByMethod
 import dev.cubentia.application.usecase.StagePractice
@@ -173,7 +175,11 @@ fun AppShell(
     placementFlow: PlacementFlowViewModel = remember { PlacementFlowViewModel() },
     onRecognize: ((Int) -> Unit)? = null,
     recognizeFlow: RecognizeFlowViewModel = remember { RecognizeFlowViewModel() },
-    solutionStyles: SolutionStyleViewModel = remember { SolutionStyleViewModel({ SolveByMethod(it) }, MethodSolutionCache()) },
+    solveDeadline: SolveDeadline = SolveDeadline.RELEASE,
+    solutionStyles: SolutionStyleViewModel =
+        remember(solveDeadline) {
+            SolutionStyleViewModel({ SolveByMethod(it, deadlineMillis = solveDeadline.millis) }, MethodSolutionCache())
+        },
 ) {
     PreferenceProvider(preferenceStore) {
         ShellContent(
@@ -196,6 +202,7 @@ fun AppShell(
             onRecognize,
             recognizeFlow,
             solutionStyles,
+            solveDeadline,
         )
     }
 }
@@ -221,6 +228,7 @@ private fun ShellContent(
     onRecognize: ((Int) -> Unit)?,
     recognizeFlow: RecognizeFlowViewModel,
     solutionStyles: SolutionStyleViewModel,
+    solveDeadline: SolveDeadline,
 ) {
     // Quick Check is a camera capture: like Scan it and calibration, it stays hidden while CAMERA_SCAN is OFF.
     @Suppress("NAME_SHADOWING")
@@ -736,6 +744,7 @@ private fun ShellContent(
             }
         LessonScreen(
             quickCheck = quickCheck,
+            planRecovery = remember(solveDeadline) { PlanRecovery(deadlineMillis = solveDeadline.millis) },
             host = host,
             entry = entry,
             strings = ready.strings,
@@ -802,6 +811,7 @@ private fun ShellContent(
     if (ready != null && practiceEntry != null) {
         LessonScreen(
             quickCheck = quickCheck,
+            planRecovery = remember(solveDeadline) { PlanRecovery(deadlineMillis = solveDeadline.millis) },
             host = host,
             entry = practiceEntry,
             strings = ready.strings,
@@ -856,6 +866,7 @@ private fun ShellContent(
     if (ready != null && skipCheckEntry != null) {
         LessonScreen(
             quickCheck = quickCheck,
+            planRecovery = remember(solveDeadline) { PlanRecovery(deadlineMillis = solveDeadline.millis) },
             host = host,
             entry = skipCheckEntry,
             strings = ready.strings,

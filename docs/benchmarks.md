@@ -820,6 +820,10 @@ adb -s <serial> logcat -d -v epoch -s MethodSolveBenchmark:*
 - Each run logs `identity` (fingerprint, model, CPUs), `build,debuggable=`, `conditions,start/end`
   (plugged, battery, thermal status, power save), `prepared,nanos=`, one `solve,...` line per solve and a
   `summary,...,nanos=a;b;c` line with every time (logcat can drop a line; the summary carries all of them).
+- For the method kinds, the production method-solve warm-up (Story 15.4, `MethodSolveWarmUp`) runs by default once
+  per process after `prepared`, as the app runs it once the solver is prepared, and before the untimed `warmup`
+  repeats and the first timed solve; it logs `warmed-up,nanos=`. Add `--ez warmUp false` to skip it and reproduce
+  the "before" rows below.
 - Record the battery, thermal status, power save, memory and `/proc/loadavg` before and after each set;
   a busy device changes the first solve by several times (Galaxy set 1 below).
 
