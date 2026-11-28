@@ -1,7 +1,8 @@
 ---
-title: 'Sprint Change Proposal: solver deadline by device tier (3 s default, 5 s low-end) — measured, and not needed for release'
+title: 'Sprint Change Proposal: solver deadline by device tier — measured; approved: 3 s release deadline (5 s on debug builds) plus a method-solve warm-up'
 date: 2026-11-27
-status: proposed
+status: approved
+approved: 'Approved by PO 2026-11-27: A + B, with E folded into the wording fix'
 mode: batch
 trigger: 'PR #429: SolveByMethodTest cold TWO_LOOK solve timed out at 3 s on a loaded CI runner (run 46007677912 attempt 1); PO asks for a deadline tiered by device processor class'
 scope: Minor
@@ -9,31 +10,42 @@ scope: Minor
 
 # Sprint Change Proposal: solver deadline by device tier
 
+> **Approved by PO 2026-11-27: A + B, with E folded into the wording fix.** (hebelmx)
+>
+> 1. **A + B.** The release solve deadline stays **3 s** and **NFR-3 is unchanged**. B is a new story
+>    (**Story 15.4**): one throwaway method-solve warm-up, off-main and outside the deadline, after solver
+>    preparation.
+> 2. **E, folded into the wording fix.** Debuggable builds get a **5 s** solve deadline, because the debug
+>    first solve on the Lenovo was 3.5–4.5 s. The release and benchmark builds keep 3 s.
+> 3. The AD-8 / AR-12 wording fix is applied (`PlanRecovery` does not call `CubeSolver`), together with the
+>    debug-build 5 s wording.
+> 4. The `MethodSolveBenchmarkActivity` harness is kept, with a `docs/benchmarks.md` section on how to run
+>    it and the results.
+> 5. The Galaxy Tab S7 FE was measured as the mid-tier comparison (section 2).
+>
+> No device tier. The PRD is unchanged. The edits in section 4 are applied in this change.
+
 **Bottom line.** On the minimum reference device (Lenovo TB128XU), with the release-equivalent build,
 no solve came close to the 3 s deadline. The slowest JIT-cold method solve took **1.31 s**, and there were
-0 of 75 over 3 s. All 600 warm method solves were under 0.27 s. SolveCube and PlanRecovery peaked at
-0.34 s and 0.98 s. With all 8 cores saturated, 1 of 60 cold method solves reached **3.00 s**.
-So a device tier is **not needed** for what ships, and the recommendation is **no change** to the PRD,
-the architecture or the ACs.
-
-The evidence does show one real problem: the **debug** build. There, **every** JIT-cold first method solve
-is over 3 s (60/60, 3.5–4.5 s, all under 5 s). The first style tap in a debug device session therefore
-always falls back to *Shortest* with "timed out", and a second tap works. That comes from the build type,
-not the device class. The fix that matches it is a small, optional Developer story: warm the method-solve
-path once, outside the deadline (section 3, option B). A device tier is kept as option C if the PO still
-wants one.
+0 of 75 over 3 s. On the Galaxy Tab S7 FE (mid-tier comparison) the slowest was **0.60 s** on a quiet
+tablet, but **22 of 75 went over 3 s (max 3.49 s) while the tablet was busy** with other work, on battery
+with power save on. In every set, the 2nd solve in the same process was under 0.9 s. The over-3 s cases are
+one-time warm-up (class loading and JIT), not search. So the fix is to warm the method solver once,
+outside the deadline (B, Story 15.4), not a device tier. Debug builds are 3–4× slower on the first solve
+(Lenovo 60/60 over 3 s, all under 5 s), so they get a 5 s deadline (E).
 
 - **Trigger:** PR #429 (merged `5a459c34`). PO request (hebelmx, 2026-11-27): tier the solve deadline
   by device processor class, for example 3 s by default and 5 s for low-end devices.
-- **Mode:** Batch, non-interactive. Every PO decision is a question in section 6.
-- **Scope:** Minor. With the recommended option A (plus optional B), no planning artifact changes.
-  Options C and D list the exact OLD → NEW edits in section 4. They are applied only after PO approval.
-- **Status:** proposed. The PRD, architecture spine, epics and sprint-status are **not** edited by this
-  proposal.
+- **Mode:** Batch. The PO decided on 2026-11-27 (box above).
+- **Scope:** Minor. One new Developer story (15.4) in Epic 15, plus wording edits to AD-8, AD-21, the
+  spine's Deferred list, AR-12, the Story 3.4 SolveCube AC and the Epic 15 order (section 4).
+- **Status:** approved and applied: architecture spine (with a `.memlog.md` decision line), `epics.md`
+  and `sprint-status.yaml` (Story 15.4 `backlog`, through `sprint_plan.py generate`). The PRD is not edited.
 - **Evidence:** `docs/evidence/scp-2026-11-27-solver-deadline/` (README with commands, revision, build,
-  fingerprint, battery and thermal state; raw logs; `samples.csv`). Harness:
+  fingerprint, battery and thermal state for both devices; raw logs; `samples.csv`). Harness:
   `app/src/corpusRunner/kotlin/dev/cubentia/app/solver/MethodSolveBenchmarkActivity.kt` (only in
-  `debug` and `benchmark`, never in `release`).
+  `debug` and `benchmark`, never in `release`). How to run it: `docs/benchmarks.md` § Method-solve
+  deadline.
 
 ## 1. Issue summary
 
@@ -67,8 +79,8 @@ method solution that would have arrived a little later.
 | `docs/ARCHITECTURE.md:202` | "within the 3 s timeout and 30 MB app size" |
 
 Side note (pre-existing, not part of this change): `PlanRecovery` does not call `CubeSolver`. It runs
-`RecoveryPlanner`. AD-8's "Callers" line and AR-12 still name it as a Solver caller. Section 4.4 offers
-an optional wording fix.
+`RecoveryPlanner`. AD-8's "Callers" line and AR-12 still name it as a Solver caller. The approved
+wording fix is in section 4.1.
 
 ## 2. Evidence (measured 2026-11-27)
 
@@ -77,9 +89,9 @@ Fingerprint `Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:u
 Snapdragon 680 (SM6225), 8 CPUs, 3.6 GiB RAM. USB powered, battery 100 %, battery temperature
 26.4–31.7 °C, thermal status 0 throughout, power save off. Revision `5a459c34` plus the harness.
 `benchmark` build: release-equivalent (R8, non-debuggable), installed by `adb install` with dexopt
-`verify` (no AOT or profile, the worst case for a first solve). `debug` build: debuggable. No Samsung
-Galaxy was connected (`adb devices -l` checked before, between and after the runs), so there is no
-mid-tier row.
+`verify` (no AOT or profile, the worst case for a first solve). `debug` build: debuggable. The Galaxy Tab S7 FE rows
+(marked **Galaxy**) were measured later the same day with the same harness and protocol; their
+conditions follow the table.
 
 "Cold" means a new process (`am force-stop`), with content and pruning tables prepared before the
 timer starts, as the app does. The 1st solve is the JIT-cold one, and the 2nd is the next solve in the same
@@ -88,7 +100,7 @@ deadline**, so a slow solve shows its real time. "> 3 s" counts solves that woul
 `TimedOut` today. Every solve returned a verified solution, and none failed. "Saturated" means 8
 busy-loop shell processes holding all 8 cores (`top` 800 % cpu, 9 % idle).
 
-| Use case, build, sample (Lenovo TB128XU) | n | Median ms | p95 ms | Max ms | > 3 s | > 5 s |
+| Use case, build, sample (Lenovo TB128XU unless marked **Galaxy**) | n | Median ms | p95 ms | Max ms | > 3 s | > 5 s |
 | --- | --- | --- | --- | --- | --- | --- |
 | SolveByMethod BEGINNER, benchmark, cold 1st solve | 25 | 1136 | 1263 | 1313 | 0 | 0 |
 | SolveByMethod TWO_LOOK, benchmark, cold 1st solve | 25 | 1070 | 1188 | 1208 | 0 | 0 |
@@ -112,6 +124,39 @@ busy-loop shell processes holding all 8 cores (`top` 800 % cpu, 9 % idle).
 | SolveByMethod BEGINNER, **debug**, cold 2nd solve | 20 | 473 | 948 | 1035 | 0 | 0 |
 | SolveByMethod TWO_LOOK, **debug**, cold 2nd solve | 20 | 334 | 752 | 764 | 0 | 0 |
 | SolveByMethod FULL_OLL_PLL, **debug**, cold 2nd solve | 20 | 524 | 959 | 961 | 0 | 0 |
+| **Galaxy** SolveByMethod BEGINNER, benchmark, cold 1st solve | 25 | 512 | 575 | 603 | 0 | 0 |
+| **Galaxy** SolveByMethod TWO_LOOK, benchmark, cold 1st solve | 25 | 470 | 539 | 545 | 0 | 0 |
+| **Galaxy** SolveByMethod FULL_OLL_PLL, benchmark, cold 1st solve | 25 | 500 | 561 | 562 | 0 | 0 |
+| **Galaxy** SolveByMethod BEGINNER, benchmark, cold 2nd solve | 25 | 48 | 144 | 151 | 0 | 0 |
+| **Galaxy** SolveByMethod TWO_LOOK, benchmark, cold 2nd solve | 25 | 38 | 133 | 145 | 0 | 0 |
+| **Galaxy** SolveByMethod FULL_OLL_PLL, benchmark, cold 2nd solve | 25 | 66 | 166 | 174 | 0 | 0 |
+| **Galaxy** SolveByMethod BEGINNER, benchmark, warm | 200 | 62 | 156 | 233 | 0 | 0 |
+| **Galaxy** SolveByMethod TWO_LOOK, benchmark, warm | 200 | 22 | 127 | 228 | 0 | 0 |
+| **Galaxy** SolveByMethod FULL_OLL_PLL, benchmark, warm | 200 | 51 | 150 | 234 | 0 | 0 |
+| **Galaxy** SolveCube, benchmark, cold 1st solve | 25 | 74 | 186 | 245 | 0 | 0 |
+| **Galaxy** SolveCube, benchmark, warm | 200 | 25 | 144 | 494 | 0 | 0 |
+| **Galaxy** PlanRecovery, benchmark, cold 1st solve | 25 | 6 | 19 | 58 | 0 | 0 |
+| **Galaxy** PlanRecovery, benchmark, warm | 200 | 2 | 65 | 442 | 0 | 0 |
+| **Galaxy** SolveByMethod BEGINNER, benchmark, busy tablet (set 1), cold 1st | 25 | 2744 | 3364 | 3374 | 8 | 0 |
+| **Galaxy** SolveByMethod TWO_LOOK, benchmark, busy tablet (set 1), cold 1st | 25 | 2768 | 3171 | 3271 | 7 | 0 |
+| **Galaxy** SolveByMethod FULL_OLL_PLL, benchmark, busy tablet (set 1), cold 1st | 25 | 2876 | 3381 | 3485 | 7 | 0 |
+| **Galaxy** SolveByMethod BEGINNER, **debug**, cold 1st solve | 20 | 2120 | 2422 | 2658 | 0 | 0 |
+| **Galaxy** SolveByMethod TWO_LOOK, **debug**, cold 1st solve | 20 | 1819 | 2114 | 2157 | 0 | 0 |
+| **Galaxy** SolveByMethod FULL_OLL_PLL, **debug**, cold 1st solve | 20 | 1949 | 2188 | 2207 | 0 | 0 |
+| **Galaxy** SolveByMethod BEGINNER, **debug**, cold 2nd solve | 20 | 325 | 682 | 719 | 0 | 0 |
+| **Galaxy** SolveByMethod TWO_LOOK, **debug**, cold 2nd solve | 20 | 185 | 389 | 399 | 0 | 0 |
+| **Galaxy** SolveByMethod FULL_OLL_PLL, **debug**, cold 2nd solve | 20 | 361 | 609 | 625 | 0 | 0 |
+
+Galaxy conditions: Samsung Galaxy Tab S7 FE `SM-T738U` (`R52T50ELHWK`, the previous minimum reference
+device), over wireless adb. Fingerprint
+`samsung/gts7xllitesqwnc/gts7xllite:12/SP1A.210812.016/T738USQU3BVG7:user/release-keys`, Android 12,
+Snapdragon 750G (SM7225), 8 CPUs, 3.4 GiB RAM with about 2 GB of swap in use. **On battery** (99 → 96 %),
+**power save on**, battery temperature 23.7–26.2 °C, thermal status 0 throughout. Power save, timeout, lock
+and display settings were left as found. Revision `49044baf` (the solver and use cases unchanged from
+`5a459c34`). The unmarked Galaxy benchmark rows are set 2 (17:51–17:56, load average 3.7–6.8). "Busy tablet
+(set 1)" ran first (17:16–17:44) while the tablet was busy with other work (load average 8–14, under
+0.4 GB available, each run about 6× slower to complete); a 10-run recheck between the sets matched set 2.
+The debug set ran twice with the same result (the repeat is in the evidence README).
 
 Context from earlier evidence: the 10,101-case Kociemba corpus on this device had 10,101 within 3 s, with a
 max of 1,561 ms (`docs/benchmarks.md`). Cold Accept → Solution was 3.51 s median, with preparation outside
@@ -135,6 +180,14 @@ the deadline (SCP 2026-11-25 close-104).
    (`SolutionStyles.kt:229` falls back to *Shortest*), and a second tap succeeds.
 5. **SolveCube and PlanRecovery** are far below 3 s whether cold or warm. Their worst cases are 456 ms and
    977 ms. Nothing here supports tiering them.
+6. **Galaxy Tab S7 FE, quiet:** about 2× faster than the Lenovo on a first method solve (0.47–0.51 s median,
+   max 0.60 s) and on par warm. The debug first solve is 1.8–2.2 s median (max 2.66 s): under 3 s, so the
+   5 s debug deadline matters on the Lenovo only.
+7. **Galaxy Tab S7 FE, busy:** with the tablet busy with other work, on battery and in power save, the
+   release-equivalent first method solve was 2.7–2.9 s median and **22 of 75 went over 3 s** (max 3.49 s; one
+   PlanRecovery 3rd solve took 4.4 s). The 2nd solve stayed under 0.9 s. So a mid-tier device can time out
+   the first style tap in release when it is busy. This is again one-time warm-up, which B removes; a device
+   tier would not help, because the same device was 6× faster a few minutes later.
 
 ### 2.2 Device-tier detection, checked on the minimum device
 
@@ -156,53 +209,31 @@ the deadline (SCP 2026-11-25 close-104).
 | **D. Tier all three use cases** | as C, plus `SolveCube`, `PlanRecovery` and `TwoPhaseCubeSolver`'s internal cap | none measured: those use cases peak at 0.98 s | AD-8, AR-12, SolveCube AC, Deferred, `docs/ARCHITECTURE.md` (4.2) | ~1.5 days; touches the NFR-3 measurement boundary and the Solver's own cap |
 | E. Longer deadline on debuggable builds only | e.g. 10 s when `FLAG_DEBUGGABLE` | debug fixed; release unchanged | none in the PRD; one sentence in AD-21 if the PO wants it recorded | small; debug no longer exercises the release timeout path |
 
-**Recommendation: A, plus B as a small optional Developer story.**
+**Decision (PO, 2026-11-27): A + B, with E folded into the wording fix.** The options table above is
+kept as the record of what was weighed.
 
-- *Why not a tier:* the device class the tier is meant to protect is the one that was measured: the minimum
-  reference device, cold, with no AOT. It has more than 1.7 s of margin. None of the cheap tier signals
-  even classify it as low-end (2.2). A tier would add a policy, detection code and test matrix for a case
-  that was not observed in release.
-- *Why B:* it removes the only measured over-3 s cases, the debug first solve and the saturated BEGINNER
-  outlier, at their cause, the one-time warm-up. It keeps a single 3 s rule. It is consistent with the
-  existing principle that preparation runs outside the deadline (AD-8 pruning tables, Story 3.8 move-table
-  fix). It also makes PO device sessions on debug builds match release behaviour.
-- *Which use cases if a tier is chosen anyway:* **SolveByMethod only** (option C). SolveCube and PlanRecovery
-  have 3–30× margin, and tiering SolveCube would also change the Solver's internal cap
-  (`TwoPhaseCubeSolver.kt:39,43`) and the NFR-3 measurement boundary.
-- *Values if tiered:* 3 s default and 5 s low tier. 5 s covers the worst debug first solve (4.5 s), and
-  nothing in release needs more.
-- *Detection if tiered:* a measured warm-up, or build type. Not `MEDIA_PERFORMANCE_CLASS` and not
-  `isLowRamDevice`: on the minimum reference device they report "not declared" and "false".
-- **NFR-3 stays as it is** under every option. It is a corpus target (95 % within 3 s on the minimum
-  device), and it is met: 10,101/10,101 for Kociemba, and 75/75 cold plus 600/600 warm for the method solves
-  measured here.
+- *No tier:* the minimum reference device, cold and with no AOT, has more than 1.7 s of margin, and none of
+  the cheap tier signals classify it as low-end (2.2). The only release-equivalent over-3 s cases (the
+  saturated Lenovo BEGINNER outlier and the busy Galaxy set) are one-time warm-up, and the same Galaxy was
+  6× faster minutes later, so a tier chosen by device class would not match them.
+- *B (Story 15.4):* warming the method-solve path once after preparation, outside the deadline, makes the
+  first real solve behave like a 2nd solve: ≤ 0.36 s on the idle Lenovo, ≤ 0.87 s on the busy Galaxy and
+  ≤ 1.04 s on the Lenovo debug build. It is consistent with the existing rule that preparation runs outside
+  the deadline (AD-8 pruning tables, Story 3.8). With the Galaxy result it is no longer optional polish: it
+  covers a release case.
+- *E (folded in):* debuggable builds use a 5 s use-case deadline, so PO device sessions on a debug build do
+  not time out on the first style tap even before the warm-up lands (Lenovo debug first solve max 4.5 s).
+  Release and benchmark builds keep 3 s, so the release timeout path is still what the benchmark build
+  exercises. The Solver's own search cap (`TwoPhaseCubeSolver.kt:39,43`) is unchanged.
+- *Wording:* AD-8 and AR-12 stop naming `PlanRecovery` as a Solver caller.
+- **NFR-3 stays as it is.** It is a corpus target (95 % within 3 s on the minimum device), and it is met:
+  10,101/10,101 for Kociemba, and 75/75 cold plus 600/600 warm for the method solves measured here.
 
-## 4. Detailed change proposals (OLD → NEW)
+## 4. Detailed change proposals (OLD → NEW), approved and applied
 
-Option A needs **no** planning edits, and neither does option B. The edits below apply only if the PO
-picks C, D or the optional clarifications. Line numbers are at `5a459c34`.
+Line numbers are at `49044baf` (unchanged from `5a459c34` for these lines). Each line is replaced whole.
 
-### 4.1 Option C — Architecture spine, AD-21 (`ARCHITECTURE-SPINE.md:430`)
-
-OLD:
-```
-  - It runs as an Effect with a timeout, like `SolveCube`, and every result is re-verified by applying it to its input before it is shown.
-```
-NEW:
-```
-  - It runs as an Effect with a timeout, and every result is re-verified by applying it to its input before it is shown. The timeout is 3 s, or 5 s in the low device tier; the tier is chosen once per process in `:app` (`SolveDeadlinePolicy`) and only the value is passed to `:core:application`. AD-8's 3 s Solver timeout is unchanged. *(SCP 2026-11-27 solver-deadline-tier)*
-```
-Rationale: `MethodSolve` never calls `CubeSolver`, so its deadline can differ from AD-8's without touching
-the Solver rule or NFR-3.
-
-No PRD, epics or UX edit is needed for C. Story 15.1's AC says "with a timeout" without a value.
-Optional story-level AC for the implementing story (new, Epic 15): "**Given** the low device tier **When**
-`SolveByMethod` runs **Then** its deadline is 5 s, and 3 s otherwise; the tier is decided once per process
-and the decision is logged in debug."
-
-### 4.2 Option D — all three use cases (in addition to 4.1)
-
-Spine AD-8 (`ARCHITECTURE-SPINE.md:238`)
+### 4.1 Architecture spine, AD-8 Callers (`ARCHITECTURE-SPINE.md:238`): 3 s release deadline, 5 s on debuggable builds, PlanRecovery wording
 
 OLD:
 ```
@@ -210,53 +241,10 @@ OLD:
 ```
 NEW:
 ```
-  - **Callers:** only the `SolveCube` and `PlanRecovery` use cases call it, always as an Effect with a timeout of 3 s, or 5 s in the low device tier (`SolveDeadlinePolicy`, chosen once per process in `:app`). *(SCP 2026-11-27 solver-deadline-tier)*
+  - **Callers:** only the `SolveCube` use case calls it, always as an Effect with a timeout of 3 s, or 5 s in debuggable builds (release and benchmark builds keep 3 s; the value is chosen once per process in `:app`, and the Solver's own search cap is unchanged). `PlanRecovery` (`RecoveryPlanner`) and `SolveByMethod` (`MethodSolve`, AD-21) never call it, but use the same Effect-with-timeout shape and the same deadline. *(SCP 2026-11-27 solver-deadline-tier)*
 ```
 
-Spine Deferred (`ARCHITECTURE-SPINE.md:575`)
-
-OLD:
-```
-- **Solver internals** (coordinate encoding, the search depth limit): decided in the solver epic, within AD-8's 3 s timeout and NFR-11.
-```
-NEW:
-```
-- **Solver internals** (coordinate encoding, the search depth limit): decided in the solver epic, within AD-8's tiered timeout (3 s; 5 s in the low device tier) and NFR-11.
-```
-(The rest of that line, from "Pruning-table delivery is decided by Story 3.8" onward, is unchanged.)
-
-Epics AR-12 (`epics.md:100`)
-
-OLD:
-```
-... called only by `SolveCube` and `PlanRecovery` as Effects with a 3 s timeout; ...
-```
-NEW:
-```
-... called only by `SolveCube` and `PlanRecovery` as Effects with a 3 s timeout (5 s in the low device tier, SCP 2026-11-27 solver-deadline-tier); ...
-```
-
-Epics SolveCube AC (`epics.md:824`)
-
-OLD:
-```
-**When** `SolveCube` runs as an Effect with a 3 s timeout
-```
-NEW:
-```
-**When** `SolveCube` runs as an Effect with a 3 s timeout (5 s in the low device tier) *(SCP 2026-11-27 solver-deadline-tier)*
-```
-
-`docs/ARCHITECTURE.md:202` (reader-facing, not a planning artifact; aligned in the same PR)
-
-OLD: `| Solver internals (bundled or generated pruning tables) | solver epic, within the 3 s timeout and 30 MB app size |`
-NEW: `| Solver internals (bundled or generated pruning tables) | solver epic, within the tiered timeout (3 s; 5 s low tier) and 30 MB app size |`
-
-Unchanged under D: PRD NFR-3 (`prd.md:597`) and FR-15 (`prd.md:376`); the Story 3.3/3.8/12.2 corpus ACs
-(`epics.md:805`, `:961`, `:3473`), which measure "within 3 s" as NFR-3 does; and the dated annotations
-(`epics.md:811`, `:3479`).
-
-### 4.3 Option B (optional clarification only) — AD-21 (`ARCHITECTURE-SPINE.md:430`)
+### 4.2 Architecture spine, AD-21 (`ARCHITECTURE-SPINE.md:430`): the deadline value and the warm-up outside it
 
 OLD:
 ```
@@ -264,68 +252,155 @@ OLD:
 ```
 NEW:
 ```
-  - It runs as an Effect with a timeout, like `SolveCube`, and every result is re-verified by applying it to its input before it is shown. A one-time warm-up solve may run off-main after preparation, outside the timeout; its result is discarded and never reaches a session. *(SCP 2026-11-27 solver-deadline-tier)*
+  - It runs as an Effect with a timeout, like `SolveCube` (AD-8: 3 s; 5 s in debuggable builds), and every result is re-verified by applying it to its input before it is shown. After solver preparation, one throwaway `MethodSolve` warm-up runs off-main, untimed and cancellable, outside the deadline; its result is discarded and never reaches a session. *(SCP 2026-11-27 solver-deadline-tier)*
 ```
 
-### 4.4 Optional wording fix (any option) — AD-8 and AR-12 name `PlanRecovery` as a Solver caller
+### 4.3 Architecture spine, Deferred (`ARCHITECTURE-SPINE.md:575`)
 
-`PlanRecovery` runs `RecoveryPlanner`, not `CubeSolver` (`PlanRecovery.kt`: "Never calls the Solver").
-If the PO wants the record exact, then in `ARCHITECTURE-SPINE.md:238` and `epics.md:100` replace "only the
-`SolveCube` and `PlanRecovery` use cases call it" / "called only by `SolveCube` and `PlanRecovery`" with
-"only the `SolveCube` use case calls it; `PlanRecovery` (`RecoveryPlanner`) and `SolveByMethod`
-(`MethodSolve`) never call it but use the same Effect-with-timeout shape". This is not required by this
-change.
+OLD:
+```
+- **Solver internals** (coordinate encoding, the search depth limit): decided in the solver epic, within AD-8's 3 s timeout and NFR-11.
+```
+NEW:
+```
+- **Solver internals** (coordinate encoding, the search depth limit): decided in the solver epic, within AD-8's 3 s timeout (5 s in debuggable builds only) and NFR-11.
+```
+(The rest of that line, from "Pruning-table delivery is decided by Story 3.8" onward, is unchanged.)
+
+### 4.4 Architecture spine `.memlog.md`
+
+One decision line appended with `uv run _bmad/scripts/memlog.py append --type decision --by PO`
+(the log is append-only).
+
+### 4.5 Epics, AR-12 (`epics.md:100`)
+
+OLD:
+```
+... called only by `SolveCube` and `PlanRecovery` as Effects with a 3 s timeout; ...
+```
+NEW:
+```
+... called only by `SolveCube`, as an Effect with a 3 s timeout (5 s in debuggable builds; `PlanRecovery` and `SolveByMethod` never call it but use the same timeout, SCP 2026-11-27 solver-deadline-tier); ...
+```
+
+### 4.6 Epics, Story 3.4 SolveCube AC (`epics.md:824`)
+
+OLD:
+```
+**When** `SolveCube` runs as an Effect with a 3 s timeout
+```
+NEW:
+```
+**When** `SolveCube` runs as an Effect with a 3 s timeout (5 s in debuggable builds) *(SCP 2026-11-27 solver-deadline-tier)*
+```
+
+### 4.7 Epics, Epic 15 order in the Epic List (`epics.md:273`)
+
+OLD:
+```
+**Order:** 15.1 → 15.2 → 15.3. **v1.0 scope** (PO, 2026-11-20): runs before release Stories 12.3, 12.4 and 12.5.
+```
+NEW:
+```
+**Order:** 15.1 → 15.2 → 15.3 → 15.4. **v1.0 scope** (PO, 2026-11-20): runs before release Stories 12.3, 12.4 and 12.5. *(SCP 2026-11-27 solver-deadline-tier: Story 15.4 added, a method-solve warm-up outside the deadline and a 5 s deadline on debuggable builds.)*
+```
+
+### 4.8 Epics, new Story 15.4 (appended to Epic 15 after Story 15.3, `epics.md:4353`)
+
+OLD: (none)
+
+NEW:
+````
+### Story 15.4: Warm the method solver once, and give debug builds a 5 s solve deadline
+
+As a Learner (and the PO testing on a debug build),
+I want my first solution-style tap to return a method solution instead of "timed out",
+So that the first method solution behaves like every later one.
+
+**Refs:** FR-30, FR-15 · AD-8, AD-21 · NFR-3 · *(SCP 2026-11-27 solver-deadline-tier, PO decision 2026-11-27: A + B, with E folded into the wording fix)*
+
+**Acceptance Criteria:**
+
+**Given** the method-solve content and pruning tables are prepared in the app process
+**When** preparation finishes
+**Then** one throwaway `MethodSolve` runs off-main, untimed and cancellable, outside every deadline; its result is discarded and never dispatched to a session, and a failure or cancellation is silent (logged in debug builds only)
+
+**Given** a Learner taps a solution style before the warm-up has finished
+**When** `SolveByMethod` runs
+**Then** the real solve runs with its own deadline and is not queued behind the warm-up
+
+**Given** a release or benchmark build
+**When** `SolveCube`, `SolveByMethod` or `PlanRecovery` runs
+**Then** its deadline is 3 s; in a debuggable build (`ApplicationInfo.FLAG_DEBUGGABLE`) it is 5 s. The value is one constant chosen once per process in `:app` and passed to the use cases; `TwoPhaseCubeSolver`'s own search cap and NFR-3 are unchanged, and unit tests cover both values
+
+**Given** the Lenovo TB128XU (minimum reference device) and `MethodSolveBenchmarkActivity` running the production warm-up after preparation and before the first timed solve
+**When** it re-runs the SCP protocol: 25 cold first solves per method (BEGINNER, TWO_LOOK, FULL_OLL_PLL) on the benchmark build and 20 per method on the debug build
+**Then** every benchmark-build cold first solve is under 3 s, and every debug-build cold first solve is under 3 s as well, or at worst within 5 s (0 of 60 over 5 s); the same benchmark-build run on the Galaxy Tab S7 FE, the mid-tier comparison, shows every cold first solve under 3 s; the results are added next to the "before" rows in `docs/benchmarks.md` § Method-solve deadline
+
+**Given** the Lenovo debug build after a cold start
+**When** the PO taps a method style in Solution Playback for the first time (5 cold starts)
+**Then** a method solution plays and "Couldn't build that solution in time" does not appear
+
+**Given** the change
+**When** `./gradlew spotlessCheck build` runs
+**Then** it is green, including a JVM test that the warm-up result never reaches a session and cancels cleanly
+````
+
+### 4.9 Sprint status
+
+`15-4-warm-the-method-solver-once-and-give-debug-builds-a-5-s-solv: backlog` added, and `epic-15` set
+from `done` to `in-progress`, by
+`uv run .claude/skills/bmad-sprint-planning/scripts/sprint_plan.py generate ... --set epic-15=in-progress`,
+then `sprint_plan.py validate` (valid, no problems). The generator also normalised the hand-written
+Story 10.37 key from `10-37-continuous-quick-scan-detection-lattice-fitting-and-tracki` to
+`10-37-continuous-quick-scan-detection-lattice-fitting-and-tracking` (the slug of its `epics.md`
+heading). Its `ready-for-dev` status was kept with `--set`; its spec file
+`spec-10-37-continuous-quick-scan-detection-lattice-fitting-and-tracki.md` keeps its old name. The
+generator also re-wrapped long `action_items` strings and normalised `last_updated`; no value changed.
+
+### 4.10 Unchanged
+
+- PRD NFR-3 (`prd.md:597`) and FR-15 (`prd.md:376`).
+- Story 15.1's AC (`epics.md:4270`, "with a timeout", no value) and Story 15.3's timeout copy.
+- The Story 3.3 / 3.8 / 12.2 corpus ACs (`epics.md:805`, `:961`, `:3473`), which measure "within 3 s"
+  as NFR-3 does.
+- `docs/ARCHITECTURE.md:202` ("within the 3 s timeout"): still true for release.
+- UX copy (`msg.playback.style.timed-out`, `msg.solve.timed-out`).
 
 ## 5. Impact analysis
 
-- **PRD:** none under any option. NFR-3 stays, and so does FR-15's explicit-error rule.
-- **Architecture:** A and B: none (B optionally 4.3). C: AD-21 only. D: AD-8, AD-21 and Deferred. No new
-  AD, port or module. The tier policy is an `:app` value passed into the existing constructor parameters
-  (`SolveByMethod(deadlineMillis)` and `PlanRecovery(deadlineMillis)` already exist; `SolveCube` and
-  `TwoPhaseCubeSolver` would need one).
-- **Epics / ACs:** A and B: none. C: none in existing ACs, plus one new story AC (4.1). D: AR-12 and the
-  SolveCube AC (4.2).
-- **UX:** none. The "timed out" copy (`msg.playback.style.timed-out`, `msg.solve.timed-out`) is unchanged.
-  Under C and D a Learner on a low-tier device waits up to 5 s before it appears.
-- **Code:** A: none. B: a warm-up call in the method-solver factory or style ViewModel (off-main,
-  cancellable, never dispatched). C: `SolveDeadlinePolicy` in `:app`, used in `SolverModule` and
-  `AppShell.kt:176`. D: also `SolveCube`, `PlanRecovery` (`LessonScreen.kt:165`) and
-  `TwoPhaseCubeSolver`.
-- **Tests:** A: none (PR #429 already made the CI tests deadline-independent). B: a JVM test that the
-  warm-up result is discarded and cancels cleanly, plus one device check that the first style tap on the
-  Lenovo debug build no longer times out. C and D: policy unit tests for each tier and the existing
-  `DEADLINE_MILLIS` assertions updated.
-- **Benchmark tooling (this branch):** `MethodSolveBenchmarkActivity` (debug and benchmark manifests only)
-  is how the evidence was measured. It is kept for re-measurement on the Galaxy devices or after solver
-  changes. A `docs/benchmarks.md` section can follow approval.
+- **PRD:** none.
+- **Architecture:** AD-8 (Callers wording and the debug-build value), AD-21 (deadline value and the warm-up)
+  and the Deferred line. No new AD, port or module.
+- **Epics / ACs:** AR-12 and the Story 3.4 SolveCube AC (wording), the Epic 15 order, and new Story 15.4.
+  Epic 15 reopens (`in-progress`) for one story.
+- **UX:** none. On debug builds a Learner-facing "timed out" can take up to 5 s to appear; release is
+  unchanged.
+- **Code (Story 15.4, not in this change):** a warm-up call after method-solver preparation (off-main,
+  cancellable, never dispatched), and one deadline value chosen in `:app` from
+  `ApplicationInfo.FLAG_DEBUGGABLE` and passed to `SolveCube`, `SolveByMethod` (`AppShell.kt:176`) and
+  `PlanRecovery` (`LessonScreen.kt:165`); `SolveCube` needs a deadline constructor parameter.
+  `TwoPhaseCubeSolver`'s cap is unchanged.
+- **Tests:** a JVM test that the warm-up result never reaches a session and cancels cleanly, and deadline
+  tests for both values; the existing `DEADLINE_MILLIS` assertions stay at 3 s for release.
+- **Benchmark tooling:** `MethodSolveBenchmarkActivity` stays (debug and benchmark manifests only) and is
+  documented in `docs/benchmarks.md` § Method-solve deadline. Story 15.4 adds a mode that runs the
+  production warm-up before the first timed solve.
 
-## 6. PO decisions
+## 6. PO decisions (2026-11-27)
 
-1. **Deadline approach?** Options: A no change · A + B warm-up story · C tier SolveByMethod only ·
-   D tier all three · E longer deadline on debuggable builds only. **Recommended: A + B.**
-2. **If a tier is chosen (C/D): how is the tier detected?** Options: `MEDIA_PERFORMANCE_CLASS` ·
-   `isLowRamDevice` · CPU or core heuristic · measured warm-up · build type. **Recommended: measured
-   warm-up, or build type for a debug-only fix.** The first two report the minimum device as not low-end.
-3. **If a tier is chosen: values?** Options: 3 s / 5 s · 3 s / 6 s · 3 s / 10 s (debug). **Recommended:
-   3 s / 5 s** (covers the 4.5 s debug maximum, and nothing in release needs more).
-4. **NFR-3?** Options: keep as is · restate per tier. **Recommended: keep as is.** It is a corpus target and
-   it is met.
-5. **Optional AD-8/AR-12 wording fix (4.4)?** Options: apply now · leave. **Recommended: apply with the
-   next spine edit**, or leave it if no other edit happens.
-6. **Mid-tier comparison?** No Galaxy was connected. Options: measure the Galaxy S24 FE / Tab S7 FE with
-   the same harness before deciding · skip. **Recommended: skip unless C or D is chosen**, because the
-   minimum device already clears the deadline.
-7. **Harness:** merge `MethodSolveBenchmarkActivity` as benchmark tooling, with a `docs/benchmarks.md`
-   section? Options: merge · drop after the decision. **Recommended: merge.**
+1. Deadline approach: **A + B**, with **E** folded into the wording fix.
+2. Tier detection: not needed (no tier). The only build-type split is debuggable vs not.
+3. Values: **3 s** release and benchmark; **5 s** debuggable.
+4. NFR-3: **unchanged.**
+5. AD-8 / AR-12 wording fix: **applied** in this change, with the debug-build 5 s wording.
+6. Mid-tier comparison: **measured** on the Galaxy Tab S7 FE (section 2).
+7. Harness: **kept**, with a `docs/benchmarks.md` section.
 
 ## 7. Implementation handoff
 
-- **Scope:** Minor. A: nothing to implement. B: one Developer story in Epic 15, about half a day. C or D:
-  Developer, after the planning edits in section 4 are applied through `bmad-correct-course` /
-  `bmad-architecture` update.
-- **Success criteria (B):** on the Lenovo TB128XU debug build, 20 cold first style taps all return a
-  method solution within 3 s. The release-equivalent cold first method solve is ≤ 0.5 s median. No
-  warm-up result reaches a session. `./gradlew spotlessCheck build` is green.
-- **Success criteria (C/D):** the tier decision is logged once per process in debug. Each tier's deadline
-  is covered by unit tests. A Lenovo re-measurement with this harness shows 0 timeouts in 20 cold runs per
-  method.
+- **Scope:** Minor. Developer: Story 15.4 (about half a day), through `bmad-build` / `bmad-orchestrate`.
+- **Success criteria:** Story 15.4's ACs. In short: on the Lenovo TB128XU, 25 cold first solves per method
+  on the benchmark build all under 3 s, and 20 per method on the debug build all under 3 s or at worst within
+  5 s; the Galaxy Tab S7 FE benchmark build all under 3 s; the first style tap on the Lenovo debug build
+  never shows "timed out"; no warm-up result reaches a session; `./gradlew spotlessCheck build` green.

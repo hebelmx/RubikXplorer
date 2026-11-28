@@ -31,7 +31,7 @@
 # 2026-11-08: Epics 10 and 11 (camera recognition) deferred to v1.1. See planning-artifacts/sprint-change-proposal-2026-11-08-vision-deferral.md
 #   and planning-artifacts/post-launch/v1.1-camera-recognition.md
 generated: 10-29-2026 12:34
-last_updated: '11-26-2026 21:30'
+last_updated: '2026-11-27'
 project: RubikXplorer
 project_key: NOKEY
 tracking_system: file-system
@@ -162,7 +162,8 @@ development_status:
   10-34-record-and-replay-a-continuous-quick-scan-session-in-the-dev: done
   10-35-retire-the-quick-scan-only-two-corner-recorder-paths: done
   10-36-record-new-scrambles-on-the-continuous-recorder-analyse-them: backlog
-  10-37-continuous-quick-scan-detection-lattice-fitting-and-tracki: ready-for-dev
+  10-37-continuous-quick-scan-detection-lattice-fitting-and-tracking: 
+    ready-for-dev
   10-22-quick-scan-captures-promptly-once-the-cube-is-in-view: done
   10-23-a-shadow-sticker-reader-runs-beside-the-kotlin-reads: done
   epic-10-retrospective: optional
@@ -209,10 +210,11 @@ development_status:
   14-3-practice-every-lesson-step-on-my-real-cube-with-a-quick-chec: done
   epic-14-retrospective: done
 
-  epic-15: done
+  epic-15: in-progress
   15-1-build-a-beginner-method-solution-from-the-course-s-stages: done
   15-2-last-layer-segments-for-2-look-and-full-oll-pll-preferring-m: done
   15-3-choose-a-solution-style-in-solution-playback: done
+  15-4-warm-the-method-solver-once-and-give-debug-builds-a-5-s-solv: backlog
   epic-15-retrospective: done
 action_items:
   - id: "epic-2-retro-item-1-create-a-deferred-findings-ledger-or-rou"
@@ -3189,157 +3191,247 @@ action_items:
     ref: "_bmad-output/implementation-artifacts/spec-10-35-retire-the-quick-scan-only-two-corner-recorder-paths.md"
   - id: "epic-10-deferred-10.34-lenovo-device-gate"
     epic: 10
-    action: "Run the Story 10.34 device gate the PO deferred at merge: record a baseline and at least one complete and one incomplete Lenovo TB128XU session from the debug Solve-tab Quick Scan (at least one not defective), fill docs/evidence/10-34/latency.md with p50/p95 with and without capture, and check in curated sessions under Fixtures/continuous/ (high; deferred from 10.34 by PO decision 2026-11-26, after the pipeline fixes)"
+    action: "Run the Story 10.34 device gate the PO deferred at merge: record a baseline
+      and at least one complete and one incomplete Lenovo TB128XU session from the
+      debug Solve-tab Quick Scan (at least one not defective), fill docs/evidence/10-34/latency.md
+      with p50/p95 with and without capture, and check in curated sessions under Fixtures/continuous/
+      (high; deferred from 10.34 by PO decision 2026-11-26, after the pipeline fixes)"
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-34-record-and-replay-a-continuous-quick-scan-session-in-the-dev.md"
   - id: "epic-10-deferred-10.34-cap-stop-tick-lag"
     epic: 10
-    action: "A frame-cap or size-cap stop is seen only by the 4 Hz tick, so the live mapper can process up to ~250 ms of frames that are neither captured nor counted and the saved outcome/net can disagree with the recorded snapshots; hold analysis once capture stops and derive the saved outcome from the last written snapshot (medium; deferred from 10.34 gate, QuickScanSessionController.kt:523)"
+    action: "A frame-cap or size-cap stop is seen only by the 4 Hz tick, so the live
+      mapper can process up to ~250 ms of frames that are neither captured nor counted
+      and the saved outcome/net can disagree with the recorded snapshots; hold analysis
+      once capture stops and derive the saved outcome from the last written snapshot
+      (medium; deferred from 10.34 gate, QuickScanSessionController.kt:523)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-34-record-and-replay-a-continuous-quick-scan-session-in-the-dev.md"
   - id: "epic-10-deferred-10.34-session-io-in-domain-main"
     epic: 10
-    action: "The debug-tooling session codec with java.io.File I/O and exception-based decode failures sits in shipped :core:domain main; keep the pure DTOs and string codec there and move the File readers to the evaluation source set or the debug package (medium; deferred from 10.34 gate, ContinuousSession.kt:24)"
+    action: "The debug-tooling session codec with java.io.File I/O and exception-based
+      decode failures sits in shipped :core:domain main; keep the pure DTOs and string
+      codec there and move the File readers to the evaluation source set or the debug
+      package (medium; deferred from 10.34 gate, ContinuousSession.kt:24)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-34-record-and-replay-a-continuous-quick-scan-session-in-the-dev.md"
   - id: "epic-10-deferred-10.34-image-replay-never-run"
     epic: 10
-    action: "ContinuousImageReplayDeviceTest is skipped by assumption everywhere today (no image session), so its count, 2 px and colour assertions have never been shown to pass; run it with a curated image session during the device gate and record the result in docs/evidence/10-34/ (medium; deferred from 10.34 gate, ContinuousImageReplayDeviceTest.kt:116)"
+    action: "ContinuousImageReplayDeviceTest is skipped by assumption everywhere today
+      (no image session), so its count, 2 px and colour assertions have never been
+      shown to pass; run it with a curated image session during the device gate and
+      record the result in docs/evidence/10-34/ (medium; deferred from 10.34 gate,
+      ContinuousImageReplayDeviceTest.kt:116)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-10-34-record-and-replay-a-continuous-quick-scan-session-in-the-dev.md"
   - id: "issue-404-deferred-close-stale-model-input"
     epic: 10
-    action: "close() leaves inputValid set, so copyModelInput() still returns the last frame's model input after close; set inputValid = false in close() (low; deferred from #404, LiteRtStickerCenterDetector.kt:239)"
+    action: "close() leaves inputValid set, so copyModelInput() still returns the
+      last frame's model input after close; set inputValid = false in close() (low;
+      deferred from #404, LiteRtStickerCenterDetector.kt:239)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-404-litert-detector-close-unavailable.md"
   - id: "issue-404-deferred-close-session-runcatching"
     epic: 10
-    action: "close() calls session?.close() without runCatching, unlike latchDisabled(), so a throwing close propagates and leaves the session set; wrap it in runCatching (low; deferred from #404, LiteRtStickerCenterDetector.kt:243)"
+    action: "close() calls session?.close() without runCatching, unlike latchDisabled(),
+      so a throwing close propagates and leaves the session set; wrap it in runCatching
+      (low; deferred from #404, LiteRtStickerCenterDetector.kt:243)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-404-litert-detector-close-unavailable.md"
   - id: "issue-404-deferred-close-one-way-singleton"
     epic: 10
-    action: "close() is one-way for the singleton detector, so a future lifecycle owner that closes it turns Quick Scan off until process restart; decide whether a reopen path is needed before adding any close() caller (low; deferred from #404)"
+    action: "close() is one-way for the singleton detector, so a future lifecycle
+      owner that closes it turns Quick Scan off until process restart; decide whether
+      a reopen path is needed before adding any close() caller (low; deferred from
+      #404)"
     owner: "PO (BMad)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-404-litert-detector-close-unavailable.md"
   - id: "issue-397-deferred-analyzer-catch-backstop"
     epic: 10
-    action: "The Quick Scan analyzer in ScanFrameSource.read is still try/finally with no catch, so an Error or an exception from outside sampling (mapper, overlay mapping, frameDone) still ends the scan; add a catch(Exception) backstop around engine.processFrame that reports a skipped frame (medium; deferred from #397, ScanFrameSource.kt:363-367)"
+    action: "The Quick Scan analyzer in ScanFrameSource.read is still try/finally
+      with no catch, so an Error or an exception from outside sampling (mapper, overlay
+      mapping, frameDone) still ends the scan; add a catch(Exception) backstop around
+      engine.processFrame that reports a skipped frame (medium; deferred from #397,
+      ScanFrameSource.kt:363-367)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-397-face-sampler-short-frame-skip.md"
   - id: "issue-397-deferred-error-test-jvm-dependent"
     epic: 10
-    action: "The Error-propagation test in ContinuousScanPipelineShortFrameTest relies on a truncated memory-mapped file faulting as InternalError and skips via assumeTrue elsewhere; make it deterministic by injecting a throwing sampler through the existing constructor parameter (low; deferred from #397, ContinuousScanPipelineShortFrameTest.kt:178-214)"
+    action: "The Error-propagation test in ContinuousScanPipelineShortFrameTest relies
+      on a truncated memory-mapped file faulting as InternalError and skips via assumeTrue
+      elsewhere; make it deterministic by injecting a throwing sampler through the
+      existing constructor parameter (low; deferred from #397, ContinuousScanPipelineShortFrameTest.kt:178-214)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-397-face-sampler-short-frame-skip.md"
   - id: "issue-397-deferred-short-frame-device-check"
     epic: 10
-    action: "The short-frame skip is verified only on the JVM and no device is known to produce such frames; confirm on a physical device that continuous Quick Scan keeps running and logs quickScan frameFailed if one occurs (low, unverified; deferred from #397)"
+    action: "The short-frame skip is verified only on the JVM and no device is known
+      to produce such frames; confirm on a physical device that continuous Quick Scan
+      keeps running and logs quickScan frameFailed if one occurs (low, unverified;
+      deferred from #397)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-397-face-sampler-short-frame-skip.md"
   - id: "issue-402-deferred-full-cell-color-freeze"
     epic: 10
-    action: "Once a ContinuousFaceletMapper cell holds MAX_OBS_PER_CELL (256) observations it accepts only strictly higher-quality ones and its robust value becomes an approximation of the uncapped one, so on a long stalled real scan the cell colour can freeze on early frames and miss later lighting or AWB drift; check it in the Story 10.33 device matrix and add age-aware eviction if it shows up (medium; deferred from #402, ContinuousFaceletMapper.kt:139)"
+    action: "Once a ContinuousFaceletMapper cell holds MAX_OBS_PER_CELL (256) observations
+      it accepts only strictly higher-quality ones and its robust value becomes an
+      approximation of the uncapped one, so on a long stalled real scan the cell colour
+      can freeze on early frames and miss later lighting or AWB drift; check it in
+      the Story 10.33 device matrix and add age-aware eviction if it shows up (medium;
+      deferred from #402, ContinuousFaceletMapper.kt:139)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-402-bound-mapper-per-frame-cost.md"
   - id: "issue-403-deferred-null-fill-path-untested"
     epic: 10
-    action: "The fillYuvInput-returns-null path in LiteRtStickerCenterDetector.detect, with its new recordFailedFrame and SKIPPED return, is unreachable from JVM tests and checked only by reading the code; add a test if a seam ever makes it reachable (low; deferred from #403, LiteRtStickerCenterDetector.kt:103)"
+    action: "The fillYuvInput-returns-null path in LiteRtStickerCenterDetector.detect,
+      with its new recordFailedFrame and SKIPPED return, is unreachable from JVM tests
+      and checked only by reading the code; add a test if a seam ever makes it reachable
+      (low; deferred from #403, LiteRtStickerCenterDetector.kt:103)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-403-skipped-frame-not-cube-lost.md"
   - id: "issue-403-deferred-skipped-frame-device-check"
     epic: 10
-    action: "The skipped-frame-is-not-cube-lost fix is verified only on the JVM; confirm on a physical device that continuous Quick Scan keeps the master across unreadable frames and logs quickScan frameFailed once per skipped frame (low, unverified; deferred from #403)"
+    action: "The skipped-frame-is-not-cube-lost fix is verified only on the JVM; confirm
+      on a physical device that continuous Quick Scan keeps the master across unreadable
+      frames and logs quickScan frameFailed once per skipped frame (low, unverified;
+      deferred from #403)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-403-skipped-frame-not-cube-lost.md"
   - id: "issue-401-deferred-skin-tone-near-white-orange"
     epic: 10
-    action: "The colour-only twist guard still passes light skin within dE 14 of WHITE and brown skin within dE 14 of ORANGE, so such a finger over an edge row can still latch a false twist; follow up with a structural guard where a flipped row's new colours must match a neighbouring face edge (medium; deferred from #401, ContinuousFaceletMapper.kt isStickerColour)"
+    action: "The colour-only twist guard still passes light skin within dE 14 of WHITE
+      and brown skin within dE 14 of ORANGE, so such a finger over an edge row can
+      still latch a false twist; follow up with a structural guard where a flipped
+      row's new colours must match a neighbouring face edge (medium; deferred from
+      #401, ContinuousFaceletMapper.kt isStickerColour)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-401-edge-row-finger-false-twist.md"
   - id: "issue-401-deferred-finger-on-centre-guard-off"
     epic: 10
-    action: "Before anchoring, a finger resting on a centre long enough for its robust history to learn skin can make that centre look off-reference and switch the twist guard off for a stickered cube; settle with a stream where a large finger covers one centre with qualitySum >= 0.40 before anchoring, counting false twists (medium, unverified; deferred from #401, ContinuousFaceletMapper.kt twistStickerPrototypes)"
+    action: "Before anchoring, a finger resting on a centre long enough for its robust
+      history to learn skin can make that centre look off-reference and switch the
+      twist guard off for a stickered cube; settle with a stream where a large finger
+      covers one centre with qualitySum >= 0.40 before anchoring, counting false twists
+      (medium, unverified; deferred from #401, ContinuousFaceletMapper.kt twistStickerPrototypes)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-401-edge-row-finger-false-twist.md"
   - id: "issue-401-deferred-unobserved-offref-pre-anchor"
     epic: 10
-    action: "Before anchoring, Option A switches the twist guard off only from observed centres, so on a partly off-palette cube whose off-reference colour sits on a face not yet observed a real turn bringing that colour in is not counted; settle with a real-cube session on a cube with one off-reference colour (medium; deferred from #401, ContinuousFaceletMapper.kt twistStickerPrototypes)"
+    action: "Before anchoring, Option A switches the twist guard off only from observed
+      centres, so on a partly off-palette cube whose off-reference colour sits on
+      a face not yet observed a real turn bringing that colour in is not counted;
+      settle with a real-cube session on a cube with one off-reference colour (medium;
+      deferred from #401, ContinuousFaceletMapper.kt twistStickerPrototypes)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-401-edge-row-finger-false-twist.md"
   - id: "issue-401-deferred-std-cube-offref-guard-off"
     epic: 10
-    action: "Before anchoring, a standard cube whose centre reads off-reference (logo centre, warm light, AWB drift) silently switches the twist guard off and can bring back the #401 false twist; run the 20-seed 90x40 finger probe on S3 and on S1 with awbDrift = true plus a device session, and restrict the switch-off to mostly-off-REF cubes if it latches (medium, unverified; deferred from #401, ContinuousFaceletMapper.kt:889)"
+    action: "Before anchoring, a standard cube whose centre reads off-reference (logo
+      centre, warm light, AWB drift) silently switches the twist guard off and can
+      bring back the #401 false twist; run the 20-seed 90x40 finger probe on S3 and
+      on S1 with awbDrift = true plus a device session, and restrict the switch-off
+      to mostly-off-REF cubes if it latches (medium, unverified; deferred from #401,
+      ContinuousFaceletMapper.kt:889)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-401-edge-row-finger-false-twist.md"
   - id: "issue-401-deferred-partial-anchor-offref-turn"
     epic: 10
-    action: "After anchoring on 3-5 centres, a real turn that brings in an off-reference colour from a face not yet observed or anchored is not counted as a flip; settle with a synthetic palette with one off-REF colour anchored on 3-5 centres, then a turn that brings that colour in (medium, unverified; deferred from #401, ContinuousFaceletMapper.kt twistStickerPrototypes)"
+    action: "After anchoring on 3-5 centres, a real turn that brings in an off-reference
+      colour from a face not yet observed or anchored is not counted as a flip; settle
+      with a synthetic palette with one off-REF colour anchored on 3-5 centres, then
+      a turn that brings that colour in (medium, unverified; deferred from #401, ContinuousFaceletMapper.kt
+      twistStickerPrototypes)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-401-edge-row-finger-false-twist.md"
   - id: "issue-401-deferred-partial-anchor-untested"
     epic: 10
-    action: "No test reaches the partial-anchoring branch of twistStickerPrototypes (anchored on 3-5 centres, guard always on), so regressing it fails no test; add a synthetic palette with one off-REF colour that anchors on 3-5 centres and assert both a finger (no twist) and a real turn (twist) (medium; deferred from #401, ContinuousFaceletMapper.kt:886)"
+    action: "No test reaches the partial-anchoring branch of twistStickerPrototypes
+      (anchored on 3-5 centres, guard always on), so regressing it fails no test;
+      add a synthetic palette with one off-REF colour that anchors on 3-5 centres
+      and assert both a finger (no twist) and a real turn (twist) (medium; deferred
+      from #401, ContinuousFaceletMapper.kt:886)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-401-edge-row-finger-false-twist.md"
   - id: "issue-405-deferred-engine-log-wiring-untested"
     epic: 10
-    action: "The engine-to-logcat wiring (PipelineEngine calling ScanDiagnostics.onQuickScanUnread) has no automated test, so the debug device path is checked only by inspection; add a fake-detector engine test or confirm it in the debug device session (low; deferred from #405, ContinuousScanEngineModule.kt:54)"
+    action: "The engine-to-logcat wiring (PipelineEngine calling ScanDiagnostics.onQuickScanUnread)
+      has no automated test, so the debug device path is checked only by inspection;
+      add a fake-detector engine test or confirm it in the debug device session (low;
+      deferred from #405, ContinuousScanEngineModule.kt:54)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-405-unread-slot-diagnostics.md"
   - id: "issue-405-deferred-synthetic-colours-retune"
     epic: 10
-    action: "The synthetic test colours driving the BelowMargin and AboveDistance cases in UnreadSlotDiagnosticsTest were tuned against the current colour model and may need retuning when Story 10.36 changes the thresholds or assignment (low; deferred from #405, UnreadSlotDiagnosticsTest.kt)"
+    action: "The synthetic test colours driving the BelowMargin and AboveDistance
+      cases in UnreadSlotDiagnosticsTest were tuned against the current colour model
+      and may need retuning when Story 10.36 changes the thresholds or assignment
+      (low; deferred from #405, UnreadSlotDiagnosticsTest.kt)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-405-unread-slot-diagnostics.md"
   - id: "issue-411-deferred-parity-sessions-miss-d1-d4"
     epic: 10
-    action: "The three synthetic parity sessions make none of D1-D4, I401 or I402 change a compared field on their own (only E3 does), so reverting any of them still passes MapperParityReplayTest; add scenarios that make each bite (AWB drift past 0.36, merge with large log-AWB, forced conflict, long scan) with the part (b) revert-or-keep evidence (medium; deferred from #411, Fixtures/continuous/mapper-parity/expected-differences.json:28)"
+    action: "The three synthetic parity sessions make none of D1-D4, I401 or I402
+      change a compared field on their own (only E3 does), so reverting any of them
+      still passes MapperParityReplayTest; add scenarios that make each bite (AWB
+      drift past 0.36, merge with large log-AWB, forced conflict, long scan) with
+      the part (b) revert-or-keep evidence (medium; deferred from #411, Fixtures/continuous/mapper-parity/expected-differences.json:28)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-411-mapper-parity-golden-replay.md"
   - id: "issue-411-deferred-pin-opencv-numpy-versions"
     epic: 10
-    action: "Byte-identical regeneration of the mapper-parity fixtures depends on unpinned opencv-python-headless/numpy versions and nothing in CI detects stale fixtures; pin --with opencv-python-headless==5.1.0 --with numpy==2.5.5 in the documented uv command (low; deferred from #411, Fixtures/continuous/README.md:57)"
+    action: "Byte-identical regeneration of the mapper-parity fixtures depends on
+      unpinned opencv-python-headless/numpy versions and nothing in CI detects stale
+      fixtures; pin --with opencv-python-headless==5.1.0 --with numpy==2.5.5 in the
+      documented uv command (low; deferred from #411, Fixtures/continuous/README.md:57)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-411-mapper-parity-golden-replay.md"
   - id: "issue-406-deferred-timing-line-regex-copied"
     epic: 10
-    action: "The debug timing line format and the evaluateQuickScan parser are linked only by a regex copied into ScanDiagnosticsTimingLineTest, so a format change can pass the test while the parser breaks; share one pattern or feed a real line to the parser (low; deferred from #406, app/src/testDebug/kotlin/dev/cubentia/app/ScanDiagnosticsTimingLineTest.kt)"
+    action: "The debug timing line format and the evaluateQuickScan parser are linked
+      only by a regex copied into ScanDiagnosticsTimingLineTest, so a format change
+      can pass the test while the parser breaks; share one pattern or feed a real
+      line to the parser (low; deferred from #406, app/src/testDebug/kotlin/dev/cubentia/app/ScanDiagnosticsTimingLineTest.kt)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-406-quick-scan-per-stage-timings.md"
   - id: "issue-406-deferred-device-timing-readings"
     epic: 10
-    action: "Device check owed: run a continuous Quick Scan on a debug build on the Lenovo TB128XU and the Galaxy S24 FE, read the periodic and end-of-run quickScan timing lines (adb logcat -s CubentiaScanDiag) and record per-stage p50/p90/max and frame rate in the Story 10.33 matrix; GitHub issue #406 stays open until recorded (low; deferred from #406)"
+    action: "Device check owed: run a continuous Quick Scan on a debug build on the
+      Lenovo TB128XU and the Galaxy S24 FE, read the periodic and end-of-run quickScan
+      timing lines (adb logcat -s CubentiaScanDiag) and record per-stage p50/p90/max
+      and frame rate in the Story 10.33 matrix; GitHub issue #406 stays open until
+      recorded (low; deferred from #406)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-406-quick-scan-per-stage-timings.md"
   - id: "issue-406-deferred-fps-reads-low-across-pause"
     epic: 10
-    action: "The reported analysed frame rate reads low when the timing span includes an analysis pause; account for pauses if Story 10.33 readings look low (low; deferred from #406)"
+    action: "The reported analysed frame rate reads low when the timing span includes
+      an analysis pause; account for pauses if Story 10.33 readings look low (low;
+      deferred from #406)"
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-406-quick-scan-per-stage-timings.md"
