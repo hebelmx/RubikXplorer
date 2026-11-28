@@ -3,7 +3,7 @@ status: final
 stepsCompleted: [step-01-validate-prerequisites, step-02-design-epics, step-03-create-stories, step-04-final-validation]
 mode: fast-path
 created: 2026-10-29
-updated: 2026-11-23
+updated: 2026-11-27
 inputDocuments:
   - _bmad-output/planning-artifacts/prds/prd-RubikXplorer-2026-10-29/prd.md
   - _bmad-output/planning-artifacts/prds/prd-RubikXplorer-2026-10-29/addendum.md
@@ -2635,27 +2635,23 @@ As a Learner using Quick Scan,
 I want the few stickers the camera couldn't read to be worked out from the rest of my cube when that is certain,
 So that a handful of doubtful stickers doesn't send whole faces to face-by-face capture.
 
-**Refs:** FR-22, FR-23 · recognition NFRs (Quick Scan, Confidence calibration) · AD-9 · Stories 10.17, 10.20, 10.21 · spec `_bmad-output/specs/spec-quick-scan-reliability/fix-plan.md` ("Keep stickers, not faces", CAP-5) · #301
+**Refs:** FR-22, FR-23 · recognition NFRs (Quick Scan, Confidence calibration) · AD-9 · Stories 10.17, 10.19, 10.20, 10.21 · spec `_bmad-output/specs/spec-quick-scan-reliability/fix-plan.md` ("Keep stickers, not faces", CAP-5) · spike `docs/spikes/cubie-invariant-color-resolution-spec.md` & `docs/spikes/cubie-invariant-color-resolution-spike-results.md` (cherry-pickable domain baseline commit `49f26258` on `spike/cubie-invariant-resolver`) · #301
 
-**Depends on** Stories 10.20 and 10.21. **Starts** only after the PO's 10.21 BETA call (Story 10.21's last AC), with the held-out report in hand; the safety assertion (first AC) is built and run before any search. **Human gate:** a device session on both reference devices. *(SCP 2026-11-22 quick-scan-corners-and-solver-copy. PO decision 2026-11-22, Q-c: plan it now in the backlog. SCP 2026-11-22 quick-scan-reliability did not propose it; the "Keep stickers, not faces" candidate in the spec and its constraint that cube rules cannot force an unsupported label (fix-plan.md) are carried into the ACs below. It does not change Story 10.21's keep rule.)*
+**Depends on** Stories 10.20 and 10.21. **Starts** only after the PO's 10.21 BETA call (Story 10.21's last AC), with the held-out report in hand; the Phase 1 spike (`49f26258` on `spike/cubie-invariant-resolver`) already verified the safety assertion (0 wrong stickers across 277 replay runs on 22 `ACCEPTABLE` corner groups) and may be cherry-picked as the domain starting point. **Human gate:** a device session on both reference devices. *(SCP 2026-11-22 quick-scan-corners-and-solver-copy; refined by SCP 2026-11-27 cubie-invariant-resolution: algebraic uniqueness before Lab plausibility, gated `QuickScanClassification` input, sole-rotator `ScanAssembler` helper, `ScanReview` `filled` marking/pre-selection + `CalibrationOffer` + `ScanDiagnostics` debug/release parity. It does not change Story 10.21's keep rule or Guided Scan's `ScanAssembler.search()`.)*
 
 **Acceptance Criteria:**
 
-**Given** `QuickScanSideFaceReplayTest`
-**When** a per-sticker safety assertion is added first (no sticker that would be accepted without Learner confirmation is wrong), and run on the existing and 10.20 groups before any search is built
-**Then** its result is recorded in the spec and sizes the work
+**Given** a posed two-corner Quick Scan with six `ACCEPTABLE` faces and a valid `SelfCalibration`
+**When** `CubieInvariantResolver` runs over the **gated** `QuickScanClassification.read` confidences (delegating pose validation and URFDLB net rotation to an internal posed-placement helper in `ScanAssembler`, AD-9)
+**Then** Stage 0 aborts on any plain-center disagreement (`centerPlain != false` not `CONFIDENT` or not matching the home colour), any piece-typed confident colour overflow (`> 4` corners or `> 4` edges of a colour), any illegal/duplicate confident piece, or more than `MAX_UNCERTAIN_STICKERS` (`12`) uncertain non-centre stickers; Stages 1–2 prove **algebraic uniqueness** over *all* algebraically legal colours (clockwise corner chirality, piece-typed budgets, opposite/same-colour and seen-cubie exclusion, forward-checked MRV backtracking capped at `MAX_SEARCH_NODES = 1024`, validating leaves with `CubeValidator.validate`) and abort immediately on a 2nd valid state (`AMBIGUOUS`) or on exceeding the node budget (`SEARCH_BUDGET_EXCEEDED`, even if one valid state was already seen); Stage 3 rejects the unique valid state unless every deduced sticker passes the per-face light-adjusted Lab plausibility check (`corrected` vs `saved.centers` when scaling applied, else raw `labs` vs `normalized`, standard CIE76 `L_WEIGHT = 1.0`, never using Lab pruning to manufacture uniqueness)
 
-**Given** a two-corner scan whose faces carry per-sticker colour candidates (a CONFIDENT sticker carries one, an uncertain sticker its plausible readings from the image)
-**When** `ScanAssembler` searches the combinations
-**Then** the search prunes by cube rules (six known centres, nine of each colour, only legal edge and corner pieces), stops at a cap on combinations and unknown stickers, and cube rules only rank or reject candidates; they never give a sticker a colour that is not among its candidates
+**Given** `QuickScanController.take()` after hold 2 completes (`captured.size == 6`, `fallbackFaces.isNotEmpty()`, valid `SelfCalibration`, including after `backOut()` with non-empty `keptSet`)
+**When** `CubieInvariantResolver.resolve` returns `Resolved(facelets, labs, resolvedIndices)`
+**Then** `fallbackFaces` clears, `QuickScanEffect.Done(samples, resolved: ResolutionOutcome.Resolved? = null)` carries the resolved result (leaving non-resolved `Done` call sites unchanged) into a dedicated `GuidedScanFlow.reviewOf(QuickScanEffect.Done, saved)` path that builds `ScanEvidence` from `SelfCalibration.from(done.samples, saved)` + net-ordered `labs`; `ScanReview` carries `filled: Set<Int> = emptySet()` (including any resolved indices on previously kept faces after `backOut()`), pre-selects `blanks` → `filled` → `suspects` → `problems`, clears `filled` on edited indices in `paint()`/`corrected()` and on retaken faces in `retaken()`, and keeps `accepted` enabled for whole-cube confirmation; `CalibrationOffer.offered` counts `(review.blanks.size + review.filled.size) >= MANY_UNCERTAIN`; `ScanReviewScreen` renders a distinct filled-sticker visual indicator and TalkBack description using `en.json` copy (never `strings.xml`, per `checkLearnerText`); otherwise (`Unchanged`) the Guided grid hand-over runs as today, and `QuickScanController.lastResolution` is logged via `ScanDiagnostics.onQuickScanRun(...)` in both `app/src/debug/` and `app/src/release/` as `resolver=<Resolved(n)|Unchanged(reason)>` (categorical/counts only, AD-5)
 
-**Given** the search
-**When** exactly one legal cube remains and every filled sticker's true colour lies within its candidates
-**Then** the filled stickers arrive in review marked as filled and pre-selected for checking; otherwise (several cubes, none, over the cap, or too many unknowns) the review or the Guided grid asks the Learner, as today
-
-**Given** the held-out replay
-**When** it runs per device, light and torch state
-**Then** 0 confidently wrong stickers are added, and faces kept and stickers filled are reported against the 10.21 baseline
+**Given** the offline replay suite (`CubieInvariantReplayTest` / `QuickScanSideFaceReplayTest`) with `Fixtures/corner/groups.json` split hygiene (`TUNING` vs untouched `HELDOUT`, counting non-`ACCEPTABLE` groups as `INVALID_INPUT` and respecting Story 10.27's `Fixtures/corner/label-exclusions.json` once landed) and the unit/regression test suites
+**When** they run across all four calibration scenarios (`NONE`, `MATCHING`, `OTHER_LIGHT`, `OTHER_CUBE`) per device, light and torch state
+**Then** **0** confidently wrong stickers are added on any resolved or kept face (every split and scenario), full no-fallback scans, side faces kept, and stickers filled are reported against the 10.21 baseline, `CubieInvariantResolverTest` covers all adversarial edge cases with `:core:domain` Kover `>= 80%`, `QuickScanControllerTest` / `GuidedScanFlowTest` / `ScanReviewTest` stay green, and Guided Scan's `ScanAssembler.search()` remains unchanged
 
 ### Story 10.27: Clean the corner fixture labels and judge pastel stickers against the cube's own colours
 

@@ -7,7 +7,7 @@ paradigm: 'hexagonal (ports & adapters) + functional core / imperative shell'
 scope: 'RubikXplorer Android app MVP — whole system (FR-1..FR-28, NFR-1..NFR-13); FR-21..FR-28 in progress for v1.1 behind flags (SCP 2026-11-14); FR-29 (P1) deferred; FR-30 method-aware solutions and FR-21..FR-27 move into v1.0 (SCP 2026-11-20)'
 status: final
 created: '2026-10-29'
-updated: 2026-11-22
+updated: 2026-11-27
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24, FR-25, FR-26, FR-27, FR-28, FR-30, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11, NFR-12, NFR-13]
 sources:
   - _bmad-output/planning-artifacts/prds/prd-RubikXplorer-2026-10-29/prd.md
@@ -257,11 +257,12 @@ stateDiagram-v2
     - **Quick Scan sticker reading** (PO 2026-11-22, SCP 2026-11-22 quick-scan-sticker-reader, Story 10.23): LiteRT is also allowed for per-face sticker color classification on the unwarped Quick Scan faces. The model sits behind a sticker-reader seam in the camera source set and returns only categorical per-sticker results (a color and a `StickerConfidence`); face crops stay in memory and are discarded when the scan ends. Story 10.23 adds it in **shadow mode only**: the reader and its `.tflite` model live in the debug camera source set, run once per capture, log beside the Kotlin reads and have no input to classification, the keep rule, assembly or review, and a debug-only control switches it on and off. Release and benchmark builds carry no sticker model bytes and no reader class (`build-logic` check). Letting the model take part in a result needs a further SCP with held-out per-sticker evidence and the NFR-11 size check. Training and evaluation hold out whole capture groups.
   - **Assembly and classification:**
     - Only `ScanAssembler` in `:core:domain` rotates samples into `Facelets` order. The Manual Cube Editor's per-face rotation (SCP 2026-11-20, #253) and the Quick Scan → Guided Scan hand-over that keeps captured faces (#198) use the same `ScanAssembler` entry on face colors; neither rotates faces itself. A sample with no `upNeighborColor` gets the quarter turn that makes the six faces a state `CubeValidator` accepts; when no turn or more than one distinct state fits, it reports the faces involved for a re-prompt with a named top and never guesses (Story 10.14, SCP 2026-11-16). With no valid state it reports them only when they are at most `MAX_REPROMPT_FACES` (2); more go to review with the best fit and no re-prompt (SCP 2026-11-19, #164).
+    - **Quick Scan cubie-invariant resolution** *(SCP 2026-11-27, Story 10.26)*: for posed 6-face Quick Scan captures, `CubieInvariantResolver` in `:core:domain` may resolve up to `MAX_UNCERTAIN_STICKERS` (`12`) uncertain non-center stickers using gated `QuickScanClassification` readings and `ScanAssembler`'s internal posed-placement helper (keeping `ScanAssembler` as the sole sample-to-net rotator). It proves algebraic uniqueness (`validCount == 1`) over all algebraically legal colors *before* applying per-face light-adjusted Lab plausibility, never guesses between multiple valid states, and passes resolved `Facelets`, net-ordered `labs`, and `resolvedIndices` into `ScanReview` via `GuidedScanFlow` so filled stickers are marked and pre-selected for Learner confirmation while `ScanEvidence` and `CalibrationOffer` stay intact. Guided Scan's unposed `ScanAssembler.search()` is unchanged.
     - `StickerClassifier` receives the calibration as a parameter.
     - The result is `ScanResult` = `Full(Facelets + confidence)` or `Partial(...)`.
   - **Acceptance:** the reducer rejects `ScanAccepted` unless:
     - a `Full` result is valid;
-    - every `UNCERTAIN` sticker has been corrected or confirmed by the Learner;
+    - every `UNCERTAIN` sticker has been corrected or confirmed by the Learner, and any cubie-resolved sticker from Quick Scan arrives in `ScanReview` pre-filled, visually marked as filled, and pre-selected for Learner confirmation before acceptance *(SCP 2026-11-27, Story 10.26)*;
     - `basedOnRevision` is current.
   - **Scan flow:** a sub-flow that returns `ScanOutcome {Accepted, Cancelled, FellBackToEditor}` to its caller through a typed navigation result. Only the caller dispatches it. The scan flow never touches a session.
   - **Color Calibration:** owned by `CalibrationRepository`, and written only by the `UpdateCalibration` and `ResetCalibration` use cases. It is never stored in `SessionState` or a Checkpoint.

@@ -2,7 +2,7 @@
 title: RubikXplorer — MVP Product Requirements Document
 status: final
 created: 2026-10-29
-updated: 2026-11-20
+updated: 2026-11-27
 ---
 
 # PRD: RubikXplorer
@@ -489,9 +489,9 @@ The Learner can capture the cube in 2–3 corner-angle photos, each showing thre
 
 **Consequences (testable):**
 - Two captures from opposite corners yield all 54 stickers.
-- If perspective, glare or occlusion leaves stickers uncertain or the state invalid, the app asks for only the faces it is missing, using the Guided 6-face Scan. It never produces a guessed state.
+- If perspective, glare or occlusion leaves stickers uncertain (beyond a uniquely determined, plausibility-checked cubie-invariant resolution) or the state invalid, the app asks for only the faces it is missing, using the Guided 6-face Scan. It never produces a guessed state.
 - Quick Scan detects the cube's real edges and corners in the camera frame and unwarps each face from them; the Learner never has to line the cube up with a drawn guide, and no perspective-correct guide sketch is used (PO, 2026-11-20, Story 10.18, #195). *(SCP 2026-11-20)*
-- Quick Scan helps the Learner light the cube: when the light is behind the cube it says so and waits, it meters on the cube, it uses the Learner's saved color calibration when one exists, and it turns on the torch where the device has one. It never turns an uncertain sticker into a suggested color. *(SCP 2026-11-21, Story 10.19)*
+- Quick Scan helps the Learner light the cube: when the light is behind the cube it says so and waits, it meters on the cube, it uses the Learner's saved color calibration when one exists, and it turns on the torch where the device has one. It never turns an uncertain sticker into a heuristic suggested color. *(SCP 2026-11-21, Story 10.19)* When all six posed faces are captured and 3×3 cube invariants yield a single unique valid cube whose deduced stickers also pass per-face light-adjusted plausibility, Quick Scan may pre-fill those uniquely determined stickers and present them in review marked as filled and pre-selected for Learner confirmation; it never guesses between multiple valid cubes. *(SCP 2026-11-27, Story 10.26)*
 - The Learner can also switch from Quick Scan to the Guided 6-face Scan at any time. Faces already captured are kept, the Guided Scan asks only for the others, and all six faces are assembled together. *(SCP 2026-11-20, #198)*
 - Quick Scan is labeled "beta" unless it meets its own targets (§4.8 NFRs).
 
