@@ -303,6 +303,46 @@ object ScanAssembler {
     /** The faces around [face] in the [Facelets] net: top, right, bottom, left (the hold a face is entered in). */
     fun netNeighbors(face: Face): List<Face> = NET_NEIGHBORS.getValue(face)
 
+    /** One posed sample placed into URFDLB net order by [placeAllPosed], keeping its net-ordered Labs and turn count. */
+    internal data class PosedPlacement(
+        val face: Face,
+        val sample: FaceSample,
+        val turns: Int,
+        val labs: List<Lab>,
+    )
+
+    /**
+     * Places six posed, ACCEPTABLE, well-formed samples (one per home center color) into URFDLB net order using the
+     * same pose and turn rules as [place]; null if any face is missing, duplicated, poor quality, malformed, or lacks a
+     * valid orthogonal [FaceSample.upNeighborColor]. Keeps all sample-to-net rotation inside [ScanAssembler] (AD-9).
+     */
+    internal fun placeAllPosed(samples: List<FaceSample>): List<PosedPlacement>? {
+        if (samples.size != FACES) return null
+        val bySlot =
+            samples
+                .mapNotNull { sample -> sample.centerColor?.let { HOME_FACE.getValue(it) to sample } }
+                .groupBy({ it.first }, { it.second })
+        return Face.entries.map { slot ->
+            val claims = bySlot[slot].orEmpty()
+            if (claims.size != 1) return null
+            val sample = claims.single()
+            if (sample.quality != CaptureQuality.ACCEPTABLE) return null
+            if (sample.stickers.size != STICKERS || sample.stickers.any { !it.isValid() }) return null
+            if (sample.orientationDegrees % QUARTER != 0) return null
+            val upFace = sample.upNeighborColor?.let(HOME_FACE::getValue) ?: return null
+            val direction = NET_NEIGHBORS.getValue(slot).indexOf(upFace)
+            if (direction < 0) return null
+            val turns = Math.floorMod(sample.orientationDegrees / QUARTER + direction, TURNS)
+            PosedPlacement(slot, sample, turns, rotateClockwise(sample.stickers, turns))
+        }
+    }
+
+    /** Rotates a 9-cell list from pixel order into URFDLB net order using [placement]'s validated turns. */
+    internal fun <T> rotatePlaced(
+        placement: PosedPlacement,
+        cells: List<T>,
+    ): List<T> = rotateClockwise(cells, placement.turns)
+
     /**
      * Fits colour-only [facelets] (centers at home) by per-face quarter turns: valid as entered wins with nothing
      * turned; otherwise each face's 9 colors (center fixed) try their 4 clockwise turns, and exactly one distinct valid
