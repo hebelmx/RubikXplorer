@@ -3391,3 +3391,21 @@ action_items:
     owner: "Dev (Amelia)"
     status: open
     ref: "_bmad-output/implementation-artifacts/spec-gh-409-debug-peaks-lattice-overlay.md"
+  - id: "issue-414-deferred-device-live-update"
+    epic: 10
+    action: "Device check owed: on a debug build with the toggle on, confirm on a real camera that the model-input thumbnail updates as the cube moves with the peaks on the stickers, and that its corner placement does not cover the session-recording controls; #414 stays open until done (low; deferred from #414)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-414-debug-model-input-thumbnail.md"
+  - id: "issue-414-deferred-use-in-413-and-10-33"
+    epic: 10
+    action: "Device use owed: use the model-input thumbnail in the #413 PC-vs-app comparison and the Story 10.33 sessions to judge sticker size at the model input; #414 stays open until done (low; deferred from #414)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-414-debug-model-input-thumbnail.md"
+  - id: "issue-414-deferred-double-copy-while-recording"
+    epic: 10
+    action: "With the debug view on and a session recording, the detector input is copied twice per frame; share one copy if timing readings show it matters (low; deferred from #414)"
+    owner: "Dev (Amelia)"
+    status: open
+    ref: "_bmad-output/implementation-artifacts/spec-gh-414-debug-model-input-thumbnail.md"
