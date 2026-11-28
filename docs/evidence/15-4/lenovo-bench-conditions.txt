@@ -1,0 +1,43 @@
+## before lenovo-bench
+Fri Nov 27 08:35:56 PM CST 2026
+  AC powered: false
+  USB powered: true
+  Wireless powered: false
+  status: 5
+  level: 100
+  temperature: 253
+Thermal Status: 0
+low_power: 0
+MemTotal:        3756260 kB
+MemFree:           43672 kB
+MemAvailable:    1288304 kB
+1.22 0.51 0.40 1/3820 32476
+## loadavg run 0 'BEGINNER': 2.00 0.68 0.46 5/3865 32560
+## loadavg run 0 'TWO_LOOK': 2.00 0.68 0.46 9/3880 32750
+## loadavg run 0 'FULL_OLL_PLL': 2.24 0.75 0.48 3/3891 523
+## loadavg run 5 'BEGINNER': 2.62 0.97 0.56 4/3871 2177
+## loadavg run 5 'TWO_LOOK': 2.49 0.97 0.56 3/3871 2278
+## loadavg run 5 'FULL_OLL_PLL': 2.49 0.97 0.56 5/3871 2419
+## loadavg run 10 'BEGINNER': 3.02 1.24 0.67 1/3864 3856
+## loadavg run 10 'TWO_LOOK': 3.02 1.24 0.67 2/3864 3920
+## loadavg run 10 'FULL_OLL_PLL': 2.86 1.24 0.67 6/3862 3998
+## loadavg run 15 'BEGINNER': 3.89 1.59 0.80 2/3871 5072
+## loadavg run 15 'TWO_LOOK': 3.73 1.60 0.81 2/3870 5140
+## loadavg run 15 'FULL_OLL_PLL': 3.73 1.60 0.81 5/3868 5203
+## loadavg run 20 'BEGINNER': 3.35 1.71 0.87 2/3869 6061
+## loadavg run 20 'TWO_LOOK': 3.35 1.71 0.87 1/3870 6127
+## loadavg run 20 'FULL_OLL_PLL': 3.32 1.73 0.88 3/3869 6195
+## after lenovo-bench
+Fri Nov 27 08:38:42 PM CST 2026
+  AC powered: false
+  USB powered: true
+  Wireless powered: false
+  status: 5
+  level: 100
+  temperature: 267
+Thermal Status: 0
+low_power: 0
+MemTotal:        3756260 kB
+MemFree:          142872 kB
+MemAvailable:    1310192 kB
+3.27 1.83 0.94 2/3843 6977

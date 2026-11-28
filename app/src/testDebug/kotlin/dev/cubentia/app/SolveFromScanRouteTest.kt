@@ -104,6 +104,16 @@ class SolveFromScanRouteTest {
                 .SolveByMethod(it)
         }
 
+    /** SolverModule is uninstalled here, so its solve deadline and method-solve warm-up are bound too (Story 15.4). */
+    @BindValue val solveDeadline: dev.cubentia.app.solver.SolveDeadline = dev.cubentia.app.solver.SolveDeadline.RELEASE
+
+    @BindValue val warmUp: dev.cubentia.app.solver.MethodSolveWarmUp =
+        dev.cubentia.app.solver.MethodSolveWarmUp(
+            bundle = { null },
+            scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob()),
+            log = { _, _ -> },
+        )
+
     @BindValue val solverSource: SolverSource =
         object : SolverSource {
             override val isReady = true

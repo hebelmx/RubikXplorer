@@ -1,0 +1,43 @@
+## before galaxy-bench
+Fri Nov 27 08:35:56 PM CST 2026
+  AC powered: false
+  USB powered: false
+  Wireless powered: false
+  status: 3
+  level: 89
+  temperature: 218
+Thermal Status: 0
+low_power: 1
+MemTotal:        3518216 kB
+MemFree:          286748 kB
+MemAvailable:     642116 kB
+6.75 6.49 5.64 2/4123 21040
+## loadavg run 0 'BEGINNER': 6.37 6.41 5.62 3/4146 21109
+## loadavg run 0 'TWO_LOOK': 6.42 6.42 5.62 2/4135 21193
+## loadavg run 0 'FULL_OLL_PLL': 6.42 6.42 5.62 3/4220 21383
+## loadavg run 5 'BEGINNER': 4.35 5.80 5.47 2/4108 22213
+## loadavg run 5 'TWO_LOOK': 4.24 5.76 5.45 2/4108 22271
+## loadavg run 5 'FULL_OLL_PLL': 4.14 5.71 5.44 4/4108 22329
+## loadavg run 10 'BEGINNER': 4.65 5.57 5.41 3/4105 23133
+## loadavg run 10 'TWO_LOOK': 4.52 5.53 5.40 3/4105 23189
+## loadavg run 10 'FULL_OLL_PLL': 4.40 5.48 5.39 3/4106 23240
+## loadavg run 15 'BEGINNER': 5.47 5.51 5.40 3/4113 24015
+## loadavg run 15 'TWO_LOOK': 5.19 5.45 5.38 2/4111 24076
+## loadavg run 15 'FULL_OLL_PLL': 5.02 5.41 5.37 2/4109 24137
+## loadavg run 20 'BEGINNER': 4.31 5.12 5.27 1/4105 24933
+## loadavg run 20 'TWO_LOOK': 4.21 5.08 5.26 2/4105 24996
+## loadavg run 20 'FULL_OLL_PLL': 4.11 5.05 5.24 2/4104 25061
+## after galaxy-bench
+Fri Nov 27 08:55:30 PM CST 2026
+  AC powered: false
+  USB powered: false
+  Wireless powered: false
+  status: 3
+  level: 88
+  temperature: 217
+Thermal Status: 0
+low_power: 1
+MemTotal:        3518216 kB
+MemFree:          249668 kB
+MemAvailable:     569612 kB
+8.79 6.04 5.56 2/4081 25845

@@ -1,17 +1,25 @@
 package dev.cubentia.app.di
 
 import android.content.Context
+import android.util.Log
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import dev.cubentia.app.content.CatalogState
+import dev.cubentia.app.content.LessonCatalog
+import dev.cubentia.app.solver.MethodSolveWarmUp
 import dev.cubentia.app.solver.MethodSolverFactory
 import dev.cubentia.app.solver.PruningTableSolverSource
+import dev.cubentia.app.solver.SolveDeadline
 import dev.cubentia.app.solver.SolverSource
 import dev.cubentia.application.port.AlgorithmStatusRepository
 import dev.cubentia.application.usecase.SolveByMethod
 import dev.cubentia.solver.PruningTableProvider
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import java.io.File
 import javax.inject.Singleton
 
@@ -29,6 +37,7 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object SolverModule {
     const val TABLE_ASSET = "solver/pruning-v1.bin"
+    private const val TAG = "MethodSolveWarmUp"
 
     /** `<dataDir>/files/solver/pruning-v1.bin`, i.e. under `filesDir`, built without disk access. */
     fun fallbackFile(dataDir: File): File = File(dataDir, "files/solver/pruning-v1.bin")
@@ -45,8 +54,36 @@ object SolverModule {
     @Provides @Singleton
     fun source(provider: PruningTableProvider): SolverSource = PruningTableSolverSource(provider)
 
+    /** The one solve deadline of this process (Story 15.4): 3 s, or 5 s in a debuggable build. */
+    @Provides @Singleton
+    fun solveDeadline(
+        @ApplicationContext context: Context,
+    ): SolveDeadline = SolveDeadline.of(context.applicationInfo)
+
+    /**
+     * The one method-solve warm-up of this process (Story 15.4, AD-21): started by the solve flow once its pruning tables
+     * are ready, never at app startup. Its content comes from [catalog]; a failure is logged in debuggable builds only.
+     */
+    @Provides @Singleton
+    fun warmUp(
+        @ApplicationContext context: Context,
+        catalog: LessonCatalog,
+    ): MethodSolveWarmUp {
+        val debuggable = SolveDeadline.isDebuggable(context.applicationInfo)
+        return MethodSolveWarmUp(
+            bundle = {
+                catalog.load()
+                (catalog.state.value as? CatalogState.Ready)?.bundle
+            },
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+            log = { message, failure -> if (debuggable) Log.d(TAG, message, failure) },
+        )
+    }
+
     /** The method-shaped solve for Solution Playback, preferring the Learner's *Learning* or *Learned* Algorithms (Story 15.3). */
     @Provides @Singleton
-    fun methodSolverFactory(repository: AlgorithmStatusRepository): MethodSolverFactory =
-        MethodSolverFactory { SolveByMethod(it, algorithmStatuses = repository) }
+    fun methodSolverFactory(
+        repository: AlgorithmStatusRepository,
+        deadline: SolveDeadline,
+    ): MethodSolverFactory = MethodSolverFactory { SolveByMethod(it, deadlineMillis = deadline.millis, algorithmStatuses = repository) }
 }

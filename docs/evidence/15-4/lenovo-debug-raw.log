@@ -1,0 +1,780 @@
+--------- beginning of main
+         1795833905.111  7119  7119 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795833905.111  7119  7119 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=0,cases=3,warmup=0
+         1795833905.111  7119  7119 I MethodSolveBenchmark: build,debuggable=true
+         1795833905.114  7119  7119 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795833906.327  7119  7140 I MethodSolveBenchmark: prepared,nanos=1187691666
+         1795833909.885  7119  7140 I MethodSolveBenchmark: warmed-up,nanos=3557645572
+         1795833910.571  7119  7140 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=0,nanos=686250729,outcome=Solved,moves=121
+         1795833910.724  7119  7140 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=1,nanos=152512187,outcome=Solved,moves=99
+         1795833910.890  7119  7140 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=2,nanos=166159479,outcome=Solved,moves=76
+         1795833910.891  7119  7140 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=686250729;152512187;166159479
+         1795833910.893  7119  7140 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795833910.893  7119  7140 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795833911.943  7216  7216 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795833911.943  7216  7216 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=0,cases=3,warmup=0
+         1795833911.943  7216  7216 I MethodSolveBenchmark: build,debuggable=true
+         1795833911.946  7216  7216 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795833913.182  7216  7242 I MethodSolveBenchmark: prepared,nanos=1213047812
+         1795833916.742  7216  7242 I MethodSolveBenchmark: warmed-up,nanos=3559777342
+         1795833916.955  7216  7242 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=0,nanos=213076094,outcome=Solved,moves=85
+         1795833917.151  7216  7242 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=1,nanos=195923645,outcome=Solved,moves=81
+         1795833917.362  7216  7242 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=2,nanos=211248646,outcome=Solved,moves=61
+         1795833917.363  7216  7242 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=213076094;195923645;211248646
+         1795833917.366  7216  7242 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795833917.366  7216  7242 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795833919.115  7320  7320 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795833919.115  7320  7320 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=0,cases=3,warmup=0
+         1795833919.115  7320  7320 I MethodSolveBenchmark: build,debuggable=true
+         1795833919.117  7320  7320 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795833920.338  7320  7340 I MethodSolveBenchmark: prepared,nanos=1197805260
+         1795833923.938  7320  7340 I MethodSolveBenchmark: warmed-up,nanos=3599915728
+         1795833924.371  7320  7340 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=0,nanos=432872188,outcome=Solved,moves=68
+         1795833924.777  7320  7340 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=1,nanos=405769114,outcome=Solved,moves=67
+         1795833925.166  7320  7340 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=2,nanos=389180989,outcome=Solved,moves=61
+         1795833925.167  7320  7340 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=432872188;405769114;389180989
+         1795833925.169  7320  7340 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795833925.169  7320  7340 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795833926.266  7410  7410 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795833926.266  7410  7410 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=10,cases=3,warmup=0
+         1795833926.266  7410  7410 I MethodSolveBenchmark: build,debuggable=true
+         1795833926.269  7410  7410 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795833927.560  7410  7431 I MethodSolveBenchmark: prepared,nanos=1260599114
+         1795833931.159  7410  7431 I MethodSolveBenchmark: warmed-up,nanos=3599448384
+         1795833931.780  7410  7431 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=10,nanos=621213177,outcome=Solved,moves=124
+         1795833932.167  7410  7431 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=11,nanos=386723645,outcome=Solved,moves=107
+         1795833932.305  7410  7431 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=12,nanos=137579948,outcome=Solved,moves=78
+         1795833932.306  7410  7431 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=621213177;386723645;137579948
+         1795833932.308  7410  7431 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795833932.308  7410  7431 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795833933.266  7495  7495 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795833933.266  7495  7495 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=10,cases=3,warmup=0
+         1795833933.266  7495  7495 I MethodSolveBenchmark: build,debuggable=true
+         1795833933.269  7495  7495 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795833934.521  7495  7517 I MethodSolveBenchmark: prepared,nanos=1228950677
+         1795833938.085  7495  7517 I MethodSolveBenchmark: warmed-up,nanos=3564205416
+         1795833938.327  7495  7517 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=10,nanos=241720365,outcome=Solved,moves=70
+         1795833938.545  7495  7517 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=11,nanos=218313281,outcome=Solved,moves=90
+         1795833938.735  7495  7517 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=12,nanos=189963541,outcome=Solved,moves=81
+         1795833938.736  7495  7517 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=241720365;218313281;189963541
+         1795833938.738  7495  7517 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795833938.738  7495  7517 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795833940.521  7585  7585 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795833940.521  7585  7585 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=10,cases=3,warmup=0
+         1795833940.521  7585  7585 I MethodSolveBenchmark: build,debuggable=true
+         1795833940.524  7585  7585 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795833941.754  7585  7606 I MethodSolveBenchmark: prepared,nanos=1206873489
+         1795833945.344  7585  7606 I MethodSolveBenchmark: warmed-up,nanos=3589550520
+         1795833945.778  7585  7606 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=10,nanos=434131198,outcome=Solved,moves=68
+         1795833946.198  7585  7606 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=11,nanos=419468958,outcome=Solved,moves=72
+         1795833946.552  7585  7606 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=12,nanos=354349635,outcome=Solved,moves=71
+         1795833946.553  7585  7606 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=434131198;419468958;354349635
+         1795833946.555  7585  7606 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795833946.555  7585  7606 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795833947.469  7671  7671 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795833947.469  7671  7671 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=20,cases=3,warmup=0
+         1795833947.469  7671  7671 I MethodSolveBenchmark: build,debuggable=true
+         1795833947.471  7671  7671 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795833948.710  7671  7692 I MethodSolveBenchmark: prepared,nanos=1215311667
+         1795833952.273  7671  7692 I MethodSolveBenchmark: warmed-up,nanos=3562528124
+         1795833953.055  7671  7692 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=20,nanos=782214114,outcome=Solved,moves=113
+         1795833953.447  7671  7692 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=21,nanos=391828177,outcome=Solved,moves=133
+         1795833953.601  7671  7692 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=22,nanos=153761979,outcome=Solved,moves=85
+         1795833953.603  7671  7692 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=782214114;391828177;153761979
+         1795833953.608  7671  7692 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795833953.609  7671  7692 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795833954.797  7760  7760 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795833954.797  7760  7760 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=20,cases=3,warmup=0
+         1795833954.797  7760  7760 I MethodSolveBenchmark: build,debuggable=true
+         1795833954.800  7760  7760 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795833956.037  7760  7780 I MethodSolveBenchmark: prepared,nanos=1213026667
+         1795833959.595  7760  7780 I MethodSolveBenchmark: warmed-up,nanos=3558249270
+         1795833959.896  7760  7780 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=20,nanos=300678906,outcome=Solved,moves=90
+         1795833960.179  7760  7780 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=21,nanos=282700000,outcome=Solved,moves=95
+         1795833960.347  7760  7780 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=22,nanos=168521510,outcome=Solved,moves=86
+         1795833960.348  7760  7780 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=300678906;282700000;168521510
+         1795833960.350  7760  7780 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795833960.350  7760  7780 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795833961.515  7844  7844 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795833961.515  7844  7844 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=20,cases=3,warmup=0
+         1795833961.515  7844  7844 I MethodSolveBenchmark: build,debuggable=true
+         1795833961.518  7844  7844 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795833962.753  7844  7878 I MethodSolveBenchmark: prepared,nanos=1212129999
+         1795833966.310  7844  7878 I MethodSolveBenchmark: warmed-up,nanos=3556727238
+         1795833966.806  7844  7878 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=20,nanos=495522864,outcome=Solved,moves=75
+         1795833967.283  7844  7878 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=21,nanos=476744531,outcome=Solved,moves=75
+         1795833967.600  7844  7878 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=22,nanos=317288177,outcome=Solved,moves=72
+         1795833967.602  7844  7878 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=495522864;476744531;317288177
+         1795833967.607  7844  7878 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795833967.607  7844  7878 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795833968.847  7968  7968 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795833968.847  7968  7968 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=30,cases=3,warmup=0
+         1795833968.847  7968  7968 I MethodSolveBenchmark: build,debuggable=true
+         1795833968.850  7968  7968 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795833970.130  7968  7988 I MethodSolveBenchmark: prepared,nanos=1251684947
+         1795833973.692  7968  7988 I MethodSolveBenchmark: warmed-up,nanos=3562482551
+         1795833974.349  7968  7988 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=30,nanos=656252604,outcome=Solved,moves=127
+         1795833974.646  7968  7988 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=31,nanos=296994531,outcome=Solved,moves=87
+         1795833975.291  7968  7988 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=32,nanos=644947291,outcome=Solved,moves=128
+         1795833975.293  7968  7988 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=656252604;296994531;644947291
+         1795833975.299  7968  7988 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795833975.299  7968  7988 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795833976.275  8066  8066 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795833976.276  8066  8066 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=30,cases=3,warmup=0
+         1795833976.276  8066  8066 I MethodSolveBenchmark: build,debuggable=true
+         1795833976.278  8066  8066 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795833977.514  8066  8087 I MethodSolveBenchmark: prepared,nanos=1212807239
+         1795833981.068  8066  8087 I MethodSolveBenchmark: warmed-up,nanos=3553971769
+         1795833981.286  8066  8087 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=30,nanos=217316927,outcome=Solved,moves=80
+         1795833981.570  8066  8087 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=31,nanos=284057396,outcome=Solved,moves=85
+         1795833982.033  8066  8087 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=32,nanos=463412604,outcome=Solved,moves=78
+         1795833982.038  8066  8087 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=217316927;284057396;463412604
+         1795833982.043  8066  8087 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795833982.043  8066  8087 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795833983.088  8152  8152 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795833983.088  8152  8152 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=30,cases=3,warmup=0
+         1795833983.088  8152  8152 I MethodSolveBenchmark: build,debuggable=true
+         1795833983.090  8152  8152 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795833984.329  8152  8185 I MethodSolveBenchmark: prepared,nanos=1215940052
+         1795833987.888  8152  8185 I MethodSolveBenchmark: warmed-up,nanos=3558440311
+         1795833988.322  8152  8185 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=30,nanos=433794688,outcome=Solved,moves=66
+         1795833988.820  8152  8185 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=31,nanos=498304375,outcome=Solved,moves=62
+         1795833989.465  8152  8185 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=32,nanos=644581979,outcome=Solved,moves=73
+         1795833989.467  8152  8185 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=433794688;498304375;644581979
+         1795833989.474  8152  8185 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795833989.475  8152  8185 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795833990.518  8283  8283 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795833990.518  8283  8283 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=40,cases=3,warmup=0
+         1795833990.518  8283  8283 I MethodSolveBenchmark: build,debuggable=true
+         1795833990.521  8283  8283 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795833991.768  8283  8311 I MethodSolveBenchmark: prepared,nanos=1223248489
+         1795833995.327  8283  8311 I MethodSolveBenchmark: warmed-up,nanos=3558914999
+         1795833996.068  8283  8311 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=40,nanos=741295729,outcome=Solved,moves=119
+         1795833996.354  8283  8311 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=41,nanos=285369270,outcome=Solved,moves=103
+         1795833996.827  8283  8311 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=42,nanos=473021250,outcome=Solved,moves=129
+         1795833996.829  8283  8311 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=741295729;285369270;473021250
+         1795833996.833  8283  8311 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795833996.833  8283  8311 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795833997.871  8385  8385 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795833997.871  8385  8385 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=40,cases=3,warmup=0
+         1795833997.871  8385  8385 I MethodSolveBenchmark: build,debuggable=true
+         1795833997.874  8385  8385 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795833999.113  8385  8408 I MethodSolveBenchmark: prepared,nanos=1216281353
+         1795834002.672  8385  8408 I MethodSolveBenchmark: warmed-up,nanos=3558416665
+         1795834002.860  8385  8408 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=40,nanos=188466771,outcome=Solved,moves=87
+         1795834003.015  8385  8408 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=41,nanos=154020312,outcome=Solved,moves=55
+         1795834003.259  8385  8408 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=42,nanos=244399948,outcome=Solved,moves=68
+         1795834003.261  8385  8408 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=188466771;154020312;244399948
+         1795834003.267  8385  8408 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834003.268  8385  8408 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834005.059  8472  8472 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834005.059  8472  8472 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=40,cases=3,warmup=0
+         1795834005.059  8472  8472 I MethodSolveBenchmark: build,debuggable=true
+         1795834005.062  8472  8472 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834006.290  8472  8491 I MethodSolveBenchmark: prepared,nanos=1204619374
+         1795834009.876  8472  8491 I MethodSolveBenchmark: warmed-up,nanos=3585326613
+         1795834010.301  8472  8491 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=40,nanos=424553072,outcome=Solved,moves=65
+         1795834010.697  8472  8491 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=41,nanos=396781458,outcome=Solved,moves=65
+         1795834011.082  8472  8491 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=42,nanos=383945833,outcome=Solved,moves=60
+         1795834011.083  8472  8491 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=424553072;396781458;383945833
+         1795834011.090  8472  8491 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834011.090  8472  8491 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834012.092  8560  8560 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834012.092  8560  8560 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=50,cases=3,warmup=0
+         1795834012.092  8560  8560 I MethodSolveBenchmark: build,debuggable=true
+         1795834012.094  8560  8560 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834013.342  8560  8580 I MethodSolveBenchmark: prepared,nanos=1224477604
+         1795834016.902  8560  8580 I MethodSolveBenchmark: warmed-up,nanos=3560146197
+         1795834017.698  8560  8580 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=50,nanos=795090416,outcome=Solved,moves=113
+         1795834018.133  8560  8580 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=51,nanos=434930781,outcome=Solved,moves=113
+         1795834018.465  8560  8580 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=52,nanos=332608750,outcome=Solved,moves=110
+         1795834018.466  8560  8580 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=795090416;434930781;332608750
+         1795834018.468  8560  8580 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834018.468  8560  8580 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834019.521  8647  8647 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834019.521  8647  8647 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=50,cases=3,warmup=0
+         1795834019.521  8647  8647 I MethodSolveBenchmark: build,debuggable=true
+         1795834019.523  8647  8647 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834020.773  8647  8667 I MethodSolveBenchmark: prepared,nanos=1226562708
+         1795834024.337  8647  8667 I MethodSolveBenchmark: warmed-up,nanos=3563184478
+         1795834024.623  8647  8667 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=50,nanos=285927604,outcome=Solved,moves=81
+         1795834024.869  8647  8667 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=51,nanos=246532500,outcome=Solved,moves=79
+         1795834025.017  8647  8667 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=52,nanos=147371822,outcome=Solved,moves=77
+         1795834025.018  8647  8667 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=285927604;246532500;147371822
+         1795834025.022  8647  8667 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834025.022  8647  8667 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834026.773  8740  8740 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834026.773  8740  8740 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=50,cases=3,warmup=0
+         1795834026.773  8740  8740 I MethodSolveBenchmark: build,debuggable=true
+         1795834026.775  8740  8740 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834028.017  8740  8759 I MethodSolveBenchmark: prepared,nanos=1218584114
+         1795834031.615  8740  8759 I MethodSolveBenchmark: warmed-up,nanos=3598365571
+         1795834032.113  8740  8759 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=50,nanos=497735104,outcome=Solved,moves=59
+         1795834032.575  8740  8759 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=51,nanos=461592552,outcome=Solved,moves=67
+         1795834032.958  8740  8759 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=52,nanos=382685156,outcome=Solved,moves=72
+         1795834032.960  8740  8759 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=497735104;461592552;382685156
+         1795834032.966  8740  8759 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834032.966  8740  8759 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834034.271  8830  8830 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834034.271  8830  8830 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=60,cases=3,warmup=0
+         1795834034.271  8830  8830 I MethodSolveBenchmark: build,debuggable=true
+         1795834034.273  8830  8830 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834035.518  8830  8851 I MethodSolveBenchmark: prepared,nanos=1221362395
+         1795834039.080  8830  8851 I MethodSolveBenchmark: warmed-up,nanos=3562382290
+         1795834040.109  8830  8851 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=60,nanos=1028312343,outcome=Solved,moves=118
+         1795834040.700  8830  8851 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=61,nanos=591310677,outcome=Solved,moves=100
+         1795834041.062  8830  8851 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=62,nanos=362081406,outcome=Solved,moves=128
+         1795834041.063  8830  8851 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=1028312343;591310677;362081406
+         1795834041.064  8830  8851 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834041.064  8830  8851 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834042.211  8927  8927 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834042.211  8927  8927 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=60,cases=3,warmup=0
+         1795834042.211  8927  8927 I MethodSolveBenchmark: build,debuggable=true
+         1795834042.213  8927  8927 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834043.446  8927  8948 I MethodSolveBenchmark: prepared,nanos=1209443229
+         1795834047.004  8927  8948 I MethodSolveBenchmark: warmed-up,nanos=3557875728
+         1795834047.637  8927  8948 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=60,nanos=632857083,outcome=Solved,moves=88
+         1795834048.070  8927  8948 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=61,nanos=433369427,outcome=Solved,moves=82
+         1795834048.223  8927  8948 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=62,nanos=152599688,outcome=Solved,moves=94
+         1795834048.224  8927  8948 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=632857083;433369427;152599688
+         1795834048.226  8927  8948 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834048.226  8927  8948 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834049.523  9018  9018 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834049.524  9018  9018 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=60,cases=3,warmup=0
+         1795834049.524  9018  9018 I MethodSolveBenchmark: build,debuggable=true
+         1795834049.526  9018  9018 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834050.772  9018  9041 I MethodSolveBenchmark: prepared,nanos=1211166094
+         1795834054.335  9018  9041 I MethodSolveBenchmark: warmed-up,nanos=3563431873
+         1795834055.187  9018  9041 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=60,nanos=852024843,outcome=Solved,moves=71
+         1795834055.819  9018  9041 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=61,nanos=632041562,outcome=Solved,moves=70
+         1795834056.142  9018  9041 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=62,nanos=321978698,outcome=Solved,moves=84
+         1795834056.143  9018  9041 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=852024843;632041562;321978698
+         1795834056.149  9018  9041 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834056.149  9018  9041 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834057.422  9119  9119 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834057.422  9119  9119 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=70,cases=3,warmup=0
+         1795834057.422  9119  9119 I MethodSolveBenchmark: build,debuggable=true
+         1795834057.425  9119  9119 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834058.664  9119  9142 I MethodSolveBenchmark: prepared,nanos=1216191458
+         1795834062.225  9119  9142 I MethodSolveBenchmark: warmed-up,nanos=3560425519
+         1795834063.091  9119  9142 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=70,nanos=865964583,outcome=Solved,moves=108
+         1795834063.401  9119  9142 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=71,nanos=309727552,outcome=Solved,moves=115
+         1795834063.570  9119  9142 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=72,nanos=168949323,outcome=Solved,moves=101
+         1795834063.570  9119  9142 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=865964583;309727552;168949323
+         1795834063.573  9119  9142 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834063.573  9119  9142 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834064.707  9209  9209 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834064.707  9209  9209 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=70,cases=3,warmup=0
+         1795834064.707  9209  9209 I MethodSolveBenchmark: build,debuggable=true
+         1795834064.709  9209  9209 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834065.947  9209  9229 I MethodSolveBenchmark: prepared,nanos=1214460469
+         1795834069.509  9209  9229 I MethodSolveBenchmark: warmed-up,nanos=3561715884
+         1795834069.743  9209  9229 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=70,nanos=233305000,outcome=Solved,moves=88
+         1795834069.982  9209  9229 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=71,nanos=239422135,outcome=Solved,moves=82
+         1795834070.212  9209  9229 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=72,nanos=229960156,outcome=Solved,moves=90
+         1795834070.214  9209  9229 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=233305000;239422135;229960156
+         1795834070.219  9209  9229 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834070.220  9209  9229 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834071.383  9296  9296 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834071.383  9296  9296 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=70,cases=3,warmup=0
+         1795834071.383  9296  9296 I MethodSolveBenchmark: build,debuggable=true
+         1795834071.385  9296  9296 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834072.625  9296  9315 I MethodSolveBenchmark: prepared,nanos=1216280676
+         1795834076.186  9296  9315 I MethodSolveBenchmark: warmed-up,nanos=3561087186
+         1795834076.638  9296  9315 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=70,nanos=451566823,outcome=Solved,moves=69
+         1795834077.088  9296  9315 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=71,nanos=449747083,outcome=Solved,moves=65
+         1795834077.470  9296  9315 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=72,nanos=382100833,outcome=Solved,moves=68
+         1795834077.471  9296  9315 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=451566823;449747083;382100833
+         1795834077.473  9296  9315 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834077.473  9296  9315 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834078.731  9405  9405 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834078.731  9405  9405 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=80,cases=3,warmup=0
+         1795834078.731  9405  9405 I MethodSolveBenchmark: build,debuggable=true
+         1795834078.733  9405  9405 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834079.988  9405  9426 I MethodSolveBenchmark: prepared,nanos=1231465260
+         1795834083.549  9405  9426 I MethodSolveBenchmark: warmed-up,nanos=3560664478
+         1795834084.646  9405  9426 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=80,nanos=1097249478,outcome=Solved,moves=109
+         1795834085.061  9405  9426 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=81,nanos=414830416,outcome=Solved,moves=139
+         1795834085.284  9405  9426 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=82,nanos=222757552,outcome=Solved,moves=120
+         1795834085.285  9405  9426 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=1097249478;414830416;222757552
+         1795834085.290  9405  9426 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834085.290  9405  9426 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834087.014  9513  9513 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834087.014  9513  9513 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=80,cases=3,warmup=0
+         1795834087.014  9513  9513 I MethodSolveBenchmark: build,debuggable=true
+         1795834087.017  9513  9513 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834088.242  9513  9533 I MethodSolveBenchmark: prepared,nanos=1202266979
+         1795834091.837  9513  9533 I MethodSolveBenchmark: warmed-up,nanos=3594251614
+         1795834092.469  9513  9533 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=80,nanos=631947135,outcome=Solved,moves=68
+         1795834092.619  9513  9533 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=81,nanos=150191406,outcome=Solved,moves=92
+         1795834092.769  9513  9533 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=82,nanos=149899791,outcome=Solved,moves=87
+         1795834092.770  9513  9533 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=631947135;150191406;149899791
+         1795834092.772  9513  9533 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834092.772  9513  9533 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834093.899  9595  9595 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834093.899  9595  9595 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=80,cases=3,warmup=0
+         1795834093.899  9595  9595 I MethodSolveBenchmark: build,debuggable=true
+         1795834093.901  9595  9595 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834095.134  9595  9616 I MethodSolveBenchmark: prepared,nanos=1209602031
+         1795834098.695  9595  9616 I MethodSolveBenchmark: warmed-up,nanos=3560995207
+         1795834099.545  9595  9616 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=80,nanos=848968229,outcome=Solved,moves=65
+         1795834099.905  9595  9616 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=81,nanos=360769479,outcome=Solved,moves=66
+         1795834100.227  9595  9616 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=82,nanos=321946146,outcome=Solved,moves=70
+         1795834100.229  9595  9616 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=848968229;360769479;321946146
+         1795834100.234  9595  9616 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834100.234  9595  9616 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834101.283  9685  9685 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834101.283  9685  9685 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=90,cases=3,warmup=0
+         1795834101.283  9685  9685 I MethodSolveBenchmark: build,debuggable=true
+         1795834101.286  9685  9685 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834102.521  9685  9704 I MethodSolveBenchmark: prepared,nanos=1211657968
+         1795834106.077  9685  9704 I MethodSolveBenchmark: warmed-up,nanos=3555897551
+         1795834107.148  9685  9704 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=90,nanos=1070941875,outcome=Solved,moves=139
+         1795834107.440  9685  9704 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=91,nanos=292182812,outcome=Solved,moves=126
+         1795834107.778  9685  9704 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=92,nanos=337484844,outcome=Solved,moves=97
+         1795834107.779  9685  9704 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=1070941875;292182812;337484844
+         1795834107.787  9685  9704 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834107.787  9685  9704 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834108.739  9775  9775 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834108.739  9775  9775 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=90,cases=3,warmup=0
+         1795834108.739  9775  9775 I MethodSolveBenchmark: build,debuggable=true
+         1795834108.742  9775  9775 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834109.990  9775  9795 I MethodSolveBenchmark: prepared,nanos=1224764062
+         1795834113.547  9775  9795 I MethodSolveBenchmark: warmed-up,nanos=3556933280
+         1795834114.236  9775  9795 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=90,nanos=688886614,outcome=Solved,moves=93
+         1795834114.372  9775  9795 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=91,nanos=135912135,outcome=Solved,moves=74
+         1795834114.517  9775  9795 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=92,nanos=144416615,outcome=Solved,moves=83
+         1795834114.519  9775  9795 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=688886614;135912135;144416615
+         1795834114.524  9775  9795 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834114.524  9775  9795 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834115.516  9860  9860 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834115.517  9860  9860 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=90,cases=3,warmup=0
+         1795834115.517  9860  9860 I MethodSolveBenchmark: build,debuggable=true
+         1795834115.519  9860  9860 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834116.765  9860  9882 I MethodSolveBenchmark: prepared,nanos=1221820833
+         1795834120.327  9860  9882 I MethodSolveBenchmark: warmed-up,nanos=3562037186
+         1795834121.235  9860  9882 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=90,nanos=908411927,outcome=Solved,moves=75
+         1795834121.582  9860  9882 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=91,nanos=346251562,outcome=Solved,moves=70
+         1795834121.885  9860  9882 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=92,nanos=303239635,outcome=Solved,moves=61
+         1795834121.885  9860  9882 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=908411927;346251562;303239635
+         1795834121.888  9860  9882 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834121.888  9860  9882 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834122.856  9957  9957 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834122.856  9957  9957 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=100,cases=3,warmup=0
+         1795834122.856  9957  9957 I MethodSolveBenchmark: build,debuggable=true
+         1795834122.858  9957  9957 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834124.103  9957  9979 I MethodSolveBenchmark: prepared,nanos=1221314374
+         1795834127.666  9957  9979 I MethodSolveBenchmark: warmed-up,nanos=3562224113
+         1795834127.933  9957  9979 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=100,nanos=267271458,outcome=Solved,moves=66
+         1795834128.241  9957  9979 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=101,nanos=307513854,outcome=Solved,moves=87
+         1795834128.661  9957  9979 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=102,nanos=420255989,outcome=Solved,moves=119
+         1795834128.661  9957  9979 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=267271458;307513854;420255989
+         1795834128.664  9957  9979 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834128.664  9957  9979 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834129.747 10045 10045 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834129.747 10045 10045 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=100,cases=3,warmup=0
+         1795834129.747 10045 10045 I MethodSolveBenchmark: build,debuggable=true
+         1795834129.750 10045 10045 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834131.013 10045 10096 I MethodSolveBenchmark: prepared,nanos=1239626562
+         1795834134.574 10045 10096 I MethodSolveBenchmark: warmed-up,nanos=3561092238
+         1795834134.852 10045 10096 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=100,nanos=277646510,outcome=Solved,moves=78
+         1795834135.059 10045 10096 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=101,nanos=206650678,outcome=Solved,moves=87
+         1795834135.255 10045 10096 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=102,nanos=196041563,outcome=Solved,moves=95
+         1795834135.257 10045 10096 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=277646510;206650678;196041563
+         1795834135.264 10045 10096 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834135.265 10045 10096 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834137.128 10197 10197 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834137.128 10197 10197 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=100,cases=3,warmup=0
+         1795834137.128 10197 10197 I MethodSolveBenchmark: build,debuggable=true
+         1795834137.131 10197 10197 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834138.371 10197 10223 I MethodSolveBenchmark: prepared,nanos=1217254531
+         1795834141.959 10197 10223 I MethodSolveBenchmark: warmed-up,nanos=3587179113
+         1795834142.449 10197 10223 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=100,nanos=490681615,outcome=Solved,moves=55
+         1795834142.885 10197 10223 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=101,nanos=434974114,outcome=Solved,moves=79
+         1795834143.235 10197 10223 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=102,nanos=350666562,outcome=Solved,moves=76
+         1795834143.236 10197 10223 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=490681615;434974114;350666562
+         1795834143.237 10197 10223 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834143.237 10197 10223 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834145.079 10295 10295 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834145.079 10295 10295 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=110,cases=3,warmup=0
+         1795834145.079 10295 10295 I MethodSolveBenchmark: build,debuggable=true
+         1795834145.081 10295 10295 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834146.321 10295 10314 I MethodSolveBenchmark: prepared,nanos=1216345260
+         1795834149.912 10295 10314 I MethodSolveBenchmark: warmed-up,nanos=3591330051
+         1795834150.657 10295 10314 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=110,nanos=744323177,outcome=Solved,moves=135
+         1795834151.030 10295 10314 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=111,nanos=373387343,outcome=Solved,moves=115
+         1795834151.389 10295 10314 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=112,nanos=358356875,outcome=Solved,moves=124
+         1795834151.391 10295 10314 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=744323177;373387343;358356875
+         1795834151.399 10295 10314 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834151.399 10295 10314 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834152.499 10395 10395 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834152.499 10395 10395 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=110,cases=3,warmup=0
+         1795834152.499 10395 10395 I MethodSolveBenchmark: build,debuggable=true
+         1795834152.501 10395 10395 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834153.739 10395 10417 I MethodSolveBenchmark: prepared,nanos=1214127917
+         1795834157.299 10395 10417 I MethodSolveBenchmark: warmed-up,nanos=3560107134
+         1795834157.586 10395 10417 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=110,nanos=286506927,outcome=Solved,moves=84
+         1795834157.759 10395 10417 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=111,nanos=172770729,outcome=Solved,moves=80
+         1795834158.000 10395 10417 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=112,nanos=241101770,outcome=Solved,moves=85
+         1795834158.001 10395 10417 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=286506927;172770729;241101770
+         1795834158.003 10395 10417 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834158.003 10395 10417 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834159.171 10480 10480 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834159.171 10480 10480 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=110,cases=3,warmup=0
+         1795834159.171 10480 10480 I MethodSolveBenchmark: build,debuggable=true
+         1795834159.174 10480 10480 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834160.409 10480 10502 I MethodSolveBenchmark: prepared,nanos=1212203802
+         1795834163.965 10480 10502 I MethodSolveBenchmark: warmed-up,nanos=3555440988
+         1795834164.449 10480 10502 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=110,nanos=484376458,outcome=Solved,moves=70
+         1795834164.852 10480 10502 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=111,nanos=402903698,outcome=Solved,moves=69
+         1795834165.242 10480 10502 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=112,nanos=390069948,outcome=Solved,moves=71
+         1795834165.243 10480 10502 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=484376458;402903698;390069948
+         1795834165.245 10480 10502 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834165.245 10480 10502 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834166.446 10567 10567 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834166.446 10567 10567 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=120,cases=3,warmup=0
+         1795834166.446 10567 10567 I MethodSolveBenchmark: build,debuggable=true
+         1795834166.449 10567 10567 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834167.692 10567 10588 I MethodSolveBenchmark: prepared,nanos=1219395260
+         1795834171.250 10567 10588 I MethodSolveBenchmark: warmed-up,nanos=3558402239
+         1795834172.061 10567 10588 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=120,nanos=811034531,outcome=Solved,moves=125
+         1795834172.386 10567 10588 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=121,nanos=324166250,outcome=Solved,moves=117
+         1795834172.446 10567 10588 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=122,nanos=60586354,outcome=Solved,moves=69
+         1795834172.448 10567 10588 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=811034531;324166250;60586354
+         1795834172.454 10567 10588 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834172.454 10567 10588 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834173.719 10654 10654 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834173.719 10654 10654 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=120,cases=3,warmup=0
+         1795834173.719 10654 10654 I MethodSolveBenchmark: build,debuggable=true
+         1795834173.722 10654 10654 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834174.960 10654 10674 I MethodSolveBenchmark: prepared,nanos=1215091667
+         1795834178.518 10654 10674 I MethodSolveBenchmark: warmed-up,nanos=3557451457
+         1795834178.765 10654 10674 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=120,nanos=247096302,outcome=Solved,moves=90
+         1795834179.009 10654 10674 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=121,nanos=243755572,outcome=Solved,moves=97
+         1795834179.133 10654 10674 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=122,nanos=124375156,outcome=Solved,moves=54
+         1795834179.134 10654 10674 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=247096302;243755572;124375156
+         1795834179.136 10654 10674 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834179.136 10654 10674 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834180.913 10743 10743 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834180.913 10743 10743 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=120,cases=3,warmup=0
+         1795834180.913 10743 10743 I MethodSolveBenchmark: build,debuggable=true
+         1795834180.916 10743 10743 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834182.153 10743 10764 I MethodSolveBenchmark: prepared,nanos=1214519114
+         1795834185.753 10743 10764 I MethodSolveBenchmark: warmed-up,nanos=3599946925
+         1795834186.187 10743 10764 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=120,nanos=432979219,outcome=Solved,moves=75
+         1795834186.653 10743 10764 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=121,nanos=465944947,outcome=Solved,moves=78
+         1795834186.942 10743 10764 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=122,nanos=289597083,outcome=Solved,moves=54
+         1795834186.944 10743 10764 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=432979219;465944947;289597083
+         1795834186.950 10743 10764 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834186.951 10743 10764 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834187.922 10831 10831 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834187.922 10831 10831 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=130,cases=3,warmup=0
+         1795834187.922 10831 10831 I MethodSolveBenchmark: build,debuggable=true
+         1795834187.924 10831 10831 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834189.160 10831 10853 I MethodSolveBenchmark: prepared,nanos=1212753125
+         1795834192.721 10831 10853 I MethodSolveBenchmark: warmed-up,nanos=3560536092
+         1795834193.214 10831 10853 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=130,nanos=493326354,outcome=Solved,moves=101
+         1795834193.429 10831 10853 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=131,nanos=214304011,outcome=Solved,moves=66
+         1795834194.419 10831 10853 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=132,nanos=989630625,outcome=Solved,moves=112
+         1795834194.419 10831 10853 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=493326354;214304011;989630625
+         1795834194.422 10831 10853 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834194.422 10831 10853 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834196.315 10924 10924 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834196.315 10924 10924 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=130,cases=3,warmup=0
+         1795834196.315 10924 10924 I MethodSolveBenchmark: build,debuggable=true
+         1795834196.318 10924 10924 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834197.553 10924 10943 I MethodSolveBenchmark: prepared,nanos=1212226614
+         1795834201.152 10924 10943 I MethodSolveBenchmark: warmed-up,nanos=3598753853
+         1795834201.437 10924 10943 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=130,nanos=284362343,outcome=Solved,moves=90
+         1795834201.672 10924 10943 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=131,nanos=235357761,outcome=Solved,moves=95
+         1795834202.499 10924 10943 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=132,nanos=826028854,outcome=Solved,moves=85
+         1795834202.501 10924 10943 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=284362343;235357761;826028854
+         1795834202.507 10924 10943 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834202.507 10924 10943 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834203.718 11011 11011 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834203.718 11011 11011 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=130,cases=3,warmup=0
+         1795834203.718 11011 11011 I MethodSolveBenchmark: build,debuggable=true
+         1795834203.720 11011 11011 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834204.952 11011 11031 I MethodSolveBenchmark: prepared,nanos=1208417760
+         1795834208.513 11011 11031 I MethodSolveBenchmark: warmed-up,nanos=3560434217
+         1795834209.006 11011 11031 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=130,nanos=492939063,outcome=Solved,moves=73
+         1795834209.455 11011 11031 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=131,nanos=449676302,outcome=Solved,moves=79
+         1795834210.404 11011 11031 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=132,nanos=948421302,outcome=Solved,moves=76
+         1795834210.406 11011 11031 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=492939063;449676302;948421302
+         1795834210.414 11011 11031 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834210.415 11011 11031 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834211.584 11105 11105 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834211.584 11105 11105 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=140,cases=3,warmup=0
+         1795834211.584 11105 11105 I MethodSolveBenchmark: build,debuggable=true
+         1795834211.586 11105 11105 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834212.830 11105 11125 I MethodSolveBenchmark: prepared,nanos=1220204010
+         1795834216.390 11105 11125 I MethodSolveBenchmark: warmed-up,nanos=3559904738
+         1795834217.251 11105 11125 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=140,nanos=861152812,outcome=Solved,moves=126
+         1795834217.610 11105 11125 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=141,nanos=359030468,outcome=Solved,moves=118
+         1795834217.716 11105 11125 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=142,nanos=105492187,outcome=Solved,moves=82
+         1795834217.717 11105 11125 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=861152812;359030468;105492187
+         1795834217.723 11105 11125 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834217.724 11105 11125 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834218.894 11191 11191 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834218.894 11191 11191 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=140,cases=3,warmup=0
+         1795834218.894 11191 11191 I MethodSolveBenchmark: build,debuggable=true
+         1795834218.896 11191 11191 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834220.146 11191 11211 I MethodSolveBenchmark: prepared,nanos=1226736770
+         1795834223.703 11191 11211 I MethodSolveBenchmark: warmed-up,nanos=3557024269
+         1795834223.965 11191 11211 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=140,nanos=261720990,outcome=Solved,moves=90
+         1795834224.153 11191 11211 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=141,nanos=187684531,outcome=Solved,moves=80
+         1795834224.324 11191 11211 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=142,nanos=171059323,outcome=Solved,moves=62
+         1795834224.325 11191 11211 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=261720990;187684531;171059323
+         1795834224.328 11191 11211 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834224.328 11191 11211 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834225.642 11274 11274 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834225.643 11274 11274 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=140,cases=3,warmup=0
+         1795834225.643 11274 11274 I MethodSolveBenchmark: build,debuggable=true
+         1795834225.645 11274 11274 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834226.891 11274 11294 I MethodSolveBenchmark: prepared,nanos=1222244687
+         1795834230.450 11274 11294 I MethodSolveBenchmark: warmed-up,nanos=3559561770
+         1795834230.909 11274 11294 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=140,nanos=458763854,outcome=Solved,moves=76
+         1795834231.312 11274 11294 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=141,nanos=402954740,outcome=Solved,moves=73
+         1795834231.645 11274 11294 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=142,nanos=332702343,outcome=Solved,moves=57
+         1795834231.648 11274 11294 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=458763854;402954740;332702343
+         1795834231.654 11274 11294 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834231.654 11274 11294 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834232.952 11359 11359 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834232.952 11359 11359 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=150,cases=3,warmup=0
+         1795834232.952 11359 11359 I MethodSolveBenchmark: build,debuggable=true
+         1795834232.954 11359 11359 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834234.194 11359 11380 I MethodSolveBenchmark: prepared,nanos=1216182292
+         1795834237.753 11359 11380 I MethodSolveBenchmark: warmed-up,nanos=3558696040
+         1795834238.745 11359 11380 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=150,nanos=991705989,outcome=Solved,moves=93
+         1795834239.060 11359 11380 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=151,nanos=314852604,outcome=Solved,moves=83
+         1795834239.353 11359 11380 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=152,nanos=293398281,outcome=Solved,moves=125
+         1795834239.355 11359 11380 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=991705989;314852604;293398281
+         1795834239.361 11359 11380 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834239.362 11359 11380 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834240.387 11449 11449 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834240.387 11449 11449 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=150,cases=3,warmup=0
+         1795834240.387 11449 11449 I MethodSolveBenchmark: build,debuggable=true
+         1795834240.389 11449 11449 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834241.629 11449 11471 I MethodSolveBenchmark: prepared,nanos=1216275729
+         1795834245.183 11449 11471 I MethodSolveBenchmark: warmed-up,nanos=3553895259
+         1795834245.808 11449 11471 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=150,nanos=624909062,outcome=Solved,moves=88
+         1795834245.973 11449 11471 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=151,nanos=164885104,outcome=Solved,moves=85
+         1795834246.143 11449 11471 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=152,nanos=170112552,outcome=Solved,moves=90
+         1795834246.145 11449 11471 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=624909062;164885104;170112552
+         1795834246.149 11449 11471 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834246.149 11449 11471 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834247.310 11539 11539 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834247.310 11539 11539 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=150,cases=3,warmup=0
+         1795834247.310 11539 11539 I MethodSolveBenchmark: build,debuggable=true
+         1795834247.312 11539 11539 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834248.562 11539 11559 I MethodSolveBenchmark: prepared,nanos=1226879010
+         1795834252.119 11539 11559 I MethodSolveBenchmark: warmed-up,nanos=3556327395
+         1795834252.957 11539 11559 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=150,nanos=837428594,outcome=Solved,moves=71
+         1795834253.318 11539 11559 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=151,nanos=361854114,outcome=Solved,moves=64
+         1795834253.656 11539 11559 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=152,nanos=337159427,outcome=Solved,moves=71
+         1795834253.656 11539 11559 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=837428594;361854114;337159427
+         1795834253.659 11539 11559 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834253.659 11539 11559 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834254.696 11627 11627 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834254.696 11627 11627 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=160,cases=3,warmup=0
+         1795834254.696 11627 11627 I MethodSolveBenchmark: build,debuggable=true
+         1795834254.698 11627 11627 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834255.940 11627 11647 I MethodSolveBenchmark: prepared,nanos=1218679427
+         1795834259.499 11627 11647 I MethodSolveBenchmark: warmed-up,nanos=3558848124
+         1795834260.494 11627 11647 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=160,nanos=995266874,outcome=Solved,moves=104
+         1795834261.206 11627 11647 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=161,nanos=711699635,outcome=Solved,moves=134
+         1795834261.862 11627 11647 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=162,nanos=655810052,outcome=Solved,moves=118
+         1795834261.864 11627 11647 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=995266874;711699635;655810052
+         1795834261.870 11627 11647 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834261.871 11627 11647 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834263.179 11723 11723 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834263.179 11723 11723 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=160,cases=3,warmup=0
+         1795834263.179 11723 11723 I MethodSolveBenchmark: build,debuggable=true
+         1795834263.181 11723 11723 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834264.432 11723 11747 I MethodSolveBenchmark: prepared,nanos=1227579479
+         1795834267.988 11723 11747 I MethodSolveBenchmark: warmed-up,nanos=3555415415
+         1795834268.579 11723 11747 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=160,nanos=591771041,outcome=Solved,moves=94
+         1795834268.966 11723 11747 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=161,nanos=386770365,outcome=Solved,moves=93
+         1795834269.414 11723 11747 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=162,nanos=447782135,outcome=Solved,moves=73
+         1795834269.416 11723 11747 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=591771041;386770365;447782135
+         1795834269.424 11723 11747 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834269.424 11723 11747 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834270.508 11816 11816 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834270.508 11816 11816 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=160,cases=3,warmup=0
+         1795834270.508 11816 11816 I MethodSolveBenchmark: build,debuggable=true
+         1795834270.511 11816 11816 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834271.753 11816 11836 I MethodSolveBenchmark: prepared,nanos=1218327395
+         1795834275.314 11816 11836 I MethodSolveBenchmark: warmed-up,nanos=3560977603
+         1795834276.125 11816 11836 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=160,nanos=810950521,outcome=Solved,moves=74
+         1795834276.719 11816 11836 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=161,nanos=594274999,outcome=Solved,moves=79
+         1795834277.340 11816 11836 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=162,nanos=620135989,outcome=Solved,moves=64
+         1795834277.342 11816 11836 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=810950521;594274999;620135989
+         1795834277.347 11816 11836 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834277.347 11816 11836 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834278.423 11906 11906 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834278.423 11906 11906 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=170,cases=3,warmup=0
+         1795834278.423 11906 11906 I MethodSolveBenchmark: build,debuggable=true
+         1795834278.426 11906 11906 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834279.660 11906 11946 I MethodSolveBenchmark: prepared,nanos=1210474375
+         1795834283.218 11906 11946 I MethodSolveBenchmark: warmed-up,nanos=3558047343
+         1795834283.936 11906 11946 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=170,nanos=717703698,outcome=Solved,moves=134
+         1795834284.344 11906 11946 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=171,nanos=408658542,outcome=Solved,moves=131
+         1795834284.462 11906 11946 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=172,nanos=117811719,outcome=Solved,moves=89
+         1795834284.464 11906 11946 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=717703698;408658542;117811719
+         1795834284.471 11906 11946 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834284.471 11906 11946 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834285.710 12060 12060 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834285.710 12060 12060 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=170,cases=3,warmup=0
+         1795834285.710 12060 12060 I MethodSolveBenchmark: build,debuggable=true
+         1795834285.712 12060 12060 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834286.960 12060 12081 I MethodSolveBenchmark: prepared,nanos=1221293228
+         1795834290.519 12060 12081 I MethodSolveBenchmark: warmed-up,nanos=3559036613
+         1795834290.797 12060 12081 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=170,nanos=278167657,outcome=Solved,moves=88
+         1795834291.018 12060 12081 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=171,nanos=220659323,outcome=Solved,moves=85
+         1795834291.195 12060 12081 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=172,nanos=176883802,outcome=Solved,moves=83
+         1795834291.195 12060 12081 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=278167657;220659323;176883802
+         1795834291.198 12060 12081 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834291.199 12060 12081 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834292.419 12144 12144 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834292.419 12144 12144 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=170,cases=3,warmup=0
+         1795834292.419 12144 12144 I MethodSolveBenchmark: build,debuggable=true
+         1795834292.421 12144 12144 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834293.655 12144 12165 I MethodSolveBenchmark: prepared,nanos=1210375000
+         1795834297.212 12144 12165 I MethodSolveBenchmark: warmed-up,nanos=3556987290
+         1795834297.697 12144 12165 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=170,nanos=485060885,outcome=Solved,moves=72
+         1795834298.149 12144 12165 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=171,nanos=451919374,outcome=Solved,moves=69
+         1795834298.478 12144 12165 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=172,nanos=328429375,outcome=Solved,moves=64
+         1795834298.480 12144 12165 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=485060885;451919374;328429375
+         1795834298.486 12144 12165 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834298.486 12144 12165 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834299.793 12231 12231 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834299.793 12231 12231 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=180,cases=3,warmup=0
+         1795834299.793 12231 12231 I MethodSolveBenchmark: build,debuggable=true
+         1795834299.795 12231 12231 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834301.024 12231 12251 I MethodSolveBenchmark: prepared,nanos=1205360728
+         1795834304.579 12231 12251 I MethodSolveBenchmark: warmed-up,nanos=3555224999
+         1795834305.346 12231 12251 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=180,nanos=767029635,outcome=Solved,moves=113
+         1795834305.761 12231 12251 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=181,nanos=415062135,outcome=Solved,moves=107
+         1795834306.156 12231 12251 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=182,nanos=394748646,outcome=Solved,moves=134
+         1795834306.157 12231 12251 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=767029635;415062135;394748646
+         1795834306.159 12231 12251 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834306.159 12231 12251 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834307.184 12322 12322 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834307.184 12322 12322 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=180,cases=3,warmup=0
+         1795834307.184 12322 12322 I MethodSolveBenchmark: build,debuggable=true
+         1795834307.187 12322 12322 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834308.426 12322 12343 I MethodSolveBenchmark: prepared,nanos=1216077447
+         1795834311.982 12322 12343 I MethodSolveBenchmark: warmed-up,nanos=3556209738
+         1795834312.213 12322 12343 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=180,nanos=230904322,outcome=Solved,moves=79
+         1795834312.450 12322 12343 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=181,nanos=235967813,outcome=Solved,moves=72
+         1795834312.676 12322 12343 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=182,nanos=226636979,outcome=Solved,moves=90
+         1795834312.677 12322 12343 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=230904322;235967813;226636979
+         1795834312.680 12322 12343 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834312.680 12322 12343 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834313.907 12406 12406 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834313.907 12406 12406 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=180,cases=3,warmup=0
+         1795834313.907 12406 12406 I MethodSolveBenchmark: build,debuggable=true
+         1795834313.910 12406 12406 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834315.144 12406 12426 I MethodSolveBenchmark: prepared,nanos=1210936510
+         1795834318.702 12406 12426 I MethodSolveBenchmark: warmed-up,nanos=3558247967
+         1795834319.145 12406 12426 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=180,nanos=443260677,outcome=Solved,moves=67
+         1795834319.605 12406 12426 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=181,nanos=459219323,outcome=Solved,moves=60
+         1795834319.986 12406 12426 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=182,nanos=381300833,outcome=Solved,moves=72
+         1795834319.987 12406 12426 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=443260677;459219323;381300833
+         1795834319.989 12406 12426 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834319.989 12406 12426 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834321.182 12495 12495 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834321.182 12495 12495 I MethodSolveBenchmark: args,kind=BEGINNER,mode=cold,seed=20261127,index=190,cases=3,warmup=0
+         1795834321.182 12495 12495 I MethodSolveBenchmark: build,debuggable=true
+         1795834321.184 12495 12495 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834322.425 12495 12516 I MethodSolveBenchmark: prepared,nanos=1218075781
+         1795834325.987 12495 12516 I MethodSolveBenchmark: warmed-up,nanos=3561334947
+         1795834326.750 12495 12516 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=1,index=190,nanos=762641823,outcome=Solved,moves=118
+         1795834327.066 12495 12516 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=2,index=191,nanos=316697552,outcome=Solved,moves=127
+         1795834327.359 12495 12516 I MethodSolveBenchmark: solve,kind=BEGINNER,mode=cold,ordinal=3,index=192,nanos=292282761,outcome=Solved,moves=142
+         1795834327.359 12495 12516 I MethodSolveBenchmark: summary,kind=BEGINNER,mode=cold,part=0,nanos=762641823;316697552;292282761
+         1795834327.362 12495 12516 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834327.362 12495 12516 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834328.469 12585 12585 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834328.469 12585 12585 I MethodSolveBenchmark: args,kind=TWO_LOOK,mode=cold,seed=20261127,index=190,cases=3,warmup=0
+         1795834328.469 12585 12585 I MethodSolveBenchmark: build,debuggable=true
+         1795834328.471 12585 12585 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834329.713 12585 12605 I MethodSolveBenchmark: prepared,nanos=1218036458
+         1795834333.275 12585 12605 I MethodSolveBenchmark: warmed-up,nanos=3562538540
+         1795834333.571 12585 12605 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=1,index=190,nanos=295283854,outcome=Solved,moves=73
+         1795834333.763 12585 12605 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=2,index=191,nanos=192744219,outcome=Solved,moves=84
+         1795834333.953 12585 12605 I MethodSolveBenchmark: solve,kind=TWO_LOOK,mode=cold,ordinal=3,index=192,nanos=188908438,outcome=Solved,moves=93
+         1795834333.954 12585 12605 I MethodSolveBenchmark: summary,kind=TWO_LOOK,mode=cold,part=0,nanos=295283854;192744219;188908438
+         1795834333.958 12585 12605 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834333.958 12585 12605 I MethodSolveBenchmark: done
+--------- beginning of main
+         1795834335.208 12669 12669 I MethodSolveBenchmark: identity,fingerprint=Lenovo/TB128XU_MXTC/TB128XU:13/TKQ1.221220.001/S101018_250611_ROW:user/release-keys,model=Lenovo TB128XU,cpus=8
+         1795834335.208 12669 12669 I MethodSolveBenchmark: args,kind=FULL_OLL_PLL,mode=cold,seed=20261127,index=190,cases=3,warmup=0
+         1795834335.208 12669 12669 I MethodSolveBenchmark: build,debuggable=true
+         1795834335.210 12669 12669 I MethodSolveBenchmark: conditions,start,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834336.442 12669 12706 I MethodSolveBenchmark: prepared,nanos=1208857708
+         1795834339.999 12669 12706 I MethodSolveBenchmark: warmed-up,nanos=3556313072
+         1795834340.501 12669 12706 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=1,index=190,nanos=501943542,outcome=Solved,moves=66
+         1795834340.903 12669 12706 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=2,index=191,nanos=401602396,outcome=Solved,moves=66
+         1795834341.256 12669 12706 I MethodSolveBenchmark: solve,kind=FULL_OLL_PLL,mode=cold,ordinal=3,index=192,nanos=353613542,outcome=Solved,moves=74
+         1795834341.257 12669 12706 I MethodSolveBenchmark: summary,kind=FULL_OLL_PLL,mode=cold,part=0,nanos=501943542;401602396;353613542
+         1795834341.259 12669 12706 I MethodSolveBenchmark: conditions,end,plugged=2,batteryPercent=100,thermalStatus=0,powerSave=false
+         1795834341.259 12669 12706 I MethodSolveBenchmark: done

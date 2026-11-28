@@ -61,7 +61,7 @@ sealed interface MethodSolveOutcome {
  */
 class SolveByMethod(
     private val bundle: ContentBundle,
-    private val deadlineMillis: Long = DEADLINE_MILLIS,
+    val deadlineMillis: Long = DEADLINE_MILLIS,
     private val solver: MethodSolveFunction = MethodSolveFunction(MethodSolve::solve),
     private val algorithmStatuses: AlgorithmStatusRepository? = null,
 ) {
