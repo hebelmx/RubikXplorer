@@ -1,5 +1,6 @@
 package dev.cubentia.app.camera
 
+import android.graphics.Bitmap
 import android.os.Build
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -27,13 +28,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -43,6 +47,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import dev.cubentia.app.content.ContentStrings
@@ -127,6 +132,7 @@ internal fun ContinuousQuickScanScreen(
                     color = Color.White,
                     style = MaterialTheme.typography.labelSmall,
                 )
+                debug.thumbnail?.let { thumbnail -> ModelInputThumbnailView(thumbnail, Modifier.align(Alignment.BottomEnd).padding(4.dp)) }
             }
             OutlinedButton(
                 actions.onClose,
@@ -224,6 +230,42 @@ internal fun ContinuousQuickScanScreen(
                 camera(Modifier.fillMaxWidth().height(this@BoxWithConstraints.maxHeight * 0.34f))
                 panel(Modifier.weight(1f).fillMaxWidth(), false)
             }
+        }
+    }
+}
+
+/** GH #414: the thumbnail's side on screen. */
+private val DEBUG_INPUT_SIDE = 96.dp
+
+/**
+ * GH #414 (debug only): the exact model input, drawn unsmoothed (nearest neighbour) so aliasing shows, its peaks as
+ * dots, and its info line above it. Numbers and fixed words only (AD-13).
+ */
+@Composable
+private fun ModelInputThumbnailView(
+    thumbnail: ModelInputThumbnail,
+    modifier: Modifier,
+) {
+    val image =
+        remember(thumbnail) {
+            Bitmap.createBitmap(thumbnail.pixels, thumbnail.size, thumbnail.size, Bitmap.Config.ARGB_8888).asImageBitmap()
+        }
+    Column(modifier, horizontalAlignment = Alignment.End) {
+        Text(
+            thumbnail.info,
+            Modifier
+                .background(Color.Black.copy(alpha = 0.6f))
+                .padding(horizontal = 4.dp)
+                .testTag("quickScan:debugInputInfo"),
+            color = Color.White,
+            style = MaterialTheme.typography.labelSmall,
+        )
+        Canvas(Modifier.size(DEBUG_INPUT_SIDE).testTag("quickScan:debugInput")) {
+            val side = size.width.toInt()
+            drawImage(image, dstSize = IntSize(side, side), filterQuality = FilterQuality.None)
+            val scale = size.width / thumbnail.size
+            val radius = 1.5.dp.toPx()
+            thumbnail.peaks.forEach { p -> drawCircle(DEBUG_PEAK_COLOR, radius, Offset(p.x.toFloat() * scale, p.y.toFloat() * scale)) }
         }
     }
 }

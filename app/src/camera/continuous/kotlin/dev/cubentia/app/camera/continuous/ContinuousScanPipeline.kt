@@ -5,6 +5,7 @@ import dev.cubentia.app.camera.ContinuousFrameTap
 import dev.cubentia.app.camera.ContinuousOverlayQuad
 import dev.cubentia.app.camera.DebugLattice
 import dev.cubentia.app.camera.DebugPeak
+import dev.cubentia.app.camera.ModelInputThumbnail
 import dev.cubentia.app.camera.QuickScanDebugView
 import dev.cubentia.app.camera.StickerCenterDetection
 import dev.cubentia.app.camera.StickerCenterDetector
@@ -20,6 +21,7 @@ import dev.cubentia.domain.recognition.continuous.FittedFace
 import dev.cubentia.domain.recognition.continuous.Point2D
 import dev.cubentia.domain.recognition.continuous.UnreadSlot
 import java.util.Locale
+import kotlin.math.hypot
 
 /** Per-frame result of the continuous Quick Scan pipeline (detector -> lattice -> sampler -> mapper). */
 internal data class ContinuousPipelineFrame(
@@ -54,6 +56,9 @@ internal class ContinuousScanPipeline(
     val detectorUnavailable get() = detector.unavailable
 
     private var lastSnapshot: ContinuousScanSnapshot? = null
+
+    // GH #414: the debug view's own copy of the model input, allocated on its first use (never with the view off).
+    private var debugInput: ByteArray? = null
 
     // GH #406: the clock at [analyzerStart], -1 when no analyzer interval is open.
     private var analyzerStartNs = -1L
@@ -263,7 +268,49 @@ internal class ContinuousScanPipeline(
                     add("mapMs=${ms(mapNs)}")
                 }
             }.joinToString(" ")
-        return ContinuousDebugOverlay(peaks, lattices, counts)
+        return ContinuousDebugOverlay(peaks, lattices, counts, modelInputThumbnail(frame, detection))
+    }
+
+    /**
+     * GH #414: the detector's last model input (the exact interpreter bytes) as an ARGB thumbnail, with the peaks mapped
+     * upright → model input (`upright × inputScale + pad`) and the info line; null when the detector exposes no input.
+     */
+    private fun modelInputThumbnail(
+        frame: YuvFrame,
+        detection: StickerCenterDetection,
+    ): ModelInputThumbnail? {
+        val buffer = debugInput ?: ByteArray(StickerCenterModelContract.INPUT_BYTES).also { debugInput = it }
+        if (!copyModelInput(buffer)) return null
+        val size = StickerCenterModelContract.INPUT_SIZE
+        val pixels =
+            IntArray(size * size) { i ->
+                val o = i * 3
+                OPAQUE or
+                    ((buffer[o].toInt() and BYTE_MASK) shl RED_SHIFT) or
+                    ((buffer[o + 1].toInt() and BYTE_MASK) shl GREEN_SHIFT) or
+                    (buffer[o + 2].toInt() and BYTE_MASK)
+            }
+        val scale = detection.inputScale
+        val peaks = detection.peaks.map { Point2D(it.x * scale + detection.inputPadLeft, it.y * scale + detection.inputPadTop) }
+        val resized =
+            StickerCenterModelTransform
+                .letterbox(detection.uprightWidth, detection.uprightHeight)
+                ?.let { "${it.resizedWidth}x${it.resizedHeight}" } ?: "-"
+        val info = "input=$resized crop=${frame.width}x${frame.height} spacing=${spacing(peaks)}"
+        return ModelInputThumbnail(size, pixels, peaks, info)
+    }
+
+    /** GH #414: the median nearest-peak distance of model-input [peaks], in heatmap cells; `-` below two peaks. */
+    private fun spacing(peaks: List<Point2D>): String {
+        if (peaks.size < 2) return "-"
+        val nearest =
+            peaks
+                .mapIndexed { i, p ->
+                    peaks.indices.filter { it != i }.minOf { j -> hypot(peaks[j].x - p.x, peaks[j].y - p.y) }
+                }.sorted()
+        val n = nearest.size
+        val median = if (n % 2 == 1) nearest[n / 2] else (nearest[n / 2 - 1] + nearest[n / 2]) / 2.0
+        return String.format(Locale.ROOT, "%.1f", median / StickerCenterModelContract.HEATMAP_STRIDE)
     }
 
     private fun ms(ns: Long): String = if (ns < 0L) "-" else String.format(Locale.ROOT, "%.1f", ns / NANOS_PER_MS)
@@ -319,5 +366,9 @@ internal class ContinuousScanPipeline(
 
     private companion object {
         const val NANOS_PER_MS = 1_000_000.0
+        const val OPAQUE = -0x1000000
+        const val BYTE_MASK = 0xFF
+        const val RED_SHIFT = 16
+        const val GREEN_SHIFT = 8
     }
 }

@@ -437,11 +437,87 @@ class ContinuousQuickScanScreenTest {
             }
         }
         rule.onNodeWithTag("quickScan:debugCounts").assertDoesNotExist()
+        rule.onNodeWithTag("quickScan:debugInput").assertDoesNotExist()
+        rule.onNodeWithTag("quickScan:debugInputInfo").assertDoesNotExist()
         val pixels = rule.onNodeWithTag("scanViewfinder").captureToImage().toPixelMap()
         val preview = rule.onNodeWithTag("preview").fetchSemanticsNode().boundsInRoot
         for ((x, y) in listOf(0.25 to 0.2, 0.75 to 0.3, 0.4 to 0.65, 0.5 to 0.75)) {
             assertEquals(Color.Black.toArgb(), pixels[(x * preview.width).toInt(), (y * preview.height).toInt()].toArgb())
         }
+    }
+
+    /**
+     * GH #414, two panes at 600 dp in portrait: the model-input thumbnail is drawn inside the viewfinder, unsmoothed, with
+     * its peak dot at the peak's model-input position and its info line.
+     */
+    @Test
+    @Config(qualifiers = "w600dp-h960dp-port")
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun theModelInputThumbnailIsDrawnInsideTheViewfinderInTheTwoPaneLayout() {
+        val size = 256
+        val blue = 0xFF0000FF.toInt()
+        val green = 0xFF00FF00.toInt()
+        // Left half blue, right half green, the top 32 rows a black letterbox bar.
+        val pixels =
+            IntArray(size * size) { i ->
+                if (i / size < 32) {
+                    Color.Black.toArgb()
+                } else if (i % size < 128) {
+                    blue
+                } else {
+                    green
+                }
+            }
+        val peak = Point2D(64.0, 192.0)
+        val thumbnail = ModelInputThumbnail(size, pixels, listOf(peak), "input=256x192 crop=640x480 spacing=-")
+        val debug = ContinuousDebugOverlay(emptyList(), emptyList(), "peaks=1 fitted=0 sampled=0 kept=0 tracked=0", thumbnail)
+        rule.setContent {
+            CubentiaTheme {
+                GuidedScanScreen(
+                    GuidedScanPhase.Continuous,
+                    strings,
+                    GuidedScanActions(),
+                    continuous = ContinuousQuickScanFlow(debugOverlay = debug),
+                ) {
+                    Box(Modifier.fillMaxSize().background(Color.Black).testTag("preview"))
+                }
+            }
+        }
+        val inViewfinder = { tag: String ->
+            androidx.compose.ui.test
+                .hasTestTag(tag) and
+                androidx.compose.ui.test
+                    .hasAnyAncestor(
+                        androidx.compose.ui.test
+                            .hasTestTag("scanViewfinder"),
+                    )
+        }
+        rule.onNode(inViewfinder("quickScan:debugInput")).assertIsDisplayed()
+        rule.onNode(inViewfinder("quickScan:debugInputInfo")).assertIsDisplayed().assertTextEquals(thumbnail.info)
+        val viewfinder = rule.onNodeWithTag("scanViewfinder").fetchSemanticsNode().boundsInRoot
+        val bounds = rule.onNodeWithTag("quickScan:debugInput").fetchSemanticsNode().boundsInRoot
+        assertTrue(
+            "thumbnail inside the viewfinder",
+            viewfinder.contains(bounds.topLeft) &&
+                viewfinder.contains(
+                    bounds.bottomRight -
+                        androidx.compose.ui.geometry
+                            .Offset(1f, 1f),
+                ),
+        )
+        val side = with(rule.density) { 96.dp.toPx() }
+        assertEquals(side, bounds.width, 1f)
+        val image = rule.onNodeWithTag("quickScan:debugInput").captureToImage().toPixelMap()
+
+        fun at(
+            mx: Double,
+            my: Double,
+        ) = image[(mx / size * image.width).toInt(), (my / size * image.height).toInt()].toArgb()
+        assertEquals(Color.Black.toArgb(), at(100.0, 10.0))
+        assertEquals(blue, at(30.0, 100.0))
+        assertEquals(green, at(200.0, 100.0))
+        assertEquals(green, at(200.0, 192.0))
+        assertEquals("peak dot", DEBUG_PEAK_COLOR.toArgb(), at(peak.x, peak.y))
     }
 
     @Test fun confirmAndRejectFallBackToALongPressBelowApi30() {

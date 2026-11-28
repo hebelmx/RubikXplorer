@@ -44,12 +44,27 @@ internal data class ContinuousDebugOverlay(
     val peaks: List<DebugPeak>,
     val lattices: List<DebugLattice>,
     val counts: String,
+    /** GH #414: the exact model input of this frame; null when the detector exposes none. */
+    val thumbnail: ModelInputThumbnail? = null,
 ) {
     companion object {
         /** A frame the pipeline did not read (detector skipped or unavailable, bad crop, sampler failure). */
         val SKIPPED = ContinuousDebugOverlay(emptyList(), emptyList(), "skipped")
     }
 }
+
+/**
+ * GH #414 (debug only): the exact [size]x[size] model input of one frame, letterbox bars included. [pixels]`[i]` is
+ * `0xFF000000 | r << 16 | g << 8 | b` of model-input bytes `3i..3i+2`; [peaks] are the frame's detector peaks in
+ * model-input pixels; [info] is numbers and fixed words only (`input=WxH crop=WxH spacing=S`, AD-13). Drawn on screen
+ * only, never stored, logged or exported. A plain class: it holds an array.
+ */
+internal class ModelInputThumbnail(
+    val size: Int,
+    val pixels: IntArray,
+    val peaks: List<Point2D>,
+    val info: String,
+)
 
 /** Session-scoped mapper. Frame processing, reset and export belong to the scan's single analyzer executor. */
 internal interface ContinuousScanEngine {
