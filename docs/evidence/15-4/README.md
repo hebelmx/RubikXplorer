@@ -83,3 +83,18 @@ Warm-up (`warmed-up,nanos=`, all methods), median / max ms: Lenovo benchmark 107
 - `lenovo-bench-raw.log`, `galaxy-bench-raw.log`, `lenovo-debug-raw.log`: the harness's logcat lines per run.
 - `lenovo-bench-conditions.txt`, `galaxy-bench-conditions.txt`, `lenovo-debug-conditions.txt`.
 - `samples.csv`: every timed sample (`set,kind,mode,run,index,ordinal,millis,warmup_millis,prepared_millis`).
+
+
+## Solution Playback cold-start taps (AC 5), 2026-11-27
+
+Lenovo TB128XU (HA1S28MM), debug build from this branch, driven over adb by the orchestrator (the PO delegated the taps). Each trial: `am force-stop`, launch, Solve → Enter colors, enter a random 22-move scramble, Accept, and tap the method style as soon as Solution Playback appears (right after "Preparing the solver." ends, so the warm-up is still running: the worst case).
+
+| Cold start | Scramble (seeded) | Style tapped | Result |
+| --- | --- | --- | --- |
+| 1 | L F B L F2 B' R' D F L2 F B2 U B' F' B' L' U B U R2 B' | Beginner | method solution shown, 104 moves |
+| 2 | R' L B' R' D' B F2 B' U L B' D' U F2 D L U2 F' D R U' L | 2-look | method solution shown, 95 moves |
+| 3 | R2 B D2 U' D F' R2 D2 R U' B' F U2 R' L2 D F R' L2 B2 D' F | Full OLL + PLL | method solution shown, 66 moves |
+| 4 | B' U2 B2 U2 F' D U' B2 R2 F' L U2 F' L2 U2 R F2 D F2 R F' U' | Beginner | method solution shown, 65 moves |
+| 5 | B2 R B' L B2 L' U2 R2 B2 D L2 D L2 R2 D2 L D U D U' D2 R | 2-look | method solution shown, 88 moves |
+
+"Couldn't build that solution in time" did not appear in any of the 5.
