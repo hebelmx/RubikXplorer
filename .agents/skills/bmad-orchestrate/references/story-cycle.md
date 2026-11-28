@@ -17,8 +17,8 @@ Notation:
 
 ## Phase B: Build (worker)
 
-1. Dispatch the **build worker** from `worker-prompts.md`: one fresh coding agent via the current host’s native dispatch, or one available coding-agent CLI process when `run.worker = "headless"` (or native dispatch is unavailable). Wait for it to return.
-2. It returns a JSON block. Parse it. If it is missing or malformed, ask the same worker once to re-emit the JSON. If it still fails, stop.
+1. Dispatch the **build worker** using the headless command and the explicit worker model in `worker-prompts.md`. Wait for it to return. Use the same dispatch policy for every fix, retry and follow-up in this cycle.
+2. Parse the JSON block. If it is missing or malformed, run one fresh headless worker with the same provider and explicit worker model. Ask it to recover the result from the current worktree and spec without repeating implementation. If recovery fails, stop.
 3. Route on `status`:
    - `done`: go to C.
    - `blocked`: classify `blocking_condition`.
@@ -38,7 +38,7 @@ Notation:
 
 Skip this phase if `{gate.enabled}` is false.
 
-1. Dispatch the **acceptance gate** from `worker-prompts.md`: a fresh, context-free subagent. It gets the story id, the epics-file path, the merge-base, and the paths of AGENTS.md and the spec. It never gets the worker's narrative.
+1. Dispatch the **acceptance gate** using the headless command and the explicit gate model in `worker-prompts.md`. Its one fresh process gets the story id, the epics-file path, the merge-base, and the paths of AGENTS.md and the spec. It never gets the build worker’s narrative.
 2. **Verdict `pass`:** go to E.
 3. **Verdict `fail`:** if any finding's severity is in `{gate.fail_on}`, dispatch the fix worker with the findings list. Then re-run C and D. After `{gate.max_fix_rounds}` rounds, stop and ask, showing at most 5 findings in one line each.
 4. Record the gate verdict and finding counts in the ledger.

@@ -18,6 +18,7 @@ The per-story engine is **`bmad-build-auto`**. It plans a spec, has a context-fr
 - **Never** edit planning artifacts (PRD, architecture, UX, epics). If a story reveals a planning problem, stop and recommend `bmad-correct-course`.
 - **Respect the project's own rules.** Load `{project-root}/AGENTS.md` and `CLAUDE.md` once at activation. Their policies override this skill's defaults where they are stricter.
 - **Respect the host agent's permissions.** Never route around the current host or coding agent’s permission rules (allow/ask/deny) to run a tool; if a needed tool is not permitted for the current agent, stop and ask the user.
+- **Model selection.** Apply `references/worker-prompts.md` to every orchestrator dispatch, including ad hoc, retrospective and post-merge workers.
 - **Commit attribution:** pass this session's commit and PR attribution lines (from the system reminder, if any) verbatim to every worker, and use them yourself.
 
 ## Activation

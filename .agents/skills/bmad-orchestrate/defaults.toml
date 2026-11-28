@@ -4,7 +4,20 @@
 [run]
 max_stories = 3          # Stories to execute per run when no count is passed
 handoff_every = 5        # Pause with a resume handoff after this many stories for context hygiene
-worker = "subagent"      # "subagent" (host-native coding agent) or "headless" (available coding-agent CLI)
+worker = "headless"      # Only headless dispatch supports an explicit CLI model flag.
+
+# Pin models by provider and role. Project overrides must use supported model IDs or aliases.
+[models.codex]
+worker = "gpt-6-luna"
+gate = "gpt-6.2-sol"
+
+[models.claude]
+worker = "sonnet"
+gate = "opus"
+
+[models.agy]
+worker = "gemini-3.8-flash-low"
+gate = "gemini-4-neon-high"
 
 [git]
 default_branch = "main"
