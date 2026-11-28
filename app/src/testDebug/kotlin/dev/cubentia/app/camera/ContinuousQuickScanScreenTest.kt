@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.toPixelMap
@@ -319,13 +318,14 @@ class ContinuousQuickScanScreenTest {
     }
 
     /**
-     * Two panes at 600 dp in portrait (AD-17): the overlay covers exactly the preview, the left half of the window, so an
-     * outline's view fractions land on the picture they were measured on.
+     * Stacked at 600 dp in portrait (AD-17, GH #415): the preview spans the window's width on top, never taller than 4:3
+     * wide, and the overlay covers exactly the preview, so an outline's view fractions land on the picture they were
+     * measured on.
      */
     @Test
     @Config(qualifiers = "w600dp-h960dp-port")
     @GraphicsMode(GraphicsMode.Mode.NATIVE)
-    fun faceOutlinesStayOnThePreviewInTheTwoPaneLayoutAtSixHundredDpPortrait() {
+    fun faceOutlinesStayOnThePreviewInTheStackedLayoutAtSixHundredDpPortrait() {
         val corners = listOf(Point2D(0.2, 0.25), Point2D(0.8, 0.25), Point2D(0.8, 0.75), Point2D(0.2, 0.75))
         val state = ContinuousQuickScanFlow(outlines = mapOf(OutlineKey(Face.F, anchored = false) to TrackedOutline(corners)))
         rule.setContent {
@@ -337,13 +337,15 @@ class ContinuousQuickScanScreenTest {
         }
         val root = rule.onRoot().fetchSemanticsNode().boundsInRoot
         val preview = rule.onNodeWithTag("preview").fetchSemanticsNode().boundsInRoot
-        assertEquals(Rect(root.left, root.top, root.left + root.width / 2, root.bottom), preview)
+        assertEquals(root.left to root.right, preview.left to preview.right)
+        assertEquals(root.top, preview.top)
+        assertTrue("preview $preview", preview.height <= preview.width && preview.height > 0f)
         assertEquals(preview, rule.onNodeWithTag("scanViewfinder").fetchSemanticsNode().boundsInRoot)
         assertTrue(
             rule
                 .onNodeWithTag("quickScan:net")
                 .fetchSemanticsNode()
-                .boundsInRoot.left >= preview.right,
+                .boundsInRoot.top >= preview.bottom,
         )
         val pixels = rule.onNodeWithTag("scanViewfinder").captureToImage().toPixelMap()
 
@@ -359,13 +361,13 @@ class ContinuousQuickScanScreenTest {
     }
 
     /**
-     * GH #409, two panes at 600 dp in portrait: the debug overlay's peak dots and lattice cells land inside the preview at
+     * GH #409, stacked at 600 dp in portrait (GH #415): the debug overlay's peak dots and lattice cells land inside the preview at
      * their view fractions (an inlier cell filled, a cell with no peak a ring), with the counts line in the camera area.
      */
     @Test
     @Config(qualifiers = "w600dp-h960dp-port")
     @GraphicsMode(GraphicsMode.Mode.NATIVE)
-    fun theDebugOverlayDrawsPeaksAndLatticeCellsOnThePreviewInTheTwoPaneLayout() {
+    fun theDebugOverlayDrawsPeaksAndLatticeCellsOnThePreviewAtSixHundredDpPortrait() {
         val cells = List(9) { i -> Point2D(0.3 + (i % 3) * 0.1, 0.55 + (i / 3) * 0.1) }
         val debug =
             ContinuousDebugOverlay(
@@ -447,13 +449,13 @@ class ContinuousQuickScanScreenTest {
     }
 
     /**
-     * GH #414, two panes at 600 dp in portrait: the model-input thumbnail is drawn inside the viewfinder, unsmoothed, with
+     * GH #414, at 600 dp in portrait: the model-input thumbnail is drawn inside the viewfinder, unsmoothed, with
      * its peak dot at the peak's model-input position and its info line.
      */
     @Test
     @Config(qualifiers = "w600dp-h960dp-port")
     @GraphicsMode(GraphicsMode.Mode.NATIVE)
-    fun theModelInputThumbnailIsDrawnInsideTheViewfinderInTheTwoPaneLayout() {
+    fun theModelInputThumbnailIsDrawnInsideTheViewfinderAtSixHundredDpPortrait() {
         val size = 256
         val blue = 0xFF0000FF.toInt()
         val green = 0xFF00FF00.toInt()
@@ -518,6 +520,63 @@ class ContinuousQuickScanScreenTest {
         assertEquals(green, at(200.0, 100.0))
         assertEquals(green, at(200.0, 192.0))
         assertEquals("peak dot", DEBUG_PEAK_COLOR.toArgb(), at(peak.x, peak.y))
+    }
+
+    /** GH #415: the framing cue is the cue line's text, the one polite live region TalkBack announces. */
+    @Test fun theFramingCueShowsOnTheCueLineAsAPoliteLiveRegion() {
+        val state = mutableStateOf(ContinuousQuickScanFlow())
+        rule.setContent {
+            CubentiaTheme { GuidedScanScreen(GuidedScanPhase.Continuous, strings, GuidedScanActions(), continuous = state.value) }
+        }
+        val snap = testSnapshot(testHandoff(listOf(Face.U)), ContinuousScanCue.TiltAdjacent)
+        val mostlyOff =
+            listOf(ContinuousOverlayQuad(null, Face.F, listOf(Point2D(0.9, 0.2), Point2D(1.3, 0.2), Point2D(1.3, 0.6), Point2D(0.9, 0.6))))
+        val polite = SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite)
+        repeat(ContinuousQuickScanFlow.FRAMING_CUE_FRAMES) {
+            rule.runOnIdle { state.value = state.value.next(ContinuousFrame(snap, mostlyOff), 0) }
+        }
+        rule.onNodeWithTag("quickScan:cue").assertTextEquals("Move the cube into the frame.").assert(polite)
+    }
+
+    /**
+     * GH #415: an outline reaching past the preview is drawn only inside the camera pane (the Canvas is clipped), and a
+     * debug peak outside the preview is not drawn.
+     */
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun outlinesAndDebugMarksPastThePreviewAreClippedToTheCameraPane() {
+        val corners = listOf(Point2D(0.2, 0.5), Point2D(0.8, 0.5), Point2D(0.8, 1.6), Point2D(0.2, 1.6))
+        val state =
+            ContinuousQuickScanFlow(
+                outlines = mapOf(OutlineKey(Face.F, anchored = false) to TrackedOutline(corners)),
+                debugOverlay = ContinuousDebugOverlay(listOf(DebugPeak(0.5, 1.2, 1f)), emptyList(), "peaks=1"),
+            )
+        rule.setContent {
+            CubentiaTheme {
+                Box(Modifier.fillMaxSize().background(Color.Black)) {
+                    GuidedScanScreen(GuidedScanPhase.Continuous, strings, GuidedScanActions(), continuous = state) {
+                        Box(Modifier.fillMaxSize().background(Color.Black).testTag("preview"))
+                    }
+                }
+            }
+        }
+        val preview = rule.onNodeWithTag("preview").fetchSemanticsNode().boundsInRoot
+        val pixels = rule.onRoot().captureToImage().toPixelMap()
+        val highlight = CubeTokens.stickerHighlight.toArgb()
+        // Inside the pane the outline's sides are drawn …
+        assertEquals(
+            highlight,
+            pixels[(preview.left + 0.2f * preview.width).toInt(), (preview.top + 0.75f * preview.height).toInt()].toArgb(),
+        )
+        // … and below the pane, where the side would continue, nothing of it is.
+        for (dy in listOf(4, 12, 24)) {
+            val x = (preview.left + 0.2f * preview.width).toInt()
+            val y = preview.bottom.toInt() + dy
+            assertTrue("outline below the pane at $x, $y", pixels[x, y].toArgb() != highlight)
+        }
+        val peakX = (preview.left + 0.5f * preview.width).toInt()
+        val peakY = (preview.top + 1.2f * preview.height).toInt()
+        assertTrue("peak below the pane", pixels[peakX, peakY].toArgb() != DEBUG_PEAK_COLOR.toArgb())
     }
 
     @Test fun confirmAndRejectFallBackToALongPressBelowApi30() {

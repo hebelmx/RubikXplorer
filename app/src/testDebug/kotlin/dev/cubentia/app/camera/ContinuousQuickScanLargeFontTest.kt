@@ -38,10 +38,18 @@ class ContinuousQuickScanLargeFontTest {
 
     @Test fun phoneAtDoubleFont() = fits()
 
-    /** The medium width class in portrait (the Lenovo, AD-17): preview left, panel right, the four actions stacked. */
+    /**
+     * The medium width class in portrait (the Lenovo; AD-17, GH #415): stacked like a phone, the preview on top at full
+     * width and never taller than wide, the four actions stacked below.
+     */
     @Test
     @Config(qualifiers = "w600dp-h960dp-port", fontScale = 2.0f)
-    fun tabletAtDoubleFont() = fits(twoPane = true, pairedLastRow = false)
+    fun tabletAtDoubleFont() = fits(pairedLastRow = false)
+
+    /** GH #415: a squarish portrait window (height = width) stacks too, with a camera pane no taller than wide. */
+    @Test
+    @Config(qualifiers = "w800dp-h800dp", fontScale = 1f)
+    fun squarishPortraitWindow() = fits(pairedLastRow = false)
 
     /** Just under the medium width class a portrait window still stacks the preview above the panel. */
     @Test
@@ -56,7 +64,7 @@ class ContinuousQuickScanLargeFontTest {
     @Config(qualifiers = "w960dp-h600dp-land")
     fun landscapeTablet() = fits(twoPane = true)
 
-    /** A landscape phone is narrower than 600 dp in neither direction a tablet is: it still gets preview left, panel right. */
+    /** A landscape phone (narrower than 600 dp tall): preview left, panel right, as in every landscape window. */
     @Test
     @Config(qualifiers = "w640dp-h360dp-land", fontScale = 1f)
     fun landscapePhone() = fits(twoPane = true, pairedLastRow = true)
@@ -67,8 +75,8 @@ class ContinuousQuickScanLargeFontTest {
     fun landscapeAtTheShortPanelSwitch() = fits(twoPane = true, pairedLastRow = false)
 
     /**
-     * [twoPane]: whether the panel sits right of the preview (the medium width class and up, or any landscape window) or
-     * below it (a compact-width portrait window). [pairedLastRow]: whether *Review and Correct* shares the last row with
+     * [twoPane]: whether the panel sits right of the preview (any landscape window) or below it (any portrait window,
+     * GH #415; then the preview is never taller than wide). [pairedLastRow]: whether *Review and Correct* shares the last row with
      * *Enter colors instead* (the short landscape panel) or sits above it (every other layout); null leaves the
      * arrangement unchecked.
      */
@@ -128,6 +136,10 @@ class ContinuousQuickScanLargeFontTest {
         fun bounds(tag: String) = rule.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
         // The preview takes the whole first pane, and *Close* and the torch on it never overlap, however narrow the pane.
         assertTrue("camera $camera, root $root", if (twoPane) camera.height == root.height else camera.width == root.width)
+        if (!twoPane) {
+            assertEquals(root.top, camera.top)
+            assertTrue("stacked camera $camera is never tall", camera.height <= camera.width)
+        }
         assertTrue(
             "scanClose ${bounds("scanClose")}, torch ${bounds("quickScan:torch")}",
             bounds("scanClose").right <= bounds("quickScan:torch").left,

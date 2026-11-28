@@ -6,7 +6,10 @@ import dev.cubentia.domain.recognition.continuous.ContinuousScanSnapshot
 import dev.cubentia.domain.recognition.continuous.Point2D
 import dev.cubentia.domain.recognition.continuous.QuadObservation
 
-/** Live tracked face quad projected to normalized `[0..1]` `PreviewView` coordinates. */
+/**
+ * Live tracked face quad projected to normalized `PreviewView` coordinates: `[0..1]` on the visible preview; GH #415: a
+ * quad read outside the viewport crop has corners outside that range.
+ */
 internal data class ContinuousOverlayQuad(
     val face: Face?,
     val localFace: Face,
@@ -18,6 +21,11 @@ internal data class ContinuousFrame(
     val viewOverlays: List<ContinuousOverlayQuad>,
     /** GH #409: the debug overlay of this frame; null unless [QuickScanDebugView.enabled] (never in release). */
     val debug: ContinuousDebugOverlay? = null,
+    /**
+     * GH #415: false for a frame the pipeline did not read (detector skipped or unavailable, sampler failure); such a
+     * frame neither advances nor resets the framing cue's count.
+     */
+    val analysed: Boolean = true,
 )
 
 /** GH #409: one detector peak in normalized `[0..1]` `PreviewView` coordinates, with its detector [score]. */

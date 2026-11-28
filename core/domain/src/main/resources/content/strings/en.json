@@ -846,6 +846,7 @@
   "msg.quick-check.seen": "SEEN",
   "msg.quick-check.seen-differs": "Differs from the expected cube",
   "msg.quick-scan.continuous.bring-into-view": "Bring the cube into view.",
+  "msg.quick-scan.continuous.move-into-frame": "Move the cube into the frame.",
   "msg.quick-scan.continuous.turn-remaining": "Turn the cube to show {count, plural, one {the remaining # side} other {the remaining # sides}}.",
   "msg.quick-scan.continuous.tilt-adjacent": "Tilt slightly to show an adjacent face.",
   "msg.quick-scan.continuous.keep-turning-realign": "Keep turning to line up with the sides you already scanned.",

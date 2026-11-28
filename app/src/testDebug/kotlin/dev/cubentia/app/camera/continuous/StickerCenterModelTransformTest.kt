@@ -513,6 +513,104 @@ class StickerCenterModelTransformTest {
         assertEquals(1, peaks.size)
     }
 
+    /**
+     * GH #415: a full-frame read maps upright → raw through the read bounds and raw → view through the view region (the
+     * viewport crop): at every rotation the crop's raw corners land on the view's corners, a raw point outside the crop
+     * lands outside `[0, 1]`, and with the view region left out the mapping is today's (view region = read bounds).
+     */
+    @Test
+    fun `a full-frame read maps points to the visible crop at all four rotations`() {
+        val w = 640
+        val h = 480
+        val crop = intArrayOf(100, 60, 500, 420)
+
+        // The inverse of uprightToFrame over the full frame (0, 0, w, h).
+        fun upright(
+            x: Double,
+            y: Double,
+            rot: Int,
+        ): Pair<Double, Double> =
+            when (rot) {
+                90 -> (h - y) to x
+                180 -> (w - x) to (h - y)
+                270 -> y to (w - x)
+                else -> x to y
+            }
+        for (rot in listOf(0, 90, 180, 270)) {
+            fun view(
+                x: Double,
+                y: Double,
+                viewW: Int = 0,
+                viewH: Int = 0,
+            ): Pair<Double, Double> {
+                val (ux, uy) = upright(x, y, rot)
+                val raw = StickerCenterModelTransform.uprightToFrame(ux, uy, 0, 0, w, h, rot)
+                assertEquals(x, raw.first, 1e-9, "rot=$rot raw x")
+                assertEquals(y, raw.second, 1e-9, "rot=$rot raw y")
+                val mapped =
+                    StickerCenterModelTransform.uprightToViewFraction(
+                        ux,
+                        uy,
+                        viewW,
+                        viewH,
+                        0,
+                        0,
+                        w,
+                        h,
+                        rot,
+                        viewLeft = crop[0],
+                        viewTop = crop[1],
+                        viewRight = crop[2],
+                        viewBottom = crop[3],
+                    )
+                // The golden composition of the spec's design notes.
+                val golden =
+                    ViewfinderGrid.frameToViewFraction(x, y, viewW.toDouble(), viewH.toDouble(), crop[0], crop[1], crop[2], crop[3], rot)
+                assertEquals(golden.first, mapped.first, 1e-12, "rot=$rot golden x")
+                assertEquals(golden.second, mapped.second, 1e-12, "rot=$rot golden y")
+                return mapped
+            }
+            val corners =
+                listOf(crop[0] to crop[1], crop[2] to crop[1], crop[2] to crop[3], crop[0] to crop[3]).map { (x, y) ->
+                    view(x.toDouble(), y.toDouble()).let { (vx, vy) -> Math.round(vx * 1e9) / 1e9 to Math.round(vy * 1e9) / 1e9 }
+                }
+            assertEquals(setOf(0.0 to 0.0, 1.0 to 0.0, 0.0 to 1.0, 1.0 to 1.0), corners.toSet(), "rot=$rot corners")
+            val (cx, cy) = view(300.0, 240.0)
+            assertEquals(0.5, cx, 1e-9, "rot=$rot centre x")
+            assertEquals(0.5, cy, 1e-9, "rot=$rot centre y")
+            // Raw points left of and below the crop: outside the visible preview.
+            val (lx, ly) = view(20.0, 240.0)
+            assertTrue(lx !in 0.0..1.0 || ly !in 0.0..1.0, "rot=$rot left of crop: $lx, $ly")
+            val (bx, by) = view(300.0, 470.0, viewW = 300, viewH = 500)
+            assertTrue(bx !in 0.0..1.0 || by !in 0.0..1.0, "rot=$rot below crop: $bx, $by")
+            // Without a view region the read bounds are the view region: today's mapping.
+            val (ux, uy) = upright(150.0, 90.0, rot)
+            assertEquals(
+                ViewfinderGrid.frameToViewFraction(150.0, 90.0, 0.0, 0.0, 0, 0, w, h, rot),
+                StickerCenterModelTransform.uprightToViewFraction(ux, uy, 0, 0, 0, 0, w, h, rot),
+            )
+        }
+    }
+
+    @Test
+    fun `decodePeaks maps a full-frame peak through the view region`() {
+        val params = checkNotNull(StickerCenterModelTransform.letterbox(640, 480))
+        val heatmap = FloatArray(StickerCenterModelContract.OUTPUT_FLOATS)
+        heatmap[(32 * 64 + 32) * 3] = 0.9f
+        // Read the whole 640x480 frame; the preview shows only its left 320 columns.
+        val peak =
+            StickerCenterModelTransform
+                .decodePeaks(heatmap, params, 0, 0, 640, 480, 0, viewLeft = 0, viewTop = 0, viewRight = 320, viewBottom = 480)
+                .single()
+        assertEquals(325.0, peak.x, 1e-9)
+        assertEquals(245.0, peak.y, 1e-9)
+        assertEquals(325.0 / 320.0, peak.viewX, 1e-9)
+        assertEquals(245.0 / 480.0, peak.viewY, 1e-9)
+        // Left out, the view region is the region read.
+        val today = StickerCenterModelTransform.decodePeaks(heatmap, params, 0, 0, 640, 480, 0).single()
+        assertEquals(325.0 / 640.0, today.viewX, 1e-9)
+    }
+
     private fun <T> assertNotNullAndReturn(value: T?): T {
         assertNotNull(value)
         return value!!

@@ -247,8 +247,8 @@ private const val VIEWFINDER_HEIGHT_FRACTION = 0.45f
 /**
  * AD-17: whether a scan screen filling a [width]×[height] window shows two panes, the viewfinder left and its panel
  * right: from the medium window width class (600 dp, the Lenovo in portrait), and in any window wider than tall (a
- * phone in landscape). Otherwise the viewfinder is stacked above the panel. Shared by the Guided viewfinder, the
- * calibration viewfinder and the continuous Quick Scan, so a hand-over between them never changes the arrangement.
+ * phone in landscape). Otherwise the viewfinder is stacked above the panel. Shared by the Guided viewfinder and the
+ * calibration viewfinder; the continuous Quick Scan follows its own portrait/landscape rule (GH #415).
  */
 internal fun scanTwoPane(
     width: Dp,

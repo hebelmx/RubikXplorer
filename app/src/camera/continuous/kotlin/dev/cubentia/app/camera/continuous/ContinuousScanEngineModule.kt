@@ -57,7 +57,7 @@ private class PipelineEngine(
         if (snapshot.globalAnchored && snapshot.mappedFacesCount == Face.entries.size) {
             ScanDiagnostics.onQuickScanUnread(SystemClock.elapsedRealtime(), snapshot) { pipeline.unreadSlots() }
         }
-        return ContinuousFrame(result.snapshot, result.viewOverlays, result.debug)
+        return ContinuousFrame(result.snapshot, result.viewOverlays, result.debug, analysed = !result.skipped)
     }
 
     override fun reset() = record(null)

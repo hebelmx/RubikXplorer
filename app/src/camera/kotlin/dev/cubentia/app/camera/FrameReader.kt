@@ -27,8 +27,11 @@ internal class YuvPlane(
 }
 
 /**
- * A YUV_420_888 frame as the analyzer sees it: full-resolution [y], half-resolution [u] and [v], and the visible crop
- * rectangle (`left`, `top` inclusive; `right`, `bottom` exclusive) in pixel coordinates.
+ * A YUV_420_888 frame as the analyzer sees it: full-resolution [y], half-resolution [u] and [v], and the region read
+ * (`left`, `top` inclusive; `right`, `bottom` exclusive) in pixel coordinates. [viewLeft], [viewTop], [viewRight] and
+ * [viewBottom] are the region the preview shows (the viewport crop), used only to map points to the visible preview; by
+ * default the region read. GH #415: the continuous Quick Scan reads the whole image ([FrameReader.asFullYuvFrame]) while
+ * its view region stays the crop; every other reader reads the crop ([FrameReader.asYuvFrame]).
  */
 internal class YuvFrame(
     val y: YuvPlane,
@@ -38,6 +41,10 @@ internal class YuvFrame(
     val top: Int,
     val right: Int,
     val bottom: Int,
+    val viewLeft: Int = left,
+    val viewTop: Int = top,
+    val viewRight: Int = right,
+    val viewBottom: Int = bottom,
 ) {
     val width: Int get() = right - left
     val height: Int get() = bottom - top
@@ -157,6 +164,17 @@ internal object FrameReader {
 
         fun plane(index: Int) = YuvPlane(planes[index].buffer, planes[index].rowStride, planes[index].pixelStride)
         return YuvFrame(plane(0), plane(1), plane(2), crop.left, crop.top, crop.right, crop.bottom)
+    }
+
+    /**
+     * GH #415: the whole image (bounds `0, 0, width, height`) for the continuous Quick Scan's detector, fitter and sampler,
+     * with the viewport crop ([ImageProxy.getCropRect]) kept only as the view region the points are mapped to.
+     */
+    fun ImageProxy.asFullYuvFrame(): YuvFrame {
+        val crop = cropRect
+
+        fun plane(index: Int) = YuvPlane(planes[index].buffer, planes[index].rowStride, planes[index].pixelStride)
+        return YuvFrame(plane(0), plane(1), plane(2), 0, 0, width, height, crop.left, crop.top, crop.right, crop.bottom)
     }
 
     /** Reads [frame] at the face located inside [grid]; see [locate]. */

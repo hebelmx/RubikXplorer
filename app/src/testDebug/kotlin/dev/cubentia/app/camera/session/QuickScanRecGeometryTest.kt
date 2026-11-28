@@ -165,7 +165,8 @@ class QuickScanRecGeometryTest {
             source.start(activity.get(), executor, {}, {})
             executor.submit { engine.record(writer) }.get()
             source.continuousMode(engine) { true }
-            // 640x480, full-frame crop, rotation 90 (a phone in portrait), then 1280x960 with a 16:9 viewport crop.
+            // 640x480, full-frame crop, rotation 90 (a phone in portrait), then 1280x960 with a 16:9 viewport crop, which
+            // the continuous Quick Scan reads whole (GH #415).
             val small = List(3) { Image(640, 480, Rect(0, 0, 640, 480), 90, 1_000_000_000L + it * 33_000_000L) }
             val large = List(3) { Image(1280, 960, Rect(0, 120, 1280, 840), 90, 2_000_000_000L + it * 33_000_000L) }
             (small + large).forEach { image -> executor.submit { source.read(image) }.get() }
@@ -188,9 +189,12 @@ class QuickScanRecGeometryTest {
             assertEquals(32 to 0, first.padLeft to first.padTop)
             assertEquals(Rect(0, 0, 640, 480), Rect(first.cropLeft, first.cropTop, first.cropRight, first.cropBottom))
             val second = manifest.geometryChanges.single().geometry
-            assertEquals(720 to 1280, second.uprightWidth to second.uprightHeight)
+            // GH #415: the recorded crop is the region the detector read, the whole frame, not the viewport crop.
+            assertEquals(Rect(0, 0, 1280, 960), Rect(second.cropLeft, second.cropTop, second.cropRight, second.cropBottom))
+            assertEquals(Rect(0, 0, 1280, 960), used.last().let { Rect(it.left, it.top, it.right, it.bottom) })
+            assertEquals(960 to 1280, second.uprightWidth to second.uprightHeight)
             assertEquals(0.2, second.letterboxScale, 1e-12)
-            assertEquals(56 to 0, second.padLeft to second.padTop)
+            assertEquals(32 to 0, second.padLeft to second.padTop)
             // Every frame was written with the sensor timestamp; the PNG of every third frame is the model input.
             val frames = ContinuousSessionJson.readFrames(File(saved.path))
             assertEquals(listOf(1000L, 1033L, 1066L, 2000L, 2033L, 2066L), frames.map { it.timestampMs })

@@ -57,6 +57,17 @@ class ScanFrameSourcePolicyTest {
     }
 
     @Test
+    fun `the continuous Quick Scan targets the full-frame size whatever the pane`() {
+        val full = Size(1280, 960)
+        assertEquals(full, FULL_FRAME_ANALYSIS)
+        for ((w, h) in listOf(1080 to 1440, 1440 to 1080, 800 to 800, 0 to 0, 640 to 203, 1600 to 1200)) {
+            assertEquals(full, analysisTarget(w, h, continuous = true))
+        }
+        // Guided, calibration and corner keep the pane rule.
+        assertEquals(Size(640, 480), analysisTarget(1080, 1440, continuous = false))
+    }
+
+    @Test
     fun `a viewport longer than 4 to 3 targets 1280 by 960`() {
         val large = Size(1280, 960)
         assertEquals(large, analysisTarget(640, 203))

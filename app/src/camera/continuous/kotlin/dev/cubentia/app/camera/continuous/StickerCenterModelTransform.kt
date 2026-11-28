@@ -86,8 +86,11 @@ internal object StickerCenterModelTransform {
         }
 
     /**
-     * Map continuous upright crop coordinates `(ux, uy)` to normalized `[0..1]` `PreviewView` coordinates
-     * via [ViewfinderGrid.frameToViewFraction].
+     * Map continuous upright coordinates `(ux, uy)` of the region read ([cropLeft], [cropTop], [cropRight], [cropBottom])
+     * to normalized `PreviewView` coordinates via [ViewfinderGrid.frameToViewFraction]: upright → raw through the region
+     * read, raw → view through the region the preview shows ([viewLeft], [viewTop], [viewRight], [viewBottom]; by
+     * default the region read, today's mapping exactly). GH #415: with a full-frame read and the viewport crop as the
+     * view region, a point outside the crop maps outside `[0, 1]` (no clamping).
      */
     fun uprightToViewFraction(
         ux: Double,
@@ -99,18 +102,23 @@ internal object StickerCenterModelTransform {
         cropRight: Int,
         cropBottom: Int,
         rotationDegrees: Int,
+        viewLeft: Int = cropLeft,
+        viewTop: Int = cropTop,
+        viewRight: Int = cropRight,
+        viewBottom: Int = cropBottom,
     ): Pair<Double, Double> {
         if (cropRight <= cropLeft || cropBottom <= cropTop) return 0.0 to 0.0
+        if (viewRight <= viewLeft || viewBottom <= viewTop) return 0.0 to 0.0
         val (fx, fy) = uprightToFrame(ux, uy, cropLeft, cropTop, cropRight, cropBottom, rotationDegrees)
         return ViewfinderGrid.frameToViewFraction(
             x = fx,
             y = fy,
             viewWidth = viewWidth.toDouble(),
             viewHeight = viewHeight.toDouble(),
-            cropLeft = cropLeft,
-            cropTop = cropTop,
-            cropRight = cropRight,
-            cropBottom = cropBottom,
+            cropLeft = viewLeft,
+            cropTop = viewTop,
+            cropRight = viewRight,
+            cropBottom = viewBottom,
             rotationDegrees = rotationDegrees,
         )
     }
@@ -459,6 +467,10 @@ internal object StickerCenterModelTransform {
         viewHeight: Int = 0,
         threshold: Float = StickerCenterModelContract.DEFAULT_THRESHOLD,
         maxPeaks: Int = StickerCenterModelContract.MAX_PEAKS,
+        viewLeft: Int = cropLeft,
+        viewTop: Int = cropTop,
+        viewRight: Int = cropRight,
+        viewBottom: Int = cropBottom,
     ): List<StickerCenterPeak> {
         if (
             output.size < StickerCenterModelContract.OUTPUT_FLOATS ||
@@ -524,6 +536,10 @@ internal object StickerCenterModelTransform {
                         cropRight = cropRight,
                         cropBottom = cropBottom,
                         rotationDegrees = rotationDegrees,
+                        viewLeft = viewLeft,
+                        viewTop = viewTop,
+                        viewRight = viewRight,
+                        viewBottom = viewBottom,
                     )
                 peaks.add(StickerCenterPeak(ox, oy, c.score, vx, vy))
                 if (peaks.size >= maxPeaks) break

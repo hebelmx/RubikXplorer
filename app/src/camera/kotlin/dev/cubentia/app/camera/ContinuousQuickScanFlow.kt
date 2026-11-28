@@ -40,6 +40,10 @@ internal data class ContinuousQuickScanFlow(
     val reviewAtMs: Long? = null,
     /** GH #409: the latest frame's debug overlay; null unless the debug view is on (never in release). */
     val debugOverlay: ContinuousDebugOverlay? = null,
+    /** GH #415: whether "Move the cube into the frame." is on (see [cueText]); it changes only after [FRAMING_CUE_FRAMES]. */
+    val framingShown: Boolean = false,
+    /** GH #415: consecutive analysed frames whose mostly-out-of-view reading differs from [framingShown]. */
+    val framingRun: Int = 0,
 ) {
     val count: Int get() =
         when {
@@ -47,7 +51,25 @@ internal data class ContinuousQuickScanFlow(
             snapshot?.globalAnchored == true -> snapshot.mappedFacesCount
             else -> 0
         }
+
+    /** The mapper's cue (pulses and the hand-over read it); the cue line shows [cueText]. */
     val cue get() = snapshot?.cue ?: ContinuousScanCue.BringIntoView
+
+    /**
+     * GH #415: the one cue line, in the order of SCP 2026-11-27 quickscan-framing-crop section 3.4: a layer turned
+     * mid-scan, all 54 verified, "Bring the cube into view." (nothing tracked anywhere in the frame), then "Move the cube
+     * into the frame." while [framingShown], then the mapper's other cues in their own order.
+     */
+    val cueText: Text get() {
+        val mapper = cue
+        val first =
+            mapper == ContinuousScanCue.LayerTwistDetected ||
+                mapper == ContinuousScanCue.AllVerified ||
+                mapper == ContinuousScanCue.BringIntoView ||
+                snapshot?.twistDetected == true ||
+                snapshot is ContinuousScanSnapshot.Complete
+        return if (!first && framingShown) Text(MOVE_INTO_FRAME_KEY) else mapper.toText()
+    }
     val confirmClose get() = count > 0
 
     /**
@@ -88,6 +110,11 @@ internal data class ContinuousQuickScanFlow(
                 val face = quad.face?.let { OutlineKey(it, anchored = true) } ?: local
                 // A quad that just became anchored continues from its unanchored outline, which goes at once.
                 if (face != local) tracked.remove(local)
+                // GH #415: a face read wholly outside the visible preview has no outline (its stickers still count).
+                if (ViewClip.visibleArea(quad.viewCorners) <= 0.0) {
+                    tracked.remove(face)
+                    continue
+                }
                 val old = (outlines[face] ?: outlines[local].takeIf { face != local })?.corners?.takeIf { it.size == quad.viewCorners.size }
                 val corners =
                     if (old == null) {
@@ -100,12 +127,28 @@ internal data class ContinuousQuickScanFlow(
                 tracked[face] = TrackedOutline(corners)
             }
         }
+        // GH #415: a skipped frame neither advances nor resets the framing count.
+        var shown = framingShown
+        var run = framingRun
+        if (frame.analysed) {
+            if (ViewClip.mostlyOutOfView(frame.viewOverlays.map { it.viewCorners }) != shown) {
+                run++
+                if (run >= FRAMING_CUE_FRAMES) {
+                    shown = !shown
+                    run = 0
+                }
+            } else {
+                run = 0
+            }
+        }
         val next =
             copy(
                 snapshot = snap,
                 outlines = tracked,
                 debugOverlay = frame.debug,
                 reviewAtMs = if (snap is ContinuousScanSnapshot.Complete) reviewAtMs ?: (nowMs + 1000L) else null,
+                framingShown = shown,
+                framingRun = run,
             )
         return if (next.count > count) next.copy(announcement = CountAnnouncement(next.count, (announcement?.serial ?: 0) + 1)) else next
     }
@@ -156,7 +199,92 @@ internal data class ContinuousQuickScanFlow(
         const val REVIEW_STICKERS_FRACTION = 0.5
         private const val CELLS_PER_FACE = 9
 
+        /**
+         * GH #415: the tracked faces are "mostly out of view" when more than this fraction of the summed area of all
+         * tracked quads of a frame lies outside the visible preview.
+         */
+        const val MOSTLY_OUT_OF_VIEW_FRACTION = 0.5
+
+        /** GH #415: the framing cue shows after, and clears after, this many consecutive analysed frames. */
+        const val FRAMING_CUE_FRAMES = 3
+
+        /** GH #415: "Move the cube into the frame." */
+        const val MOVE_INTO_FRAME_KEY = "msg.quick-scan.continuous.move-into-frame"
+
         fun countText(count: Int) = Text("msg.quick-scan.sides-mapped", mapOf("n" to count))
+    }
+}
+
+/**
+ * GH #415: polygon helpers on the visible preview, `[0, 1]²` in view fractions. View fractions are an affine image of
+ * frame pixels, so area ratios computed here hold in pixels too.
+ */
+internal object ViewClip {
+    /** The absolute (shoelace) area of [points]; 0 below three points. */
+    fun area(points: List<Point2D>): Double {
+        if (points.size < 3) return 0.0
+        var twice = 0.0
+        for (i in points.indices) {
+            val a = points[i]
+            val b = points[(i + 1) % points.size]
+            twice += a.x * b.y - b.x * a.y
+        }
+        return kotlin.math.abs(twice) / 2
+    }
+
+    /** [points] clipped to `[0, 1]²` (Sutherland–Hodgman); empty when nothing of it lies inside. */
+    fun clipToView(points: List<Point2D>): List<Point2D> {
+        var poly = points
+        for (edge in 0 until 4) {
+            if (poly.isEmpty()) return poly
+            val inside: (Point2D) -> Boolean =
+                when (edge) {
+                    0 -> { p -> p.x >= 0.0 }
+                    1 -> { p -> p.x <= 1.0 }
+                    2 -> { p -> p.y >= 0.0 }
+                    else -> { p -> p.y <= 1.0 }
+                }
+            val bound = if (edge % 2 == 0) 0.0 else 1.0
+            val vertical = edge < 2
+            val out = ArrayList<Point2D>(poly.size + 2)
+            for (i in poly.indices) {
+                val cur = poly[i]
+                val prev = poly[(i + poly.size - 1) % poly.size]
+                val curIn = inside(cur)
+                if (curIn != inside(prev)) out += crossing(prev, cur, bound, vertical)
+                if (curIn) out += cur
+            }
+            poly = out
+        }
+        return poly
+    }
+
+    private fun crossing(
+        a: Point2D,
+        b: Point2D,
+        bound: Double,
+        vertical: Boolean,
+    ): Point2D =
+        if (vertical) {
+            val t = (bound - a.x) / (b.x - a.x)
+            Point2D(bound, a.y + t * (b.y - a.y))
+        } else {
+            val t = (bound - a.y) / (b.y - a.y)
+            Point2D(a.x + t * (b.x - a.x), bound)
+        }
+
+    /** The area of [points] inside the visible preview. */
+    fun visibleArea(points: List<Point2D>): Double = area(clipToView(points))
+
+    /**
+     * Whether more than [ContinuousQuickScanFlow.MOSTLY_OUT_OF_VIEW_FRACTION] of the summed area of [quads] lies outside
+     * the visible preview: `1 - Σ area(clip(q)) / Σ area(q)`; false with no quads or no area.
+     */
+    fun mostlyOutOfView(quads: List<List<Point2D>>): Boolean {
+        val total = quads.sumOf(::area)
+        if (!(total > 0.0)) return false
+        val outside = 1.0 - quads.sumOf(::visibleArea) / total
+        return outside > ContinuousQuickScanFlow.MOSTLY_OUT_OF_VIEW_FRACTION
     }
 }
 

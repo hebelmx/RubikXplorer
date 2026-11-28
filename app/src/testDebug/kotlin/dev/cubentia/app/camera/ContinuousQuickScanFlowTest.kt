@@ -19,6 +19,7 @@ import dev.cubentia.domain.recognition.continuous.Point2D
 import dev.cubentia.domain.recognition.continuous.Quad2D
 import dev.cubentia.domain.recognition.continuous.QuadObservation
 import dev.cubentia.domain.recognition.continuous.RgbColor
+import dev.cubentia.domain.text.Text
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -135,7 +136,25 @@ class ContinuousQuickScanFlowTest {
     @Test fun outlinesEaseEveryCornerAndExpireOnTheThirdMiss() {
         val snap = testSnapshot(testHandoff(emptyList()))
 
-        fun quad(x: Double) = ContinuousOverlayQuad(null, Face.F, List(4) { i -> Point2D(x + i * 0.01, x) })
+        // A small square at (x, x) (an outline needs visible area, GH #415).
+        fun quad(x: Double) =
+            ContinuousOverlayQuad(
+                null,
+                Face.F,
+                List(4) { i ->
+                    Point2D(
+                        x +
+                            if (i == 1 ||
+                                i == 2
+                            ) {
+                                0.01
+                            } else {
+                                0.0
+                            },
+                        x + if (i >= 2) 0.01 else 0.0,
+                    )
+                },
+            )
         val first = ContinuousQuickScanFlow().feed(snap, listOf(quad(0.2)))
         val next = first.feed(snap, listOf(quad(0.6)))
         quad(0.4).viewCorners.zip(next.outlines.getValue(OutlineKey(Face.F, anchored = false)).corners).forEach { (a, b) ->
@@ -169,6 +188,130 @@ class ContinuousQuickScanFlowTest {
         val full = testHandoff(Face.entries)
         val complete = both.feed(testSnapshot(full, ContinuousScanCue.AllVerified), listOf(quad(0.3)))
         assertTrue(complete.outlines.isEmpty())
+    }
+
+    /** GH #415: an axis-aligned quad from ([left], [top]) of [width]×[height] in view fractions. */
+    private fun rect(
+        left: Double,
+        top: Double,
+        width: Double = 0.4,
+        height: Double = 0.4,
+        face: Face = Face.F,
+    ) = ContinuousOverlayQuad(
+        null,
+        face,
+        listOf(Point2D(left, top), Point2D(left + width, top), Point2D(left + width, top + height), Point2D(left, top + height)),
+    )
+
+    private fun ContinuousQuickScanFlow.frames(
+        n: Int,
+        snapshot: ContinuousScanSnapshot,
+        overlays: List<ContinuousOverlayQuad>,
+        analysed: Boolean = true,
+    ): ContinuousQuickScanFlow = (1..n).fold(this) { flow, _ -> flow.next(ContinuousFrame(snapshot, overlays, analysed = analysed), 250L) }
+
+    private val moveIntoFrame = Text("msg.quick-scan.continuous.move-into-frame")
+
+    @Test fun aFaceWhollyOffThePreviewHasNoOutlineButItsStickersStay() {
+        val snap = testSnapshot(testHandoff(listOf(Face.U)), ContinuousScanCue.TiltAdjacent)
+        val onScreen = rect(0.2, 0.2, face = Face.U)
+        // All four corners right of x = 1.
+        val offScreen = rect(1.1, 0.2)
+        val flow = ContinuousQuickScanFlow().feed(snap, listOf(onScreen, offScreen))
+        assertEquals(setOf(OutlineKey(Face.U, anchored = false)), flow.outlines.keys)
+        assertEquals(snap, flow.snapshot)
+        assertEquals(snap.net, flow.snapshot?.net)
+        // An outline drawn last frame goes at once when its face leaves the preview.
+        val left = flow.feed(snap, listOf(rect(1.2, 0.2, face = Face.U)))
+        assertTrue(left.outlines.isEmpty())
+        // A face partly in view keeps its outline (drawing is clipped to the pane).
+        assertEquals(
+            setOf(OutlineKey(Face.F, anchored = false)),
+            ContinuousQuickScanFlow().feed(snap, listOf(rect(0.8, 0.2))).outlines.keys,
+        )
+    }
+
+    @Test fun mostlyOutOfViewForThreeAnalysedFramesShowsTheFramingCue() {
+        val snap = testSnapshot(testHandoff(listOf(Face.U)), ContinuousScanCue.TiltAdjacent)
+        // 75 % of the quad's area is right of the preview.
+        val mostlyOff = listOf(rect(0.9, 0.2))
+        val one = ContinuousQuickScanFlow().frames(1, snap, mostlyOff)
+        val two = one.frames(1, snap, mostlyOff)
+        assertEquals(ContinuousScanCue.TiltAdjacent.toText(), one.cueText)
+        assertEquals(ContinuousScanCue.TiltAdjacent.toText(), two.cueText)
+        val three = two.frames(1, snap, mostlyOff)
+        assertEquals(moveIntoFrame, three.cueText)
+        // The mapper's own cue keeps its meaning for the pulses and the hand-over.
+        assertEquals(ContinuousScanCue.TiltAdjacent, three.cue)
+        // Summed over all quads: one in view and one mostly out is under half out.
+        assertFalse(ViewClip.mostlyOutOfView(listOf(rect(0.1, 0.1).viewCorners, rect(0.9, 0.2).viewCorners)))
+        assertEquals(
+            ContinuousScanCue.TiltAdjacent.toText(),
+            ContinuousQuickScanFlow().frames(5, snap, listOf(rect(0.1, 0.1), rect(0.9, 0.2))).cueText,
+        )
+    }
+
+    @Test fun backInViewTheMapperCueReturnsAfterTheThirdAnalysedFrame() {
+        val snap = testSnapshot(testHandoff(listOf(Face.U)), ContinuousScanCue.TiltAdjacent)
+        val shown = ContinuousQuickScanFlow().frames(3, snap, listOf(rect(0.9, 0.2)))
+        assertEquals(moveIntoFrame, shown.cueText)
+        for (back in listOf(listOf(rect(0.2, 0.2)), emptyList(), listOf(rect(0.7, 0.2)))) {
+            val two = shown.frames(2, snap, back)
+            assertEquals(moveIntoFrame, two.cueText)
+            assertEquals(ContinuousScanCue.TiltAdjacent.toText(), two.frames(1, snap, back).cueText)
+        }
+        // A frame mostly out again restarts the count to clear.
+        val interrupted = shown.frames(2, snap, emptyList()).frames(1, snap, listOf(rect(0.9, 0.2))).frames(2, snap, emptyList())
+        assertEquals(moveIntoFrame, interrupted.cueText)
+    }
+
+    @Test fun theMapperCuesAheadOfTheFramingCueWin() {
+        val tilt = testSnapshot(testHandoff(listOf(Face.U)), ContinuousScanCue.TiltAdjacent)
+        val shown = ContinuousQuickScanFlow().frames(3, tilt, listOf(rect(0.9, 0.2)))
+        assertEquals(moveIntoFrame, shown.cueText)
+        for (cue in listOf(ContinuousScanCue.LayerTwistDetected, ContinuousScanCue.AllVerified, ContinuousScanCue.BringIntoView)) {
+            val faces = if (cue == ContinuousScanCue.AllVerified) Face.entries else listOf(Face.U)
+            val flow = shown.frames(1, testSnapshot(testHandoff(faces), cue), listOf(rect(0.9, 0.2)))
+            assertTrue(flow.framingShown)
+            assertEquals(cue.toText(), flow.cueText)
+        }
+        // The mapper's other cues come after it.
+        for (cue in listOf(
+            ContinuousScanCue.TurnRemaining(2),
+            ContinuousScanCue.TiltAwayLight,
+            ContinuousScanCue.ResolveConflict(Face.R),
+        )) {
+            assertEquals(moveIntoFrame, shown.frames(1, testSnapshot(testHandoff(listOf(Face.U)), cue), listOf(rect(0.9, 0.2))).cueText)
+        }
+    }
+
+    @Test fun skippedFramesNeitherAdvanceNorResetTheFramingCount() {
+        val snap = testSnapshot(testHandoff(listOf(Face.U)), ContinuousScanCue.TiltAdjacent)
+        val held = ContinuousQuickScanFlow().frames(2, snap, listOf(rect(0.9, 0.2)))
+        val skipped = held.frames(4, snap, emptyList(), analysed = false)
+        assertEquals(ContinuousScanCue.TiltAdjacent.toText(), skipped.cueText)
+        assertEquals(moveIntoFrame, skipped.frames(1, snap, listOf(rect(0.9, 0.2))).cueText)
+        // Clearing too: two frames back in view, a skipped frame, then one more.
+        val shown = skipped.frames(1, snap, listOf(rect(0.9, 0.2)))
+        val clearing = shown.frames(2, snap, emptyList()).frames(1, snap, emptyList(), analysed = false)
+        assertEquals(moveIntoFrame, clearing.cueText)
+        assertEquals(ContinuousScanCue.TiltAdjacent.toText(), clearing.frames(1, snap, emptyList()).cueText)
+    }
+
+    @Test fun exactlyHalfOutOfViewIsNotMostlyOut() {
+        val half = rect(0.5, 0.2, width = 1.0)
+        assertFalse(ViewClip.mostlyOutOfView(listOf(half.viewCorners)))
+        val snap = testSnapshot(testHandoff(listOf(Face.U)), ContinuousScanCue.TiltAdjacent)
+        assertFalse(ContinuousQuickScanFlow().frames(5, snap, listOf(half)).framingShown)
+        assertTrue(ViewClip.mostlyOutOfView(listOf(rect(0.51, 0.2, width = 1.0).viewCorners)))
+        assertEquals(ContinuousQuickScanFlow.MOSTLY_OUT_OF_VIEW_FRACTION, 0.5, 0.0)
+        assertEquals(3, ContinuousQuickScanFlow.FRAMING_CUE_FRAMES)
+        // No quads, or no area: not out of view.
+        assertFalse(ViewClip.mostlyOutOfView(emptyList()))
+        assertFalse(ViewClip.mostlyOutOfView(listOf(List(4) { Point2D(2.0, 2.0) })))
+        // A quad across a corner of the preview: a quarter of it in view.
+        assertEquals(0.01, ViewClip.visibleArea(rect(-0.1, -0.1, 0.2, 0.2).viewCorners), 1e-12)
+        assertEquals(0.0, ViewClip.visibleArea(rect(-0.5, 0.2, 0.3, 0.3).viewCorners), 0.0)
     }
 
     /** GH #409: each frame's debug overlay is carried as it came, and a frame without one clears it. */

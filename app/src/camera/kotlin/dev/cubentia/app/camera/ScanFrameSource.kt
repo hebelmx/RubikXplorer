@@ -304,8 +304,9 @@ internal class CameraXFrameSource
             fun bind(): Boolean {
                 if (!cameraPhase() || previewView !== view) return true
                 val viewPort = view.viewPort ?: return false
-                // Sized once the viewport is known: a pane longer than 4:3 crops more of the frame (GH #158).
-                val analysis = analysis(analysisTarget(view.width, view.height))
+                // Sized once the viewport is known: a pane longer than 4:3 crops more of the frame (GH #158). GH #415: the
+                // continuous Quick Scan reads the whole frame, so its size is chosen for the mode set then, not the pane.
+                val analysis = analysis(analysisTarget(view.width, view.height, continuous = continuous != null))
                 val useCases =
                     UseCaseGroup
                         .Builder()
@@ -394,18 +395,21 @@ internal class CameraXFrameSource
                     engine.analyzerStart()
                     // Story 10.34: the analyzer time of the frame and its geometry go to a recording tap as primitives.
                     val start = System.nanoTime()
-                    val result = engine.processFrame(with(FrameReader) { image.asYuvFrame() }, rotation, width, height)
+                    // GH #415: the detector, fitter and sampler read the whole frame; the crop only maps points to the preview.
+                    val frame = with(FrameReader) { image.asFullYuvFrame() }
+                    val result = engine.processFrame(frame, rotation, width, height)
                     val analyzerNs = System.nanoTime() - start
+                    // The recorded geometry is the region the detector read.
                     engine.frameDone(
                         image.imageInfo.timestamp,
                         analyzerNs,
                         rotation,
                         image.width,
                         image.height,
-                        crop.left,
-                        crop.top,
-                        crop.right,
-                        crop.bottom,
+                        frame.left,
+                        frame.top,
+                        frame.right,
+                        frame.bottom,
                     )
                     deliver(ScanFrame(EMPTY_STATS, rotation, continuous = result))
                     engine.analyzerEnd()
@@ -535,12 +539,15 @@ internal fun cameraUnavailable(state: CameraState): Boolean = state.error?.type 
 /**
  * The ImageAnalysis target for a [viewWidth]×[viewHeight] viewport (GH #158): 640×480 (CameraX's default) when its long
  * to short ratio is at most 4:3 or the size is unknown, else 1280×960, so a narrow pane's crop still gives the 12×12
- * lattice cells of a useful size (a 3.15:1 pane: ~406 px short side instead of ~203 px).
+ * lattice cells of a useful size (a 3.15:1 pane: ~406 px short side instead of ~203 px). GH #415: in the [continuous]
+ * Quick Scan, which reads the whole frame, always [FULL_FRAME_ANALYSIS], whatever the pane.
  */
 internal fun analysisTarget(
     viewWidth: Int,
     viewHeight: Int,
+    continuous: Boolean = false,
 ): Size {
+    if (continuous) return FULL_FRAME_ANALYSIS
     val long = maxOf(viewWidth, viewHeight)
     val short = minOf(viewWidth, viewHeight)
     // long / short > 4 / 3, in integers.
@@ -549,6 +556,12 @@ internal fun analysisTarget(
 
 private val DEFAULT_ANALYSIS = Size(640, 480)
 private val LARGE_ANALYSIS = Size(1280, 960)
+
+/**
+ * GH #415: the continuous Quick Scan's analysis size, independent of the pane: the S24 FE phone-portrait size that worked,
+ * leaving source pixels for a later tracked-cube crop (#407); the model input stays 256×256.
+ */
+internal val FULL_FRAME_ANALYSIS = Size(1280, 960)
 
 /** A metering point on the analysis frame: centre ([x], [y]) in pixels, [size] a share of the frame's longer side. */
 internal data class MeteringRegion(

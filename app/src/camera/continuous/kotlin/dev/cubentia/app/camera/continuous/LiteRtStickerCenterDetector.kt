@@ -118,6 +118,11 @@ internal class LiteRtStickerCenterDetector
                             rotationDegrees = rotationDegrees,
                             viewWidth = viewWidth,
                             viewHeight = viewHeight,
+                            // GH #415: peaks land on the visible preview (the viewport crop), whatever region was read.
+                            viewLeft = frame.viewLeft,
+                            viewTop = frame.viewTop,
+                            viewRight = frame.viewRight,
+                            viewBottom = frame.viewBottom,
                         )
                     StickerCenterDetection(
                         peaks = peaks,

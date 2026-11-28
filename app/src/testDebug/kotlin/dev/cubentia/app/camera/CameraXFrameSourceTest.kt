@@ -107,6 +107,98 @@ class CameraXFrameSourceTest {
         }
     }
 
+    /**
+     * GH #415: Guided and corner reads get exactly the viewport crop; only the continuous read gets the whole image, with
+     * the crop as its view region, and records the region it read.
+     */
+    @Test fun onlyTheContinuousReadReadsTheWholeFrame() {
+        val crop = Rect(10, 20, 110, 100)
+
+        fun image() = dimFace().also { it.setCropRect(crop) }
+
+        fun YuvFrame.read() = listOf(left, top, right, bottom)
+
+        fun YuvFrame.view() = listOf(viewLeft, viewTop, viewRight, viewBottom)
+        val cropBounds = listOf(10, 20, 110, 100)
+        val guided = image().asYuvFrame()
+        assertEquals(cropBounds, guided.read())
+        assertEquals(cropBounds, guided.view())
+        val full = with(FrameReader) { image().asFullYuvFrame() }
+        assertEquals(listOf(0, 0, 120, 120), full.read())
+        assertEquals(cropBounds, full.view())
+
+        val cornerFrames = mutableListOf<YuvFrame>()
+        val continuousFrames = mutableListOf<YuvFrame>()
+        val recorded = mutableListOf<List<Int>>()
+        val snap = testSnapshot(testHandoff(emptyList()))
+        val engine =
+            object : ContinuousScanEngine {
+                override val detectorUnavailable = false
+
+                override fun processFrame(
+                    frame: YuvFrame,
+                    rotationDegrees: Int,
+                    viewWidth: Int,
+                    viewHeight: Int,
+                ): ContinuousFrame {
+                    continuousFrames += frame
+                    return ContinuousFrame(snap, emptyList())
+                }
+
+                override fun reset() = error("unexpected reset")
+
+                override fun export() = error("unexpected export")
+
+                override fun frameDone(
+                    sensorTimestampNs: Long,
+                    analyzerNs: Long,
+                    rotation: Int,
+                    imageWidth: Int,
+                    imageHeight: Int,
+                    cropLeft: Int,
+                    cropTop: Int,
+                    cropRight: Int,
+                    cropBottom: Int,
+                ) {
+                    recorded += listOf(cropLeft, cropTop, cropRight, cropBottom)
+                }
+            }
+        val activity = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+        val executor = Executors.newSingleThreadExecutor()
+        val source = CameraXFrameSource(Optional.of(CornerDetector { frame, _ -> null.also { cornerFrames += frame } }))
+        val delivered = mutableListOf<ScanFrame>()
+        try {
+            source.start(activity.get(), executor, { delivered.add(it) }, { error("Camera unexpectedly unavailable") })
+            // Guided (and calibration, the same read): the reading is the one of the crop's frame.
+            val guidedImage = image()
+            val rotation = guidedImage.imageInfo.rotationDegrees
+            val grid = ViewfinderGrid.inFrame(0.0, 0.0, crop.left, crop.top, crop.right, crop.bottom, rotation)
+            executor.submit { source.read(guidedImage) }.get()
+            val expected = FrameReader.locate(guided, grid, rotation)
+            assertEquals(expected.stats, delivered.single().stats)
+            assertEquals(expected.samplingSquare(grid), source.meteringSquare)
+            source.calibrationMode(true)
+            executor.submit { source.read(image()) }.get()
+            assertEquals(expected.stats, delivered.last().stats)
+            source.calibrationMode(false)
+            // Corner: the detector gets exactly the crop.
+            source.cornerMode(true)
+            executor.submit { source.read(image()) }.get()
+            assertEquals(cropBounds, cornerFrames.single().read())
+            source.cornerMode(false)
+            // Continuous: the whole image, the crop kept as the view region, and the read bounds recorded.
+            source.continuousMode(engine) { true }
+            executor.submit { source.read(image()) }.get()
+            assertEquals(listOf(0, 0, 120, 120), continuousFrames.single().read())
+            assertEquals(cropBounds, continuousFrames.single().view())
+            assertEquals(listOf(listOf(0, 0, 120, 120)), recorded)
+        } finally {
+            source.stop()
+            executor.shutdownNow()
+            activity.pause().stop().destroy()
+        }
+    }
+
     @Test fun meteringIncludesAfAeAndAwb() {
         val afAe = FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE
         assertEquals(afAe or FocusMeteringAction.FLAG_AWB, CameraXFrameSource.meteringFlags())

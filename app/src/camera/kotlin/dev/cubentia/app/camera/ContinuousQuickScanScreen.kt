@@ -33,6 +33,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
@@ -47,6 +48,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
@@ -89,7 +91,8 @@ internal fun ContinuousQuickScanScreen(
     val camera: @Composable (Modifier) -> Unit = { modifier ->
         Box(modifier.testTag("scanViewfinder")) {
             preview()
-            Canvas(Modifier.fillMaxSize()) {
+            // GH #415: outlines may reach past the visible preview; drawing stays inside the camera pane.
+            Canvas(Modifier.fillMaxSize().clipToBounds()) {
                 state.outlines.values.forEach { outline ->
                     val path = Path()
                     outline.corners.forEachIndexed { i, corner ->
@@ -105,6 +108,7 @@ internal fun ContinuousQuickScanScreen(
                     val cell = 4.dp.toPx()
                     debug.lattices.forEach { lattice ->
                         lattice.centers.forEachIndexed { i, c ->
+                            if (!c.x.inView() || !c.y.inView()) return@forEachIndexed
                             val at = Offset(c.x.toFloat() * size.width, c.y.toFloat() * size.height)
                             if (lattice.inliers.getOrElse(i) { false }) {
                                 drawCircle(DEBUG_LATTICE_COLOR, cell, at)
@@ -114,6 +118,7 @@ internal fun ContinuousQuickScanScreen(
                         }
                     }
                     debug.peaks.forEach { peak ->
+                        if (!peak.viewX.inView() || !peak.viewY.inView()) return@forEach
                         val radius = (1.5f + 2.5f * peak.score.coerceIn(0f, 1f)).dp.toPx()
                         drawCircle(DEBUG_PEAK_COLOR, radius, Offset(peak.viewX.toFloat() * size.width, peak.viewY.toFloat() * size.height))
                     }
@@ -174,7 +179,7 @@ internal fun ContinuousQuickScanScreen(
                         if (label != null) contentDescription = label
                     }.testTag("quickScan:announcement"),
             )
-            Text(strings.resolve(state.cue.toText()), Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag("quickScan:cue"))
+            Text(strings.resolve(state.cueText), Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag("quickScan:cue"))
             val reset = strings.resolve(ContentText("btn.quick-scan.reset"))
             if (state.snapshot?.twistDetected == true) {
                 Button(actions.onReset, Modifier.fillMaxWidth().testTag("quickScan:reset"), enabled = actionsEnabled) { Text(reset) }
@@ -219,20 +224,60 @@ internal fun ContinuousQuickScanScreen(
         }
     }
     BoxWithConstraints(Modifier.fillMaxSize().testTag("quickScan:continuous")) {
-        // AD-17: the same width-class rule as the Guided viewfinder this screen hands over to.
-        if (scanTwoPane(maxWidth, maxHeight)) {
+        // AD-17, GH #415: Quick Scan's own rule (not the Guided viewfinder's scanTwoPane): side by side only in landscape.
+        if (quickScanSideBySide(maxWidth, maxHeight)) {
             Row(Modifier.fillMaxSize()) {
                 camera(Modifier.weight(1f).fillMaxHeight())
                 panel(Modifier.weight(1f).fillMaxHeight(), this@BoxWithConstraints.maxHeight < SHORT_PANEL_HEIGHT)
             }
         } else {
             Column(Modifier.fillMaxSize()) {
-                camera(Modifier.fillMaxWidth().height(this@BoxWithConstraints.maxHeight * 0.34f))
+                camera(
+                    Modifier.fillMaxWidth().height(
+                        quickScanCameraHeight(this@BoxWithConstraints.maxWidth, this@BoxWithConstraints.maxHeight),
+                    ),
+                )
                 panel(Modifier.weight(1f).fillMaxWidth(), false)
             }
         }
     }
 }
+
+/** Whether a view fraction lies on the visible preview. */
+private fun Double.inView() = this in 0.0..1.0
+
+/** GH #415: the stacked camera pane's height on a phone (below 600 dp wide), a share of the window height (unchanged). */
+private const val PHONE_CAMERA_HEIGHT_FRACTION = 0.34f
+
+/** GH #415: from 600 dp wide in portrait the camera pane is at most this share of its width (4:3, never tall)… */
+private const val CAMERA_WIDTH_FRACTION = 0.75f
+
+/** …and at most this share of the window height (the Guided viewfinder's VIEWFINDER_HEIGHT_FRACTION). */
+private const val TABLET_CAMERA_HEIGHT_FRACTION = 0.45f
+
+/**
+ * AD-17, GH #415 (SCP 2026-11-27 quickscan-framing-crop): the continuous Quick Scan sits side by side (camera left,
+ * panel right) only in a landscape window (wider than tall); in any portrait window (height ≥ width), tablets included,
+ * it stacks like a phone. The Guided viewfinder and calibration keep [scanTwoPane].
+ */
+internal fun quickScanSideBySide(
+    width: Dp,
+    height: Dp,
+): Boolean = width > height
+
+/**
+ * GH #415: the stacked camera pane's height in a [width]×[height] portrait window: 0.34 × the height on a phone (below
+ * 600 dp wide), else min(0.75 × width, 0.45 × height), so it is never taller than 4:3 wide.
+ */
+internal fun quickScanCameraHeight(
+    width: Dp,
+    height: Dp,
+): Dp =
+    if (width < WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND.dp) {
+        height * PHONE_CAMERA_HEIGHT_FRACTION
+    } else {
+        minOf(width * CAMERA_WIDTH_FRACTION, height * TABLET_CAMERA_HEIGHT_FRACTION)
+    }
 
 /** GH #414: the thumbnail's side on screen. */
 private val DEBUG_INPUT_SIDE = 96.dp

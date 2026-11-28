@@ -31,6 +31,8 @@ internal data class ContinuousPipelineFrame(
     val viewOverlays: List<ContinuousOverlayQuad>,
     /** GH #409: the debug overlay; null unless the pipeline's debug view is on. */
     val debug: ContinuousDebugOverlay? = null,
+    /** GH #415: a frame the pipeline did not read ([ContinuousScanPipeline] skipped it); it neither advances nor resets the framing cue. */
+    val skipped: Boolean = false,
 )
 
 /**
@@ -186,6 +188,10 @@ internal class ContinuousScanPipeline(
                                     cropRight = frame.right,
                                     cropBottom = frame.bottom,
                                     rotationDegrees = rotationDegrees,
+                                    viewLeft = frame.viewLeft,
+                                    viewTop = frame.viewTop,
+                                    viewRight = frame.viewRight,
+                                    viewBottom = frame.viewBottom,
                                 )
                             Point2D(vx, vy)
                         },
@@ -248,6 +254,10 @@ internal class ContinuousScanPipeline(
                                     cropRight = frame.right,
                                     cropBottom = frame.bottom,
                                     rotationDegrees = rotationDegrees,
+                                    viewLeft = frame.viewLeft,
+                                    viewTop = frame.viewTop,
+                                    viewRight = frame.viewRight,
+                                    viewBottom = frame.viewBottom,
                                 )
                             Point2D(vx, vy)
                         },
@@ -341,6 +351,7 @@ internal class ContinuousScanPipeline(
             fittedFaces = emptyList(),
             viewOverlays = emptyList(),
             debug = if (debugView()) ContinuousDebugOverlay.SKIPPED else null,
+            skipped = true,
         )
     }
 
