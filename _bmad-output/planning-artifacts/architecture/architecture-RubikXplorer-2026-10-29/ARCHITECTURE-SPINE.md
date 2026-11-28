@@ -235,7 +235,7 @@ stateDiagram-v2
 - **Prevents:** tutor behavior depending on Kociemba output; licence contamination; the Solver blocking UI or Lessons.
 - **Rule:**
   - **Implementation:** `CubeSolver` is a **clean-room Kotlin implementation** of Kociemba's two-phase algorithm, written from the published description. No third-party solver code is copied.
-  - **Callers:** only the `SolveCube` and `PlanRecovery` use cases call it, always as an Effect with a timeout of 3 s.
+  - **Callers:** only the `SolveCube` use case calls it, always as an Effect with a timeout of 3 s, or 5 s in debuggable builds (release and benchmark builds keep 3 s; the value is chosen once per process in `:app`, and the Solver's own search cap is unchanged). `PlanRecovery` (`RecoveryPlanner`) and `SolveByMethod` (`MethodSolve`, AD-21) never call it, but use the same Effect-with-timeout shape and the same deadline. *(SCP 2026-11-27 solver-deadline-tier)*
     - Diagnosis, predicates and Placement never call it.
     - It receives `cubies` only and returns Moves relative to the centers. `SolveCube` maps them back through `orientation`.
   - **Results:** returns `SolveResult.{Solved, Invalid, TimedOut, Failed}`. Every `Solved` result is re-verified by applying it to its input before it is shown.
@@ -427,7 +427,7 @@ stateDiagram-v2
   - `MethodSolve` in `:core:domain` builds a method-aware solution as an ordered list of segments, each `(tag: StageId | CaseId, moves)`. It never calls `CubeSolver`, and AD-8 is unchanged: the Solver still only finds paths.
   - First-two-layer segments follow the Course's Stage completion predicates in order (AD-6), each found by the bounded `preservedPieces` search that `RecoveryPlanner` uses, so a segment never breaks a piece an earlier segment placed.
   - Last-layer segments use `LastLayerMatcher` (AD-19) and Library Algorithms only: beginner (Stages 5–6 Lessons' Algorithms), 2-look (the 2-look Lessons' Algorithms) or full OLL + PLL (one Algorithm per Case). When several fit, an Algorithm with Algorithm Status *Learning* or *Learned* wins.
-  - It runs as an Effect with a timeout, like `SolveCube`, and every result is re-verified by applying it to its input before it is shown.
+  - It runs as an Effect with a timeout, like `SolveCube` (AD-8: 3 s; 5 s in debuggable builds), and every result is re-verified by applying it to its input before it is shown. After solver preparation, one throwaway `MethodSolve` warm-up runs off-main, untimed and cancellable, outside the deadline; its result is discarded and never reaches a session. *(SCP 2026-11-27 solver-deadline-tier)*
   - Playback is a `SOLVE_PLAYBACK` session through the shared `PlaybackController`, with AD-20 segment labels.
 
 ## Ownership Matrix
@@ -572,7 +572,7 @@ graph LR
 
 - **Performance on the reference devices:** Story 1.11 measured GL frame timing on both reference devices, and Story 12.2 ran the full performance and compatibility pass (`docs/benchmarks.md`). The solve corpus uses a JVM benchmark. GL frame timing uses the in-app per-frame log from the GL thread (`onDrawFrame` intervals), optionally traced for Macrobenchmark's `TraceSectionMetric`, because `FrameTimingMetric` and `FrameMetrics` do not see `GLSurfaceView` frames. It covers View Rotation as well as face turns (NFR-2). A physical-device p90 above 33.3 ms reopens the rendering choice, which stays behind `CubeRenderer` (AD-4). The minimum reference device is a budget tablet (Lenovo Tab M10 Plus 3rd Gen). Its Story 1.11 and 12.2 methods were re-run on 2026-11-12: frame-interval p90 18.35 / 19.66 ms, so the AD-4 choice holds, and the full NFR-1/2/3/13 pass is in `docs/benchmarks.md` § Additional device. Story 1.11's and 12.2's Galaxy Tab S7 FE results are dated evidence from when it was the minimum device. The 2D net (`Net2DRenderer`) NFR-2 baseline was not measured, because the Macrobenchmark target no longer draws a 2D net. The PO waived it for v1.0 on 2026-11-10, and it is v1.0 scope; not a tag gate (#106).
 - **Camera Cube Recognition** (AD-9, FR-21 – FR-28) is in progress for v1.0, flag-gated (`sprint-change-proposal-2026-11-14-v1-1-camera`; deferred from v1.0 by `sprint-change-proposal-2026-11-08-vision-deferral`). Release keeps every camera flag OFF until Story 10.11 raises one.
-- **Solver internals** (coordinate encoding, the search depth limit): decided in the solver epic, within AD-8's 3 s timeout and NFR-11. Pruning-table delivery is decided by Story 3.8: bundled, with first-run generation as a fallback only if the asset is invalid (`.memlog.md:72`, `docs/pruning-tables.md`).
+- **Solver internals** (coordinate encoding, the search depth limit): decided in the solver epic, within AD-8's 3 s timeout (5 s in debuggable builds only) and NFR-11. Pruning-table delivery is decided by Story 3.8: bundled, with first-run generation as a fallback only if the asset is invalid (`.memlog.md:72`, `docs/pruning-tables.md`).
 - **`RecoveryPlanner` search** (bounded IDA* over `preservedPieces`): decided in the FR-12 epic, within AD-3, AD-5 and AD-8.
 - **Splitting `:app` into feature modules:** after P0.3.
 - **Tutor configuration values** (`maxDepth`, `moveSet`, hint and mastery thresholds): set as content data during curriculum authoring.

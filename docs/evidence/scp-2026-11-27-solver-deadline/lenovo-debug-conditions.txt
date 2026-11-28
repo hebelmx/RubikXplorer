@@ -1,0 +1,26 @@
+## before debug-build cold
+Fri Nov 27 15:26:09 CST 2026
+  AC powered: false
+  USB powered: true
+  status: 5
+  level: 100
+  temperature: 308
+Thermal Status: 0
+MemTotal:        3756260 kB
+MemFree:           42220 kB
+MemAvailable:    1160232 kB
+ 15:26:09 up 16 days, 20:08,  0 users,  load average: 4.89, 6.64, 3.95
+  [com.exxerpro.cubentia]
+    path: /data/app/~~1Oai0h48e2577Lp-BzRhIQ==/com.exxerpro.cubentia-en9Ik9sTOUA9AbNPTDHZow==/base.apk
+      arm64: [status=run-from-apk] [reason=unknown]## after debug-build cold
+Fri Nov 27 15:38:31 CST 2026
+  AC powered: false
+  USB powered: true
+  status: 5
+  level: 100
+  temperature: 287
+Thermal Status: 0
+MemTotal:        3756260 kB
+MemFree:          100864 kB
+MemAvailable:    1161528 kB
+ 15:38:31 up 16 days, 20:20,  0 users,  load average: 2.05, 2.74, 3.03

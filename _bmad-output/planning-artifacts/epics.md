@@ -97,7 +97,7 @@ From the architecture spine (no starter template is specified; Epic 1 Story 1 is
 - AR-9 (AD-5): `PhysicalObservation = Full | Partial`; Certainty only from `tutor/Assess` with one `CandidateEnumerator(expected, maxDepth, moveSet)`; `Diagnosis.verified(...)` smart constructor; closed `ErrorCategory` enum with exhaustive `when` and one test per category; fixed `TutorDecision` fields.
 - AR-10 (AD-6): content JSON under `:core:domain` resources, kotlinx.serialization; `content/schema/*.schema.json` checked against the Kotlin model; `schemaVersion` + `contentRevision`; sealed `Predicate` registry with `allOf`/`anyOf`, color-anchored, orientation-invariant, `preservedPieces`, `ObjectiveProgress`; stable distinct ID namespaces; `Text(key, args)` with ICU args in `content/strings/<locale>.json`; content test fails on duplicate/missing/mismatched keys.
 - AR-11 (AD-7): `Notation.parse`/`format` are the only string↔Move conversions; equality by effect; WCA slice directions.
-- AR-12 (AD-8): clean-room Kotlin Kociemba two-phase `CubeSolver` in `:core:solver`, no third-party code; called only by `SolveCube` and `PlanRecovery` as Effects with a 3 s timeout; receives `cubies` only; `SolveResult.{Solved, Invalid, TimedOut, Failed}`; every `Solved` re-verified; pruning tables built off-main and cached; bundled-vs-first-run decided in the solver epic within NFR-11.
+- AR-12 (AD-8): clean-room Kotlin Kociemba two-phase `CubeSolver` in `:core:solver`, no third-party code; called only by `SolveCube`, as an Effect with a 3 s timeout (5 s in debuggable builds; `PlanRecovery` and `SolveByMethod` never call it but use the same timeout, SCP 2026-11-27 solver-deadline-tier); receives `cubies` only; `SolveResult.{Solved, Invalid, TimedOut, Failed}`; every `Solved` re-verified; pruning tables built off-main and cached; bundled-vs-first-run decided in the solver epic within NFR-11.
 - AR-13 (AD-9): only the CameraX adapter touches pixels and emits `FaceSample` (center, up-neighbor, 9 CIELAB samples in viewfinder order, quality flags, pose); `ScanAssembler` and `StickerClassifier` in `:core:domain`; `ScanAccepted` rejected unless Full + valid + all uncertain stickers resolved + current `basedOnRevision`; scan sub-flow returns `ScanOutcome {Accepted, Cancelled, FellBackToEditor}`; Color Calibration owned by `CalibrationRepository`; debug-only fixture recorder exports `FaceSample` JSON.
 - AR-14 (AD-10): `SessionSnapshot` per committed transition; `Checkpoint` at Objective boundaries; versioned Checkpoint DTO (format, `contentRevision`, IDs, Facelets + orientation, Notation history, mode) with previous-format decoder and round-trip test; serial writer, revision-conditional, single transaction, idempotency key `(sessionId, revision)`; append-only `attempt`, `progress_event` (with `ProgressReset(epoch)`), `algorithm_status_event`; Room migration + migration test per schema change.
 - AR-15 (AD-11, AD-12, Conventions): Hilt only in `:app`; reducer on one confined dispatcher, search/classification on `Dispatchers.Default`; `NewScramble` via `RandomSource`, Scrambles enter sessions as `List<Move>`; sealed results, explicit unknown variants, effect failures → `…Failed` events; `Logger` port implemented only in `:app`.
@@ -270,7 +270,7 @@ A Learner who can already solve picks an entry level instead of proving every St
 ### Epic 15: Method-aware solutions (v1.0, SCP 2026-11-20)
 A Learner can see a solution shaped by the method they are learning instead of the shortest one, each segment tagged by Stage or Case.
 **FRs covered:** FR-30. **Also:** AD-8 (unchanged), AD-19, AD-20, AD-21, NFR-3, NFR-12. GitHub #210.
-**Order:** 15.1 → 15.2 → 15.3. **v1.0 scope** (PO, 2026-11-20): runs before release Stories 12.3, 12.4 and 12.5.
+**Order:** 15.1 → 15.2 → 15.3 → 15.4. **v1.0 scope** (PO, 2026-11-20): runs before release Stories 12.3, 12.4 and 12.5. *(SCP 2026-11-27 solver-deadline-tier: Story 15.4 added, a method-solve warm-up outside the deadline and a 5 s deadline on debuggable builds.)*
 
 **SCP 2026-11-20 v1.1 promotion** (`sprint-change-proposal-2026-11-20-v1-1-promotion.md`): #249, #251, #252 and #253 are built as issue fixes (`/bmad-orchestrate-issues`) against the amended Stories 10.3, 11.2 and 3.5; #198 is Story 10.17; #208 and #209 are Epic 14; #210 is Epic 15. The Lenovo Tab M10 Plus 3rd Gen (TB128XU) camera is the minimum camera spec for every device gate. **Scope move v1.1 → v1.0 (PO, 2026-11-20, ahead of schedule):** all of these ship in v1.0, together with what they depend on: the camera scan and review (`CAMERA_SCAN`, Epic 10), Placement (`PLACEMENT`, Story 11.2), Quick Scan (`QUICK_SCAN`, Story 11.1) and its corner-guide rework (Story 10.18, which detects the cube's real edges and corners in the frame, #195–#197), and Story 10.11, which raises those flags for the v1.0 release from the test-matrix evidence (BETA or GA). Release Stories 12.3, 12.4 and 12.5 run before Story 10.11, which depends on them and is the last PR before the tag. *(SCP 2026-11-24 camera-release-timeline: 12.5 now runs after 10.11. 10.11's flag-raise PR is the last PR before the `v0.11.0` tag; production is a new `v1.0.0` tag cut from main with the same flag levels, gates 3 and 6 are re-run on it, and 12.5 records the gates on the 1.0.0 build.)* *(SCP 2026-11-21 quick-scan-front-light: `QUICK_SCAN` reaches 10.11 only through Stories 10.17 and 10.19 and Story 10.8's matrix; if it stays OFF, 10.11 raises `CAMERA_SCAN` and `PLACEMENT` without it.)* *(SCP 2026-11-24 continuous-quick-scan: superseded — `QUICK_SCAN` now reaches 10.11 through Stories 10.30–10.33 and Story 10.33's PO BETA call; if it stays OFF, 10.11 raises `CAMERA_SCAN` and `PLACEMENT` without it.)* `CASE_RECOGNITION` (Story 11.3) is not a dependency and keeps its own release decision at 10.11. *(SCP 2026-11-24 camera-release-timeline, PO: `CASE_RECOGNITION` stays OFF in 0.11.0.)*
 
@@ -821,7 +821,7 @@ So that a failure is clear and I can try again.
 **Acceptance Criteria:**
 
 **Given** a validated `CubeState` with any `orientation`
-**When** `SolveCube` runs as an Effect with a 3 s timeout
+**When** `SolveCube` runs as an Effect with a 3 s timeout (5 s in debuggable builds) *(SCP 2026-11-27 solver-deadline-tier)*
 **Then** the Solver receives `cubies` only, the Moves are mapped back through `orientation`, and the result is re-verified before it is returned
 
 **Given** a timeout or failure
@@ -4349,3 +4349,37 @@ So that I can watch how I would solve this cube.
 **Given** the method solution's Effect is pending or times out
 **When** shown
 **Then** "Building a step-by-step solution…" shows, and on timeout "Couldn't build that solution in time. The shortest one is still here." keeps *Shortest*
+
+### Story 15.4: Warm the method solver once, and give debug builds a 5 s solve deadline
+
+As a Learner (and the PO testing on a debug build),
+I want my first solution-style tap to return a method solution instead of "timed out",
+So that the first method solution behaves like every later one.
+
+**Refs:** FR-30, FR-15 · AD-8, AD-21 · NFR-3 · *(SCP 2026-11-27 solver-deadline-tier, PO decision 2026-11-27: A + B, with E folded into the wording fix)*
+
+**Acceptance Criteria:**
+
+**Given** the method-solve content and pruning tables are prepared in the app process
+**When** preparation finishes
+**Then** one throwaway `MethodSolve` runs off-main, untimed and cancellable, outside every deadline; its result is discarded and never dispatched to a session, and a failure or cancellation is silent (logged in debug builds only)
+
+**Given** a Learner taps a solution style before the warm-up has finished
+**When** `SolveByMethod` runs
+**Then** the real solve runs with its own deadline and is not queued behind the warm-up
+
+**Given** a release or benchmark build
+**When** `SolveCube`, `SolveByMethod` or `PlanRecovery` runs
+**Then** its deadline is 3 s; in a debuggable build (`ApplicationInfo.FLAG_DEBUGGABLE`) it is 5 s. The value is one constant chosen once per process in `:app` and passed to the use cases; `TwoPhaseCubeSolver`'s own search cap and NFR-3 are unchanged, and unit tests cover both values
+
+**Given** the Lenovo TB128XU (minimum reference device) and `MethodSolveBenchmarkActivity` running the production warm-up after preparation and before the first timed solve
+**When** it re-runs the SCP protocol: 25 cold first solves per method (BEGINNER, TWO_LOOK, FULL_OLL_PLL) on the benchmark build and 20 per method on the debug build
+**Then** every benchmark-build cold first solve is under 3 s, and every debug-build cold first solve is under 3 s as well, or at worst within 5 s (0 of 60 over 5 s); the same benchmark-build run on the Galaxy Tab S7 FE, the mid-tier comparison, shows every cold first solve under 3 s; the results are added next to the "before" rows in `docs/benchmarks.md` § Method-solve deadline
+
+**Given** the Lenovo debug build after a cold start
+**When** the PO taps a method style in Solution Playback for the first time (5 cold starts)
+**Then** a method solution plays and "Couldn't build that solution in time" does not appear
+
+**Given** the change
+**When** `./gradlew spotlessCheck build` runs
+**Then** it is green, including a JVM test that the warm-up result never reaches a session and cancels cleanly
