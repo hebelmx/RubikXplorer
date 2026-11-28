@@ -25,9 +25,10 @@ Curated Lenovo TB128XU sessions (one complete, one incomplete) are added by the 
 
 ## Mapper parity sessions (#411)
 
-`mapper-parity/` holds three **synthetic** sessions exported from the Python reference mapper `pc_spike/mapper.py`
-(`_bmad-output/planning-artifacts/research/technical-continuous-facelet-scan-2026-11-24/pc_spike/`), one per
-`run_spike.build_scenarios()` scenario with its config and seed unchanged:
+`mapper-parity/` holds nine **synthetic** sessions exported from the Python reference mapper `pc_spike/mapper.py`
+(`_bmad-output/planning-artifacts/research/technical-continuous-facelet-scan-2026-11-24/pc_spike/`). Part (a)
+(`pc_spike/export_parity_sessions.py`) exports three, one per `run_spike.build_scenarios()` scenario with its config and
+seed unchanged:
 
 | Session | Scenario | mapper.py outcome |
 | --- | --- | --- |
@@ -35,14 +36,37 @@ Curated Lenovo TB128XU sessions (one complete, one incomplete) are added by the 
 | `pyspike-2-pastel-stickerless-awb-drift-v1/` | `2_pastel_stickerless_awb_drift` (AWB drift) | COMPLETE |
 | `pyspike-7-mid-scan-layer-twist-u-v1/` | `7_mid_scan_layer_twist_U` (layer twist) | FAILED |
 
+Part (b) adds six more, one per named deviation, exported by `tools/mapper-parity/export_deviation_sessions.py` from
+derived scenarios (a changed `ScenarioConfig` and/or a deterministic post-processing of the rendered frames; still synthetic):
+
+| Session | Scenario | Targets | mapper.py outcome |
+| --- | --- | --- | --- |
+| `pyspike-d1-early-twist-u-v1/` | scenario 7 with the U twist at frame 32 | D1 | PARTIAL (misses the twist) |
+| `pyspike-d2-strong-cast-v1/` | scenario 1 without regrip, gains ramping to exp(0, -0.9, -1.2) (RGB) | D2 | COMPLETE |
+| `pyspike-d3-regrip-cast-drift-v1/` | scenario 4 on the pastel palette, gains ramping over frames 68-88 while the pending fragment lives | D3 | PARTIAL |
+| `pyspike-d4-pastel-strong-cast-v1/` | scenario 2 with its drift off and the D2 gain ramp | D4 | PARTIAL |
+| `pyspike-i401-skin-occluder-v1/` | scenario 1 without regrip, a skin-tone patch over two cells of F on frames 14-21 | I401 | FAILED (false twist) |
+| `pyspike-i402-long-hold-v1/` | 525 frames: a tour, a 275-frame hold with a patch over one F cell, then F frontal | I402 | COMPLETE |
+
 Their `frames.jsonl` holds the cell samples mapper.py itself computes for every detection (raw corner order, the
 `QuadObservation` contract; no images), and their `snapshots.jsonl` holds **mapper.py's predictions**, not Kotlin goldens.
 `MapperParityReplayTest` (in `:core:domain:test`) replays them through a fresh `ContinuousFaceletMapper` and requires the
 per-frame differences on `net`, `globalAnchored`, `twistFrame`, `conflictedSlots`, `cue` (plus the session `outcome` and
 `snapshotCount`) to equal, exactly, the list in `mapper-parity/expected-differences.json`; every entry names a deviation from
-its catalogue, and the mapper's KDoc names every catalogued id (the test checks both). The test pins only the differences these
-three sessions show: on them only E3 produces any (D1 only together with I401); D2, D3, D4, I401, I402 and most E ids are
-catalogued but not exercised here. D1-D4, I401 and I402 are deliberate; E1-E8 were found by #411 and are not yet reviewed. `kind`, `state`, `trackedQuads`, the counts and
+its catalogue, and the mapper's KDoc names every catalogued id (the test checks both). On the three part (a) sessions only E3
+produces any (D1 only together with I401); on each part (b) session its named deviation changes at least one compared field
+(switching it to mapper.py's behaviour in the working tree makes the test fail). D1-D4, I401 and I402 are deliberate; E1-E8
+were found by #411 and are not yet reviewed (E3 and E8 are the only ones that produce differences here).
+
+**Verdicts (part b).** Each of D1-D4, I401 and I402 has a `verdict` (`keep` | `reverted`), a one-line `reason` and
+`evidence` sessions with their true outcome (`FAILED` when the scenario has a real layer twist, else `COMPLETE`) in its
+catalogue entry; the `note` records the measured scores and the attribution. The rule, judged on the last snapshot of every
+evidence session against `labels.json`: `wrong` = committed stickers that differ from truth, `correct` = the session
+outcome equals the true outcome. Kotlin is **not worse** when `kotlinWrong <= pythonWrong` and `pythonCorrect` implies
+`kotlinCorrect`; not worse (a tie included) keeps the Kotlin behaviour, worse on any evidence session reverts it to
+mapper.py's. The test checks every verdict is complete, that each kept id has a listed difference in its evidence sessions,
+and that each kept id is not worse. All six are currently kept (D1, D3 and I401 better than mapper.py on their evidence,
+D2, D4 and I402 a tie). `kind`, `state`, `trackedQuads`, the counts and
 `pendingFragmentFaces` are not compared. So a plain replay of this folder
 (`./gradlew :core:domain:replayContinuousSession --args='Fixtures/continuous/mapper-parity'`) reports diffs and exits 1:
 that is expected. Never run `--refresh-golden` on it (it would overwrite the Python predictions).
@@ -55,11 +79,14 @@ the working tree (never committed), re-running the test and restoring it. Then u
 cause add a catalogue id with its summary and a matching `**<id>**` entry in the `ContinuousFaceletMapper` KDoc.
 
 The committed sessions were exported with opencv-python-headless 5.1.0 and numpy 2.5.5 (unpinned; another version can
-change the cell samples). Regenerate (from `pc_spike/`; nothing is installed system-wide), then review the diff (only
-`buildCommit` should change):
+change the cell samples). Regenerate (nothing is installed system-wide), then review the diff (only `buildCommit` should
+change):
 
 ```sh
+# part (a), from pc_spike/
 uv run --no-project --with opencv-python-headless --with numpy python export_parity_sessions.py
+# part (b), from the repository root
+uv run --no-project --with opencv-python-headless --with numpy python tools/mapper-parity/export_deviation_sessions.py
 ```
 
 ## Format (schema 1)
