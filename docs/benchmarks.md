@@ -852,6 +852,15 @@ installed with dexopt `verify` (no AOT or profile, the worst case for a first so
 | Galaxy Tab S7 FE, **debug**, BEGINNER cold 1st | 20 | 2120 | 2422 | 2658 | 0 |
 | Galaxy Tab S7 FE, **debug**, TWO_LOOK cold 1st | 20 | 1819 | 2114 | 2157 | 0 |
 | Galaxy Tab S7 FE, **debug**, FULL_OLL_PLL cold 1st | 20 | 1949 | 2188 | 2207 | 0 |
+| Lenovo TB128XU, benchmark, BEGINNER cold 1st, after Story 15.4 (warm-up on) | 25 | 109 | 197 | 229 | 0 |
+| Lenovo TB128XU, benchmark, TWO_LOOK cold 1st, after Story 15.4 (warm-up on) | 25 | 42 | 140 | 144 | 0 |
+| Lenovo TB128XU, benchmark, FULL_OLL_PLL cold 1st, after Story 15.4 (warm-up on) | 25 | 79 | 177 | 181 | 0 |
+| Lenovo TB128XU, **debug**, BEGINNER cold 1st, after Story 15.4 (warm-up on) | 20 | 775 | 1071 | 1097 | 0 (> 5 s: 0) |
+| Lenovo TB128XU, **debug**, TWO_LOOK cold 1st, after Story 15.4 (warm-up on) | 20 | 281 | 633 | 689 | 0 (> 5 s: 0) |
+| Lenovo TB128XU, **debug**, FULL_OLL_PLL cold 1st, after Story 15.4 (warm-up on) | 20 | 488 | 852 | 908 | 0 (> 5 s: 0) |
+| Galaxy Tab S7 FE, benchmark, BEGINNER cold 1st, after Story 15.4 (warm-up on) | 25 | 417 | 828 | 1001 | 0 |
+| Galaxy Tab S7 FE, benchmark, TWO_LOOK cold 1st, after Story 15.4 (warm-up on) | 25 | 218 | 630 | 653 | 0 |
+| Galaxy Tab S7 FE, benchmark, FULL_OLL_PLL cold 1st, after Story 15.4 (warm-up on) | 25 | 318 | 721 | 729 | 0 |
 
 SolveCube and PlanRecovery stayed far under 3 s on both devices (Lenovo max 456 / 977 ms, Galaxy quiet max
 494 / 585 ms). Conditions: Lenovo USB powered, 100 %, thermal 0, power save
@@ -863,6 +872,17 @@ cases are JIT-cold first method solves: always on the Lenovo debug build, and on
 (PO, 2026-11-27): the release deadline stays 3 s, debuggable builds get 5 s, and Story 15.4 runs one
 throwaway method-solve warm-up after preparation, outside the deadline. Story 15.4 re-runs this harness on
 the Lenovo (and the Galaxy benchmark build) and adds its rows here.
+
+**After Story 15.4 (warm-up on), 2026-11-27 20:35–20:56 CST.** Revision `120af5a8`, same harness, seeds and cold
+protocol; the production warm-up runs once per process after preparation, before the first timed solve. Raw logs,
+conditions and every sample are in [`evidence/15-4/`](evidence/15-4/README.md). With the warm-up done, the first
+method solve costs about what a 2nd solve did before: on the Lenovo benchmark build every one of 75 is under 0.23 s
+(was 1.07–1.14 s median, 1.31 s max), and on the Lenovo debug build every one of 60 is under 1.1 s, so 0 of 60 over 3 s and 0 over 5 s
+(was 60 of 60 over 3 s). The Galaxy benchmark set, on battery with power save on and load average 4–9, kept every
+one of 75 under 1.0 s. The cost moved into the untimed warm-up (median / max ms): Lenovo benchmark 1074 / 1102,
+Lenovo debug 3560 / 3600, Galaxy benchmark 3089 / 3229; it runs outside every deadline, and a tap made before it
+finishes still pays the cold cost (the "before" rows), in parallel with it. Conditions: Lenovo USB powered, 100 %,
+thermal 0, power save off; Galaxy on battery 89 → 88 %, power save on, thermal 0.
 
 ## Out of scope
 
