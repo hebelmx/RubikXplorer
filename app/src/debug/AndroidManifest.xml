@@ -7,5 +7,8 @@
         <activity
             android:name=".solver.SolveCorpusBenchmarkActivity"
             android:exported="true" />
+        <activity
+            android:name=".solver.MethodSolveBenchmarkActivity"
+            android:exported="true" />
     </application>
 </manifest>
