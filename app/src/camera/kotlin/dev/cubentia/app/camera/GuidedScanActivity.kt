@@ -641,6 +641,8 @@ class GuidedScanActivity : ComponentActivity() {
 
     /** The continuous engine the camera feeds, and when it analyses; again after a session swaps engines (Story 10.34). */
     private fun bindContinuous() {
+        // Story 10.37 E9: only the persisted calibration (never the run's start-scan colours), read per frame.
+        frameSource.savedCalibration { scan.saved }
         frameSource.continuousMode(scan.engine.takeIf { phase == GuidedScanPhase.Continuous }) {
             phase == GuidedScanPhase.Continuous && !scan.analysisHeld && !scan.busy && !scan.confirmDiscard &&
                 scan.session?.holdsAnalysis != true

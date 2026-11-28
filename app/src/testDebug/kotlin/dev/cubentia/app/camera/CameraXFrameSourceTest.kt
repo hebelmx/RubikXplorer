@@ -12,9 +12,11 @@ import androidx.camera.core.impl.TagBundle
 import androidx.camera.core.impl.utils.ExifData
 import dev.cubentia.app.ScanDiagnostics
 import dev.cubentia.app.camera.FrameReader.asYuvFrame
+import dev.cubentia.domain.recognition.CalibrationCenters
 import dev.cubentia.domain.recognition.CaptureQuality
 import dev.cubentia.domain.recognition.FrameCheck
 import dev.cubentia.domain.recognition.FrameQuality
+import dev.cubentia.domain.recognition.Lab
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -38,6 +40,7 @@ class CameraXFrameSourceTest {
         val delivered = mutableListOf<ScanFrame>()
         val calls = mutableListOf<String>()
         val snap = testSnapshot(testHandoff(emptyList()))
+        val inputs = mutableListOf<Pair<CalibrationCenters?, Boolean>>()
         val engine =
             object : ContinuousScanEngine {
                 override val detectorUnavailable = false
@@ -47,7 +50,10 @@ class CameraXFrameSourceTest {
                     rotationDegrees: Int,
                     viewWidth: Int,
                     viewHeight: Int,
+                    savedCalibration: CalibrationCenters?,
+                    torchLit: Boolean,
                 ): ContinuousFrame {
+                    inputs += savedCalibration to torchLit
                     assertNotEquals(
                         android.os.Looper
                             .getMainLooper()
@@ -100,6 +106,63 @@ class CameraXFrameSourceTest {
             assertEquals(snap, delivered.single().continuous?.snapshot)
             // GH #406: the timed analyzer interval opens before processing and closes after frameDone and delivery.
             assertEquals(listOf("start", "process", "done", "deliver", "end"), calls)
+            // Story 10.37 E9: no calibration supplier and no applied torch reach the engine as none and unlit.
+            assertEquals(listOf<Pair<CalibrationCenters?, Boolean>>(null to false), inputs)
+        } finally {
+            source.stop()
+            executor.shutdownNow()
+            activity.pause().stop().destroy()
+        }
+    }
+
+    @Test fun continuousFramesCarryTheCurrentSavedCalibrationAndTheAppliedTorch() {
+        // Story 10.37 E9: read per frame on the analyzer thread, so a late load, a mid-screen save and a torch change reach
+        // the next frame.
+        val source = CameraXFrameSource()
+        val activity = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+        val executor = Executors.newSingleThreadExecutor()
+        val inputs = mutableListOf<Pair<CalibrationCenters?, Boolean>>()
+        val snap = testSnapshot(testHandoff(emptyList()))
+        val engine =
+            object : ContinuousScanEngine {
+                override val detectorUnavailable = false
+
+                override fun processFrame(
+                    frame: YuvFrame,
+                    rotationDegrees: Int,
+                    viewWidth: Int,
+                    viewHeight: Int,
+                    savedCalibration: CalibrationCenters?,
+                    torchLit: Boolean,
+                ): ContinuousFrame {
+                    inputs += savedCalibration to torchLit
+                    return ContinuousFrame(snap, emptyList())
+                }
+
+                override fun reset() = error("unexpected reset")
+
+                override fun export() = error("unexpected export")
+            }
+        val first =
+            CalibrationCenters(
+                dev.cubentia.domain.cube.Color.entries
+                    .associateWith { Lab(50.0, it.ordinal.toDouble(), 0.0) },
+            )
+        val saved = CalibrationCenters(first.centers, torchOn = true)
+        var current: CalibrationCenters? = null
+        try {
+            source.start(activity.get(), executor, {}, {})
+            source.continuousMode(engine) { true }
+            source.savedCalibration { current }
+            executor.submit { source.read(dimFace()) }.get()
+            current = first
+            executor.submit { source.read(dimFace()) }.get()
+            current = saved
+            source.applyTorchForTest(true)
+            executor.submit { source.read(dimFace()) }.get()
+            source.applyTorchForTest(false)
+            executor.submit { source.read(dimFace()) }.get()
+            assertEquals(listOf(null to false, first to false, saved to true, saved to false), inputs)
         } finally {
             source.stop()
             executor.shutdownNow()

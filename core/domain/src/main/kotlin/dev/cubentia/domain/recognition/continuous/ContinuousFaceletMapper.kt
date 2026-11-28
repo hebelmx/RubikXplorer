@@ -44,7 +44,8 @@ internal const val MAX_OBS_PER_CELL = 256
  * compared field; the part (b) sessions also show E3 cue differences in every session and E8 differences in
  * `pyspike-d4-pastel-strong-cast-v1`. D1-D4, I401 and I402 are deliberate and each carries a verdict decided by truth labels: Kotlin is kept
  * where it is not worse than mapper.py on its evidence session (no more wrong stickers, the true outcome whenever mapper.py
- * reaches it); all six are kept, none reverted. E1-E8 are differences found by #411 and not yet reviewed.
+ * reaches it); all six are kept, none reverted. E1-E8 are differences found by #411 and not yet reviewed. I1037 is deliberate
+ * and has no verdict: no parity session can carry a saved calibration, so it changes no compared field.
  * - **D1** (verdict: keep; Kotlin detects an early twist mapper.py misses): a face whose outer line looks twisted adds no
  *   observations on that frame, and the frame's AWB step is withheld when any face is line-twisted; mapper.py records them
  *   until the 5-frame twist streak fires and always applies the step.
@@ -70,6 +71,13 @@ internal const val MAX_OBS_PER_CELL = 256
  * - **E7**: every pending-to-master promotion also clears the net, support, conflicts and centre prototypes; mapper.py keeps
  *   the old net until the next anchored solve.
  * - **E8**: `ResolveConflict` names the first conflicted slot in URFDLB order; mapper.py sorts by face letter.
+ * - **I1037** (Story 10.37 E9): when the built-in 3-5-centre anchor fails, a saved calibration passed to [processFrame]
+ *   may anchor the orientation ([SavedCalibrationAnchor]); mapper.py has no saved calibration. Such an anchor is never
+ *   latched: it is dropped before every colour solve and holds only while that frame's centres still pass. Once centre
+ *   evidence exists, a change of the applied torch turns the calibration off until [reset] and revokes its anchor. With six
+ *   centres a calibration anchor is dropped unless the six-centre solve is decisive, and any ambiguous six-centre solve bars
+ *   the calibration from that master fragment. The #401 twist guard (I401) and both pending-to-master promotion rules of
+ *   the regrip merger ignore a calibration-made anchor and behave as when unanchored. With no saved calibration (every parity and replay session) nothing changes.
  */
 class ContinuousFaceletMapper {
     private data class LabVec(
@@ -288,6 +296,15 @@ class ContinuousFaceletMapper {
     private var emptyStreak: Int = 0
     private var pendingMissStreak: Int = 0
     private var lastCue: ContinuousScanCue = ContinuousScanCue.BringIntoView
+
+    // Story 10.37 E9 (I1037): whether [globalRotIdx] was made by the saved calibration (never latched); whether the
+    // calibration may no longer anchor the current master fragment (any ambiguous six-centre solve on it); whether
+    // a torch change after centre evidence turned it off until [reset]; and the torch lit on the previous frame.
+    private var calibrationAnchored: Boolean = false
+    private var calibrationBarred: Boolean = false
+    private var calibrationOff: Boolean = false
+    private var lastTorchLit: Boolean? = null
+    private var lastFrameCalibration: CalibrationCenters? = null
     private val reappearanceMergeCountInternal: MutableList<Int> = mutableListOf()
 
     private val robustRecomputeCounter = RobustRecomputeCounter()
@@ -349,15 +366,37 @@ class ContinuousFaceletMapper {
         pendingMissStreak = 0
         lastCue = ContinuousScanCue.BringIntoView
         reappearanceMergeCountInternal.clear()
+        calibrationAnchored = false
+        calibrationBarred = false
+        calibrationOff = false
+        lastTorchLit = null
+        lastFrameCalibration = null
     }
+
+    /** Story 10.37 E9 (debug and wiring tests): the saved calibration the last processed frame was given; null after [reset]. */
+    val frameCalibration: CalibrationCenters? get() = lastFrameCalibration
+
+    /** Story 10.37 E9 (debug and wiring tests): the torch state the last processed frame was given; null after [reset]. */
+    val frameTorchLit: Boolean? get() = lastTorchLit
+
+    /** Story 10.37 E9 (test hook): whether the current global anchor was made by the saved calibration. */
+    internal val anchoredByCalibration: Boolean get() = calibrationAnchored
+
+    /** Story 10.37 E9 (test hook): whether the saved calibration may no longer anchor (barred fragment or torch change). */
+    internal val calibrationUnavailable: Boolean get() = calibrationBarred || calibrationOff
 
     /**
      * Process one frame of neutral [QuadObservation] detections and return the updated snapshot. Parity E1 (GH #411): after
      * a twist the frame is not processed at all.
+     *
+     * Story 10.37 E9 (I1037): [savedCalibration] is the Learner's persisted calibration as of this frame (null: none) and
+     * [torchLit] the torch applied to it; with the defaults the mapper behaves exactly as before.
      */
     fun processFrame(
         frameIndex: Int,
         detections: List<QuadObservation>,
+        savedCalibration: CalibrationCenters? = null,
+        torchLit: Boolean = false,
     ): ContinuousScanSnapshot {
         if (twistDetected) {
             plausibleCount = 0
@@ -365,6 +404,8 @@ class ContinuousFaceletMapper {
             lastCue = cue
             return buildSnapshot(frameIndex, emptyList(), cue)
         }
+        lastFrameCalibration = savedCalibration
+        trackTorch(torchLit)
         val plausible = filterPlausibleQuads(detections)
         plausibleCount = plausible.size
         if (plausible.isEmpty()) {
@@ -448,7 +489,7 @@ class ContinuousFaceletMapper {
             }
         }
 
-        solveGlobalColorsAndNet()
+        solveGlobalColorsAndNet(savedCalibration, torchLit)
 
         val active =
             pending?.takeIf { it.tracked.isNotEmpty() }
@@ -572,6 +613,32 @@ class ContinuousFaceletMapper {
     }
 
     private fun newFragment(): CubeFragment = CubeFragment(nextFragId++, robustRecomputeCounter)
+
+    /**
+     * Story 10.37 E9 (I1037): once centre evidence exists, a change of the applied torch turns the saved calibration off
+     * until [reset] and revokes an anchor it made; a change before any evidence only records the new state.
+     */
+    private fun trackTorch(torchLit: Boolean) {
+        val previous = lastTorchLit
+        lastTorchLit = torchLit
+        if (previous == null || previous == torchLit) return
+        val evidence = master?.observedFaces?.isNotEmpty() == true || pending?.observedFaces?.isNotEmpty() == true
+        if (!evidence) return
+        calibrationOff = true
+        revokeCalibrationAnchor()
+    }
+
+    /** Story 10.37 E9 (I1037): drops a calibration-made anchor with the net it built; built-in and six-centre anchors stay. */
+    private fun revokeCalibrationAnchor() {
+        if (!calibrationAnchored) return
+        calibrationAnchored = false
+        unreadValid = false
+        globalRotIdx = null
+        centerPrototypes = null
+        net = emptyNet()
+        slotSupport = HashMap()
+        conflictedSlots = LinkedHashSet()
+    }
 
     /** Area and angle filter of mapper.py plus parity E6 (GH #411): finite, convex, clockwise quads with finite samples only. */
     private fun filterPlausibleQuads(detections: List<QuadObservation>): List<QuadObservation> {
@@ -944,7 +1011,8 @@ class ContinuousFaceletMapper {
      */
     private fun twistStickerPrototypes(frag: CubeFragment): List<LabVec>? {
         val ref = ContinuousColorModel.REF_CENTER_LAB.values.map { LabVec.from(it) }
-        val anchored = centerPrototypes
+        // Story 10.37 E9 (I1037, PO 2026-11-27): a calibration-made anchor is ignored; the guard behaves as before anchoring.
+        val anchored = centerPrototypes.takeIf { !calibrationAnchored }
         if (globalRotIdx != null && anchored != null && anchored.size == 6) return anchored.values.toList() + ref
         val observed = ArrayList<LabVec>(6)
         for (f in frag.observedFaces) {
@@ -978,7 +1046,9 @@ class ContinuousFaceletMapper {
         val mConf = m.confirmedFaces()
         if (pConf.isEmpty()) return
 
-        if (globalRotIdx == null && mConf.size < 3 && pConf.size > mConf.size) {
+        // Story 10.37 E9 (I1037): a calibration-made anchor counts as unanchored for both promotion rules.
+        val unanchored = globalRotIdx == null || calibrationAnchored
+        if (unanchored && mConf.size < 3 && pConf.size > mConf.size) {
             promotePendingToMaster(p)
             return
         }
@@ -1070,7 +1140,7 @@ class ContinuousFaceletMapper {
         if (!canMerge) {
             if (
                 (mConf.size < 6 && pConf.size == 6) ||
-                (globalRotIdx == null && mConf.size < 5 && pConf.size >= mConf.size + 2)
+                (unanchored && mConf.size < 5 && pConf.size >= mConf.size + 2)
             ) {
                 promotePendingToMaster(p)
                 reappearanceMergeCountInternal.add(frameIndex)
@@ -1138,6 +1208,9 @@ class ContinuousFaceletMapper {
         slotSupport.clear()
         conflictedSlots.clear()
         pendingMissStreak = 0
+        // Story 10.37 E9 (I1037): a new master fragment; the calibration may anchor it (unless turned off by the torch).
+        calibrationAnchored = false
+        calibrationBarred = false
     }
 
     private data class ReadyCell(
@@ -1147,11 +1220,16 @@ class ContinuousFaceletMapper {
         val dists: DoubleArray,
     )
 
-    private fun solveGlobalColorsAndNet() {
+    private fun solveGlobalColorsAndNet(
+        savedCalibration: CalibrationCenters? = null,
+        torchLit: Boolean = false,
+    ) {
         // GH #405: every early return below leaves the diagnostics empty; they are valid only once the colour solve runs.
         unreadValid = false
         val m = master ?: return
         if (twistDetected) return
+        // Story 10.37 E9 (I1037): a calibration anchor is never latched; it holds only while this frame still passes.
+        revokeCalibrationAnchor()
 
         val centerLabs = LinkedHashMap<Face, LabVec>()
         for (f in m.observedFaces) {
@@ -1209,6 +1287,11 @@ class ContinuousFaceletMapper {
             }
             if (secondCost - bestCost >= 0.35) {
                 globalRotIdx = bestRot
+            } else {
+                // Story 10.37 E9 (I1037): six centres are the authority. An ambiguous six-centre solve drops a calibration
+                // anchor (already revoked above) and bars the calibration from this master fragment, even if a centre
+                // later drops out. Without a saved calibration the flag is never read.
+                calibrationBarred = true
             }
         } else if (globalRotIdx == null && centerLabs.size >= 3) {
             var bestCost = Double.POSITIVE_INFINITY
@@ -1233,6 +1316,14 @@ class ContinuousFaceletMapper {
             }
             if (bestCost < 20.0 && (secondCost - bestCost) >= 8.0) {
                 globalRotIdx = bestRot
+            } else if (savedCalibration != null && !calibrationOff && !calibrationBarred) {
+                // Story 10.37 E9 (I1037): the built-in anchor failed; the saved calibration may anchor this frame only.
+                val centres = m.observedFaces.associateWith { f -> m.faceRobustLab(f, 4, includeStandardLab = true)?.standardLab }
+                val rot = SavedCalibrationAnchor.orientation(centres, savedCalibration, torchLit)
+                if (rot != null) {
+                    globalRotIdx = rot
+                    calibrationAnchored = true
+                }
             }
         }
 

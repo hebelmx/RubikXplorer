@@ -24,7 +24,7 @@ import kotlin.math.sqrt
  * (randomly cyclically shifted + jittered) and sampled neutral per-cell RGBs/qualities.
  */
 internal object SyntheticCubeStream {
-    enum class Palette { STICKERED, STICKERLESS, PASTEL }
+    enum class Palette { STICKERED, STICKERLESS, PASTEL, OFF_PALETTE, SIX_AMBIGUOUS }
 
     private val PALETTES: Map<Palette, Map<Color, RgbColor>> =
         mapOf(
@@ -55,7 +55,32 @@ internal object SyntheticCubeStream {
                     Color.RED to RgbColor(208.0, 96.0, 102.0),
                     Color.ORANGE to RgbColor(228.0, 148.0, 96.0),
                 ),
+            // Story 10.37 E9: an off-palette cube (cream, gold, lime, indigo, magenta, salmon) far from REF_CENTER_LAB.
+            Palette.OFF_PALETTE to
+                mapOf(
+                    Color.WHITE to RgbColor(222.0, 214.0, 186.0),
+                    Color.YELLOW to RgbColor(236.0, 178.0, 52.0),
+                    Color.GREEN to RgbColor(132.0, 204.0, 40.0),
+                    Color.BLUE to RgbColor(72.0, 58.0, 170.0),
+                    Color.RED to RgbColor(196.0, 32.0, 112.0),
+                    Color.ORANGE to RgbColor(248.0, 132.0, 100.0),
+                ),
+            // Story 10.37 E9: off-palette, and Blue / Orange are Green / Red at half brightness, so the shading-invariant
+            // six-centre solve cannot tell the 180-degree turn about U-D from the truth (margin about 0), while a saved
+            // calibration in standard Lab can.
+            Palette.SIX_AMBIGUOUS to
+                mapOf(
+                    Color.WHITE to RgbColor(222.0, 214.0, 186.0),
+                    Color.YELLOW to RgbColor(236.0, 178.0, 52.0),
+                    Color.GREEN to RgbColor(40.0, 200.0, 200.0),
+                    Color.BLUE to RgbColor(20.0, 100.0, 100.0),
+                    Color.RED to RgbColor(200.0, 40.0, 160.0),
+                    Color.ORANGE to RgbColor(100.0, 20.0, 80.0),
+                ),
         )
+
+    /** Story 10.37 E9: a palette's sticker RGB per colour (before shading). */
+    fun paletteRgb(palette: Palette): Map<Color, RgbColor> = PALETTES.getValue(palette)
 
     data class Euler(
         val rx: Double,

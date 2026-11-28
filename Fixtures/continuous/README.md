@@ -66,7 +66,8 @@ outcome equals the true outcome. Kotlin is **not worse** when `kotlinWrong <= py
 `kotlinCorrect`; not worse (a tie included) keeps the Kotlin behaviour, worse on any evidence session reverts it to
 mapper.py's. The test checks every verdict is complete, that each kept id has a listed difference in its evidence sessions,
 and that each kept id is not worse. All six are currently kept (D1, D3 and I401 better than mapper.py on their evidence,
-D2, D4 and I402 a tie). `kind`, `state`, `trackedQuads`, the counts and
+D2, D4 and I402 a tie). I1037 (Story 10.37 E9, the saved-calibration anchor) is also deliberate but has no verdict, because
+no parity session can carry a saved calibration. `kind`, `state`, `trackedQuads`, the counts and
 `pendingFragmentFaces` are not compared. So a plain replay of this folder
 (`./gradlew :core:domain:replayContinuousSession --args='Fixtures/continuous/mapper-parity'`) reports diffs and exits 1:
 that is expected. Never run `--refresh-golden` on it (it would overwrite the Python predictions).

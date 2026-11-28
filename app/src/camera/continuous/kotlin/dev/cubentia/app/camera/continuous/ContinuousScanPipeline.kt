@@ -11,6 +11,7 @@ import dev.cubentia.app.camera.StickerCenterDetection
 import dev.cubentia.app.camera.StickerCenterDetector
 import dev.cubentia.app.camera.YuvFrame
 import dev.cubentia.domain.cube.Face
+import dev.cubentia.domain.recognition.CalibrationCenters
 import dev.cubentia.domain.recognition.continuous.ContinuousFaceletMapper
 import dev.cubentia.domain.recognition.continuous.ContinuousScanCue
 import dev.cubentia.domain.recognition.continuous.ContinuousScanExport
@@ -43,7 +44,8 @@ internal data class ContinuousPipelineFrame(
 internal class ContinuousScanPipeline(
     private val detector: StickerCenterDetector,
     private val sampler: ContinuousFaceSampler = ContinuousFaceSampler(),
-    private val mapper: ContinuousFaceletMapper = ContinuousFaceletMapper(),
+    /** Internal for tests (Story 10.37 E9): the pipeline's mapper. */
+    internal val mapper: ContinuousFaceletMapper = ContinuousFaceletMapper(),
     /** GH #406: per-stage timings (debug only); with null no clock is read. */
     private val timings: ContinuousStageTimings? = ContinuousStageTimings.forBuild(),
     /** GH #409: whether to build the debug overlay of each frame; false in release by the const gate. */
@@ -79,14 +81,17 @@ internal class ContinuousScanPipeline(
         return if (c == null) 0L else c.nanoTime()
     }
 
+    /** Story 10.37 E9: [savedCalibration] and [torchLit] go to the mapper with the frame ([ContinuousFaceletMapper.processFrame]). */
     fun processFrame(
         frameIndex: Int,
         frame: YuvFrame,
         rotationDegrees: Int,
         viewWidth: Int = 0,
         viewHeight: Int = 0,
+        savedCalibration: CalibrationCenters? = null,
+        torchLit: Boolean = false,
     ): ContinuousPipelineFrame {
-        if (timings == null) return analyse(frameIndex, frame, rotationDegrees, viewWidth, viewHeight)
+        if (timings == null) return analyse(frameIndex, frame, rotationDegrees, viewWidth, viewHeight, savedCalibration, torchLit)
         detectorNs = -1L
         inferenceNs = -1L
         fitNs = -1L
@@ -94,7 +99,7 @@ internal class ContinuousScanPipeline(
         mapNs = -1L
         fittedCount = 0
         observationCount = 0
-        return analyse(frameIndex, frame, rotationDegrees, viewWidth, viewHeight)
+        return analyse(frameIndex, frame, rotationDegrees, viewWidth, viewHeight, savedCalibration, torchLit)
     }
 
     /**
@@ -125,6 +130,8 @@ internal class ContinuousScanPipeline(
         rotationDegrees: Int,
         viewWidth: Int,
         viewHeight: Int,
+        savedCalibration: CalibrationCenters?,
+        torchLit: Boolean,
     ): ContinuousPipelineFrame {
         if (detectorUnavailable || frame.left < 0 || frame.top < 0 || frame.width <= 0 || frame.height <= 0) {
             return skippedFrame(frameIndex)
@@ -154,7 +161,7 @@ internal class ContinuousScanPipeline(
                 }
             }
         val mapStart = now()
-        val snapshot = mapper.processFrame(frameIndex, observations)
+        val snapshot = mapper.processFrame(frameIndex, observations, savedCalibration, torchLit)
         val mapEnd = now()
         fitNs = sampleStart - fitStart
         sampleNs = mapStart - sampleStart

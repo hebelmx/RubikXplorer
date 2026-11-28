@@ -6,6 +6,10 @@ import dev.cubentia.app.camera.StickerCenterDetector
 import dev.cubentia.app.camera.StickerCenterPeak
 import dev.cubentia.app.camera.YuvFrame
 import dev.cubentia.app.camera.YuvPlane
+import dev.cubentia.domain.cube.Color
+import dev.cubentia.domain.recognition.CalibrationCenters
+import dev.cubentia.domain.recognition.Lab
+import dev.cubentia.domain.recognition.continuous.ContinuousFaceletMapper
 import dev.cubentia.domain.recognition.continuous.ContinuousScanSnapshot
 import dev.cubentia.domain.recognition.continuous.FittedFace
 import dev.cubentia.domain.recognition.continuous.Point2D
@@ -15,6 +19,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNotSame
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -161,6 +166,29 @@ class ContinuousScanPipelineShortFrameTest {
         assertEquals(controlLast.snapshot.net, frame3.snapshot.net)
         assertEquals(controlLast.snapshot.trackedQuads, frame3.snapshot.trackedQuads)
         assertEquals(controlLast.snapshot, frame3.snapshot)
+    }
+
+    @Test
+    fun `the saved calibration and the torch state of each frame reach the mapper`() {
+        // Story 10.37 E9: the pipeline hands both to ContinuousFaceletMapper.processFrame with the frame, on the timed
+        // (debug) branch and on the untimed one release takes.
+        val saved = CalibrationCenters(Color.entries.associateWith { Lab(50.0, it.ordinal * 10.0, 0.0) }, torchOn = true)
+        for (timings in listOf(ContinuousStageTimings({ 0L }, {}), null)) {
+            val mapper = ContinuousFaceletMapper()
+            val pipeline = ContinuousScanPipeline(CountingDetector(face), mapper = mapper, timings = timings)
+
+            pipeline.processFrame(0, goodFrame(), rotationDegrees = 0)
+            assertNull(mapper.frameCalibration)
+            assertEquals(false, mapper.frameTorchLit)
+
+            pipeline.processFrame(1, goodFrame(), rotationDegrees = 0, savedCalibration = saved, torchLit = true)
+            assertSame(saved, mapper.frameCalibration)
+            assertEquals(true, mapper.frameTorchLit)
+
+            pipeline.processFrame(2, goodFrame(), rotationDegrees = 0, savedCalibration = null, torchLit = false)
+            assertNull(mapper.frameCalibration)
+            assertEquals(false, mapper.frameTorchLit)
+        }
     }
 
     @Test

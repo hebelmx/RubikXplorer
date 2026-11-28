@@ -7,6 +7,9 @@ import dev.cubentia.app.camera.StickerCenterDetector
 import dev.cubentia.app.camera.StickerCenterPeak
 import dev.cubentia.app.camera.YuvFrame
 import dev.cubentia.app.camera.YuvPlane
+import dev.cubentia.domain.cube.Color
+import dev.cubentia.domain.recognition.CalibrationCenters
+import dev.cubentia.domain.recognition.Lab
 import dev.cubentia.domain.recognition.continuous.ContinuousScanExport
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -50,6 +53,31 @@ class ContinuousScanEngineModuleTest {
             assertTrue(engine.detectorUnavailable)
         }
         assertTrue(factory.create().detectorUnavailable)
+    }
+
+    @Test
+    fun `the factory-built engine hands each frame's saved calibration and torch state to the mapper`() {
+        // Story 10.37 E9.
+        val detector =
+            object : StickerCenterDetector {
+                override val unavailable = false
+
+                override fun detect(
+                    frame: YuvFrame,
+                    rotationDegrees: Int,
+                    viewWidth: Int,
+                    viewHeight: Int,
+                ): StickerCenterDetection = StickerCenterDetection.EMPTY
+            }
+        val engine = ContinuousScanEngineModule.factory(detector).create()
+        val mapper = (engine as PipelineEngine).pipeline.mapper
+        val saved = CalibrationCenters(Color.entries.associateWith { Lab(50.0, it.ordinal * 10.0, 0.0) }, torchOn = true)
+        engine.processFrame(frame, 90, 1080, 1920, saved, true)
+        assertEquals(saved, mapper.frameCalibration)
+        assertEquals(true, mapper.frameTorchLit)
+        engine.processFrame(frame, 90, 1080, 1920, null, false)
+        assertNull(mapper.frameCalibration)
+        assertEquals(false, mapper.frameTorchLit)
     }
 
     @Test

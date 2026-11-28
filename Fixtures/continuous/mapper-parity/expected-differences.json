@@ -149,6 +149,12 @@
       "deliberate": false,
       "summary": "ResolveConflict names the first conflicted slot in URFDLB face order (FaceSlot ordering); mapper.py sorts slots by face letter (B < D < F < L < R < U).",
       "note": "No conflict cue in the part (a) sessions. pyspike-d4-pastel-strong-cast-v1 frames 107-112: mapper.py names D first (face letter order), Kotlin U (URFDLB order); reverting it removes those 6 cue entries."
+    },
+    {
+      "id": "I1037",
+      "deliberate": true,
+      "summary": "Story 10.37 E9: when the built-in 3-5-centre anchor fails, a saved calibration passed to processFrame may anchor the orientation (SavedCalibrationAnchor: best of 24 orientations with average standard-Lab dE < 20 and margin >= 8, every observed centre CONFIDENT as its colour and within MAX_CENTRE_DELTA_E, torch tag equal to the torch lit). The anchor is never latched, a torch change after centre evidence turns the calibration off until reset, any ambiguous six-centre solve bars it from the fragment, and the #401 twist guard and both pending-to-master promotion rules of tryMergePending treat a calibration-made anchor as unanchored. mapper.py has no saved calibration. Deliberate, with no verdict: no parity session can carry a saved calibration.",
+      "note": "No compared difference: no parity or replay session carries a saved calibration or a torch state, so every session runs the calibration-less path (recorded sessions store neither; see deferred-work.md). Covered by ContinuousSavedCalibrationTest."
     }
   ],
   "differences": [

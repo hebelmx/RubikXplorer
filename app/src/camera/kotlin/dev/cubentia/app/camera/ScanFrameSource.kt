@@ -71,6 +71,12 @@ internal interface ScanFrameSource {
 
     fun cornerMode(enabled: Boolean) = Unit
 
+    /**
+     * Story 10.37 E9: where the continuous Quick Scan reads the Learner's persisted calibration, on the analyzer thread for
+     * every frame (so a late load or a mid-screen save reaches the next frame, whatever engine runs).
+     */
+    fun savedCalibration(calibration: () -> dev.cubentia.domain.recognition.CalibrationCenters?) = Unit
+
     /** Story 10.21: the calibration phase is shown; the torch may be lit in it as in the continuous Quick Scan. */
     fun calibrationMode(enabled: Boolean) = Unit
 
@@ -125,6 +131,12 @@ internal class CameraXFrameSource
         @Volatile private var continuous: ContinuousScanEngine? = null
 
         @Volatile private var analyzing: () -> Boolean = { false }
+
+        @Volatile private var savedCalibration: () -> dev.cubentia.domain.recognition.CalibrationCenters? = { null }
+
+        override fun savedCalibration(calibration: () -> dev.cubentia.domain.recognition.CalibrationCenters?) {
+            savedCalibration = calibration
+        }
 
         override fun continuousMode(
             engine: ContinuousScanEngine?,
@@ -253,6 +265,12 @@ internal class CameraXFrameSource
         }
 
         override fun torchApplied(): Boolean? = appliedTorch
+
+        /** Test hook (Story 10.37 E9): the torch state as if the camera had reported it applied. */
+        @VisibleForTesting
+        internal fun applyTorchForTest(lit: Boolean?) {
+            appliedTorch = lit
+        }
 
         /** Obtains the provider off the main thread, then binds on main once the preview has a viewport. */
         private fun startCamera() {
@@ -394,7 +412,17 @@ internal class CameraXFrameSource
                     engine.analyzerStart()
                     // Story 10.34: the analyzer time of the frame and its geometry go to a recording tap as primitives.
                     val start = System.nanoTime()
-                    val result = engine.processFrame(with(FrameReader) { image.asYuvFrame() }, rotation, width, height)
+                    // Story 10.37 E9: the persisted calibration and the torch state the camera last reported applied, when
+                    // the frame is processed, go with the frame.
+                    val result =
+                        engine.processFrame(
+                            with(FrameReader) { image.asYuvFrame() },
+                            rotation,
+                            width,
+                            height,
+                            savedCalibration(),
+                            appliedTorch == true,
+                        )
                     val analyzerNs = System.nanoTime() - start
                     engine.frameDone(
                         image.imageInfo.timestamp,

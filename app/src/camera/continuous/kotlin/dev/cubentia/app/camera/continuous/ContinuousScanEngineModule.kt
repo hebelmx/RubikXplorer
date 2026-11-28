@@ -14,6 +14,7 @@ import dev.cubentia.app.camera.ContinuousScanEngineFactory
 import dev.cubentia.app.camera.StickerCenterDetector
 import dev.cubentia.app.camera.YuvFrame
 import dev.cubentia.domain.cube.Face
+import dev.cubentia.domain.recognition.CalibrationCenters
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -37,8 +38,9 @@ internal object ContinuousScanEngineModule {
         }
 }
 
-private class PipelineEngine(
-    private val pipeline: ContinuousScanPipeline,
+/** Internal for tests (Story 10.37 E9): the module's engine over [pipeline]. */
+internal class PipelineEngine(
+    internal val pipeline: ContinuousScanPipeline,
 ) : ContinuousScanEngine {
     override val detectorUnavailable get() = pipeline.detectorUnavailable
 
@@ -49,8 +51,10 @@ private class PipelineEngine(
         rotationDegrees: Int,
         viewWidth: Int,
         viewHeight: Int,
+        savedCalibration: CalibrationCenters?,
+        torchLit: Boolean,
     ): ContinuousFrame {
-        val result = pipeline.processFrame(frameIndex++, frame, rotationDegrees, viewWidth, viewHeight)
+        val result = pipeline.processFrame(frameIndex++, frame, rotationDegrees, viewWidth, viewHeight, savedCalibration, torchLit)
         // GH #405: debug builds log why stickers stay unread once all six sides are mapped; release never calls the supplier.
         // The clock is read only for an anchored six-side frame, the only kind the log considers.
         val snapshot = result.snapshot
